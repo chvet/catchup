@@ -1,0 +1,30 @@
+{
+  "name": "Catch'Up — Ton guide orientation",
+  "short_name": "Catch'Up",
+  "description": "Catch'Up t'aide à trouver ta voie professionnelle grâce à l'IA. Découvre ton profil, explore des métiers, construis ton avenir.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F0F2F5",
+  "theme_color": "#6C63FF",
+  "orientation": "portrait",
+  "lang": "fr-FR",
+  "categories": ["education", "lifestyle"],
+  "screenshots": [],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
