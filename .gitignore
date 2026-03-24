@@ -1,6 +1,7 @@
 node_modules/
 .next/
 .env
+.env.*
 .env.local
 .env*.local
 *.tsbuildinfo
@@ -8,3 +9,6 @@ next-env.d.ts
 dev-err.log
 dev-out.log
 .claude/
+local.db
+*.db
+drizzle/

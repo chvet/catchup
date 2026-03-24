@@ -13,6 +13,9 @@ import InstallBanner from './InstallBanner'
 import { UserProfile, EMPTY_PROFILE } from '@/core/types'
 import { extractProfileFromMessage, extractSuggestionsFromMessage, cleanMessageContent, mergeProfiles, type DynamicSuggestion } from '@/core/profile-parser'
 import { calculerIndiceConfiance } from '@/core/confidence'
+import { getFragilityLevel, type FragilityLevel } from '@/core/fragility-detector'
+import ReferralModal from './ReferralModal'
+import ReferralStatusTag from './ReferralStatusTag'
 import {
   loadGameState, saveGameState, updateStreak,
   evaluateJaugeActions, checkBadges,
@@ -27,6 +30,27 @@ const LS_PROFILE_KEY = 'catchup_profil'
 const LS_SESSION_KEY = 'catchup_session_id'
 const LS_QUIZ_KEY = 'catchup_quiz'
 const LS_SUGGESTIONS_COUNT = 'catchup_suggestions_count'
+const LS_CONVERSATION_ID = 'catchup_conversation_id'
+const LS_USER_ID = 'catchup_utilisateur_id'
+const LS_REFERRAL_ID = 'catchup_referral_id'
+const LS_REFERRAL_REFUSED_AT = 'catchup_referral_refused_at'
+const LS_BENEFICIAIRE_INFO = 'catchup_beneficiaire_info'
+
+interface BeneficiaireInfo {
+  prenom: string
+  age: number
+  departement: string
+  typeContact: string
+  moyenContact: string
+}
+
+interface StructureSuggestion {
+  nom: string
+  score: number
+  type?: string
+  departements?: string[]
+  raisons?: string[]
+}
 
 function loadFromLS<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback
@@ -55,6 +79,19 @@ export default function ChatApp() {
   const [fromQuiz, setFromQuiz] = useState(false)
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [badgeNotif, setBadgeNotif] = useState<string | null>(null)
+  const [conversationId, setConversationId] = useState(() => loadFromLS<string>(LS_CONVERSATION_ID, ''))
+  const [utilisateurId, setUtilisateurId] = useState(() => loadFromLS<string>(LS_USER_ID, ''))
+  const [currentFragility, setCurrentFragility] = useState<FragilityLevel>('none')
+  const [referralId, setReferralId] = useState(() => loadFromLS<string>(LS_REFERRAL_ID, ''))
+  const [showReferralModal, setShowReferralModal] = useState(false)
+  const [referralUrgency, setReferralUrgency] = useState<'immediate' | 'gentle'>('gentle')
+  const [referralStatus, setReferralStatus] = useState<string | null>(null)
+  const [referralConseillerPrenom, setReferralConseillerPrenom] = useState<string | null>(null)
+  const [beneficiaireInfo, setBeneficiaireInfo] = useState<BeneficiaireInfo | null>(() => loadFromLS<BeneficiaireInfo | null>(LS_BENEFICIAIRE_INFO, null))
+  const [structuresSuggerees, setStructuresSuggerees] = useState<StructureSuggestion[]>([])
+  const [showStructures, setShowStructures] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const prevSuggestionRef = useRef<string>('')
@@ -78,12 +115,11 @@ export default function ChatApp() {
     api: '/api/chat',
     id: sessionId,
     initialMessages: loadFromLS<Message[]>(LS_MESSAGES_KEY, []),
-    body: { profile, messageCount: 0, fromQuiz },
+    body: { profile, messageCount: 0, fromQuiz, fragilityLevel: currentFragility },
     onFinish: (message) => {
       const extracted = extractProfileFromMessage(message.content)
       if (extracted) {
         setProfile(prev => mergeProfiles(prev, extracted))
-        // Compter les suggestions de métier distinctes
         if (extracted.suggestion && extracted.suggestion !== prevSuggestionRef.current) {
           prevSuggestionRef.current = extracted.suggestion
           const count = loadFromLS<number>(LS_SUGGESTIONS_COUNT, 0) + 1
@@ -98,16 +134,102 @@ export default function ChatApp() {
         setSpeakingMsgId(message.id)
         tts?.speak(cleanMessageContent(message.content), () => setSpeakingMsgId(null))
       }
+
+      // Persister le message IA en DB
+      persistMessage({ role: 'assistant', contenu: cleanMessageContent(message.content), contenuBrut: message.content })
+
+      // Détecter le tag <!--REFERRAL_TRIGGER:--> dans la réponse IA
+      const triggerMatch = message.content.match(/<!--REFERRAL_TRIGGER:(.*?)-->/)
+      if (triggerMatch && !referralId) {
+        try {
+          const triggerData = JSON.parse(triggerMatch[1])
+          const refusedAt = loadFromLS<number>(LS_REFERRAL_REFUSED_AT, 0)
+          const messagesSinceRefusal = refusedAt > 0 ? messages.length - refusedAt : 999
+          // Ne pas re-proposer si refus récent (< 10 messages)
+          if (messagesSinceRefusal >= 10) {
+            setReferralUrgency(triggerData.level === 'high' ? 'immediate' : 'gentle')
+            setShowReferralModal(true)
+          }
+        } catch { /* ignore parse error */ }
+      }
+
       setTimeout(() => inputRef.current?.focus(), 100)
     },
   })
 
-  // Persist messages whenever they change
+  // Persister un message en DB (fire-and-forget)
+  const persistMessage = useCallback((msg: { role: string; contenu: string; contenuBrut?: string }) => {
+    fetch('/api/messages/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        conversationId: conversationId || undefined,
+        utilisateurId: utilisateurId || undefined,
+        message: msg,
+      }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d) {
+          if (d.conversationId && !conversationId) {
+            setConversationId(d.conversationId)
+            saveToLS(LS_CONVERSATION_ID, d.conversationId)
+          }
+          if (d.utilisateurId && !utilisateurId) {
+            setUtilisateurId(d.utilisateurId)
+            saveToLS(LS_USER_ID, d.utilisateurId)
+          }
+          // Mettre à jour le niveau de fragilité si détecté
+          if (d.fragility?.level && d.fragility.level !== 'none') {
+            setCurrentFragility(d.fragility.level)
+          }
+        }
+      })
+      .catch(() => {})
+  }, [sessionId, conversationId, utilisateurId])
+
+  // Détecter la fragilité côté client et persister le message user
+  const handleSubmitWithFragility = useCallback((e: React.FormEvent) => {
+    // Détecter la fragilité AVANT l'envoi
+    if (input.trim()) {
+      const frag = getFragilityLevel(input)
+      if (frag !== 'none') {
+        setCurrentFragility(frag)
+      }
+      // Persister le message user en DB
+      persistMessage({ role: 'user', contenu: input.trim() })
+    }
+    handleSubmit(e)
+  }, [input, handleSubmit, persistMessage])
+
+  // Persist messages in localStorage whenever they change
   useEffect(() => {
     if (messages.length > 0) {
       saveToLS(LS_MESSAGES_KEY, messages)
     }
   }, [messages])
+
+  // Polling statut referral (si un referral existe)
+  useEffect(() => {
+    if (!referralId) return
+    const checkStatus = () => {
+      fetch(`/api/referrals/${referralId}/status`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (d) {
+            setReferralStatus(d.statut)
+            if (d.priseEnCharge?.exists) {
+              setReferralConseillerPrenom(d.priseEnCharge.conseiller?.prenom || null)
+            }
+          }
+        })
+        .catch(() => {})
+    }
+    checkStatus()
+    const interval = setInterval(checkStatus, 30000)
+    return () => clearInterval(interval)
+  }, [referralId])
 
   // === GAMIFICATION : évaluer jauge + badges à chaque changement de messages/profil ===
   const userMessageCount = messages.filter(m => m.role === 'user').length
@@ -248,6 +370,32 @@ export default function ChatApp() {
     window.location.reload()
   }, [])
 
+  const handleCancelReferral = async () => {
+    if (!referralId) return
+    setCancelling(true)
+    try {
+      const res = await fetch(`/api/referrals/${referralId}/cancel`, { method: 'POST' })
+      if (res.ok) {
+        // Réinitialiser tout l'état referral
+        setReferralId('')
+        setReferralStatus(null)
+        setReferralConseillerPrenom(null)
+        setBeneficiaireInfo(null)
+        setStructuresSuggerees([])
+        setShowStructures(false)
+        setShowCancelConfirm(false)
+        localStorage.removeItem(LS_REFERRAL_ID)
+        localStorage.removeItem(LS_BENEFICIAIRE_INFO)
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Impossible d\'annuler la demande')
+      }
+    } catch {
+      alert('Erreur de connexion')
+    }
+    setCancelling(false)
+  }
+
   const hasMessages = messages.length > 0
 
   return (
@@ -296,6 +444,37 @@ export default function ChatApp() {
                 className="flex-1 px-4 py-2.5 rounded-xl bg-catchup-primary text-white text-sm font-semibold hover:bg-catchup-primary/90 transition-colors"
               >
                 Repartir à zéro
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale de confirmation d'annulation */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
+              <span className="text-2xl">🤔</span>
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Annuler ta demande ?</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              Tu pourras toujours refaire une demande plus tard si tu changes d&apos;avis.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                disabled={cancelling}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Non, garder
+              </button>
+              <button
+                onClick={handleCancelReferral}
+                disabled={cancelling}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-50 transition-colors"
+              >
+                {cancelling ? 'Annulation...' : 'Oui, annuler'}
               </button>
             </div>
           </div>
@@ -361,10 +540,157 @@ export default function ChatApp() {
 
           <InstallBanner messageCount={userMessageCount} />
 
+          {/* ── Carte profil bénéficiaire (visible après saisie des infos) ── */}
+          {beneficiaireInfo && referralId && (
+            <div className="mx-3 mb-2 md:mx-6 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-catchup-primary/20 flex items-center justify-center text-sm font-bold text-catchup-primary">
+                    {beneficiaireInfo.prenom[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{beneficiaireInfo.prenom}</p>
+                    <p className="text-[11px] text-gray-400">
+                      {beneficiaireInfo.age} ans · Dép. {beneficiaireInfo.departement}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {referralStatus && <ReferralStatusTag statut={referralStatus} />}
+                  {/* Bouton annuler — seulement si pas encore pris en charge */}
+                  {referralStatus && referralStatus !== 'prise_en_charge' && referralStatus !== 'terminee' && (
+                    <button
+                      onClick={() => setShowCancelConfirm(true)}
+                      className="text-[10px] text-gray-400 hover:text-red-500 transition-colors px-1.5 py-0.5 rounded hover:bg-red-50"
+                      title="Annuler ma demande"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Structures suggérées (affichées après la demande) ── */}
+          {showStructures && structuresSuggerees.length > 0 && (
+            <div className="mx-3 mb-2 md:mx-6">
+              <div className="bg-white border border-catchup-primary/20 rounded-xl shadow-sm overflow-hidden">
+                <div className="px-4 py-2.5 bg-catchup-primary/5 border-b border-catchup-primary/10 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-800">
+                    🏢 Structures proches de chez toi
+                  </p>
+                  <button
+                    onClick={() => setShowStructures(false)}
+                    className="text-gray-400 hover:text-gray-600 text-xs"
+                  >
+                    Masquer
+                  </button>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {structuresSuggerees.map((s, idx) => (
+                    <div key={idx} className="px-4 py-2.5 flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{s.nom}</p>
+                        {s.raisons && s.raisons.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {s.raisons.slice(0, 3).map((r, ri) => (
+                              <span key={ri} className="text-[10px] px-1.5 py-0.5 bg-green-50 text-green-600 rounded">
+                                ✅ {r}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="ml-3 shrink-0">
+                        <span className={`text-sm font-bold ${
+                          s.score >= 80 ? 'text-green-600' : s.score >= 50 ? 'text-amber-600' : 'text-gray-400'
+                        }`}>
+                          {s.score}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+                  <p className="text-[10px] text-gray-400 text-center">
+                    Un conseiller de la structure la plus adaptée te contactera bientôt
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Bannière de statut referral ── */}
+          {referralStatus === 'prise_en_charge' && (
+            <div className="mx-3 mb-2 md:mx-6">
+              <a
+                href="/accompagnement"
+                className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
+              >
+                <span className="text-2xl">🤝</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-green-800">
+                    {referralConseillerPrenom ? `${referralConseillerPrenom} t'accompagne !` : 'Un conseiller t\'accompagne !'}
+                  </p>
+                  <p className="text-xs text-green-600">Accède à ta messagerie pour discuter</p>
+                </div>
+                <ReferralStatusTag statut="prise_en_charge" />
+                <span className="text-green-500">→</span>
+              </a>
+            </div>
+          )}
+
+          {referralId && referralStatus && referralStatus !== 'prise_en_charge' && referralStatus !== 'annulee' && !beneficiaireInfo && (
+            <div className="mx-3 mb-2 md:mx-6 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-blue-700">
+                  Ta demande d&apos;accompagnement a été transmise.
+                </p>
+                <div className="flex items-center gap-2">
+                  <ReferralStatusTag statut={referralStatus} />
+                  <button
+                    onClick={() => setShowCancelConfirm(true)}
+                    className="text-[10px] text-blue-400 hover:text-red-500 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Bouton permanent de demande de mise en relation ── */}
+          {/* Visible quand : pas de referral, ou referral annulé/terminé (pour permettre une nouvelle demande) */}
+          {hasMessages && (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee') && (
+            <div className="mx-3 mb-2 md:mx-6">
+              <button
+                onClick={() => {
+                  setReferralUrgency('gentle')
+                  setShowReferralModal(true)
+                }}
+                className="w-full flex items-center justify-center gap-2 p-2.5 bg-white border border-catchup-primary/30 rounded-xl text-sm font-medium text-catchup-primary hover:bg-catchup-primary/5 active:bg-catchup-primary/10 transition-colors"
+              >
+                <span>🤝</span>
+                <span>{referralStatus === 'annulee' || referralStatus === 'terminee' ? 'Nouvelle demande de mise en relation' : 'Parler à un conseiller'}</span>
+              </button>
+            </div>
+          )}
+
+          {/* Lien discret vers l'espace conseiller (sous-domaine pro) */}
+          <div className="text-center py-1.5 border-t border-gray-100">
+            <a
+              href="https://pro.catchup.jaeprive.fr"
+              className="text-[11px] text-gray-400 hover:text-catchup-primary transition-colors"
+            >
+              Espace professionnel
+            </a>
+          </div>
+
           <ChatInput
             input={input}
             onChange={handleInputChange}
-            onSubmit={handleSubmit}
+            onSubmit={handleSubmitWithFragility}
             isLoading={isLoading}
             inputRef={inputRef}
             onAppend={append}
@@ -381,6 +707,73 @@ export default function ChatApp() {
           />
         )}
       </div>
+
+      {/* Tag de statut referral flottant (visible seulement si la carte profil n'est pas visible = scroll) */}
+      {referralId && referralStatus && !beneficiaireInfo && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-40">
+          <ReferralStatusTag statut={referralStatus} withLabel />
+        </div>
+      )}
+
+      {/* Modale de mise en relation avec un conseiller */}
+      <ReferralModal
+        isOpen={showReferralModal}
+        urgency={referralUrgency}
+        prenomSuggested={profile.name || undefined}
+        onClose={() => {
+          setShowReferralModal(false)
+          // Enregistrer le refus pour ne pas re-proposer pendant 10 messages
+          saveToLS(LS_REFERRAL_REFUSED_AT, messages.length)
+        }}
+        onSubmit={async (data) => {
+          try {
+            const res = await fetch('/api/referrals', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                conversationId,
+                utilisateurId,
+                prenom: data.prenom,
+                moyenContact: data.moyenContact,
+                typeContact: data.typeContact,
+                departement: data.departement,
+                age: data.age,
+                genre: null,
+                fragilityLevel: currentFragility,
+              }),
+            })
+            if (res.ok) {
+              const result = await res.json()
+
+              // 1. Sauvegarder le referral
+              setReferralId(result.referralId)
+              saveToLS(LS_REFERRAL_ID, result.referralId)
+              setReferralStatus('en_attente')
+              setShowReferralModal(false)
+
+              // 2. Injecter le prénom dans le profil → l'IA l'utilisera
+              setProfile(prev => ({ ...prev, name: data.prenom }))
+
+              // 3. Sauvegarder les infos du bénéficiaire
+              const info: BeneficiaireInfo = {
+                prenom: data.prenom,
+                age: data.age,
+                departement: data.departement,
+                typeContact: data.typeContact,
+                moyenContact: data.moyenContact,
+              }
+              setBeneficiaireInfo(info)
+              saveToLS(LS_BENEFICIAIRE_INFO, info)
+
+              // 4. Afficher les structures suggérées
+              if (result.structuresSuggerees && result.structuresSuggerees.length > 0) {
+                setStructuresSuggerees(result.structuresSuggerees)
+                setShowStructures(true)
+              }
+            }
+          } catch { /* ignore */ }
+        }}
+      />
     </div>
   )
 }

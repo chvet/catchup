@@ -358,6 +358,139 @@ CREATE TABLE session_magic_link (
 
 ---
 
+## Tables Espace Conseiller (plateforme de mise en relation)
+
+Les tables suivantes supportent la plateforme conseiller (cf. specs 15, 16, 17).
+
+### Table `structure`
+
+Organisation d'accueil (Mission Locale, CIO, E2C, CIDJ...).
+
+```sql
+CREATE TABLE structure (
+  id              TEXT PRIMARY KEY,           -- UUID v4
+  nom             TEXT NOT NULL,              -- "Mission Locale Paris 15"
+  type            TEXT NOT NULL,              -- 'mission_locale', 'cio', 'e2c', 'cidj', 'privee', 'autre'
+  departements    TEXT NOT NULL,              -- JSON: ["75", "92", "93"]
+  regions         TEXT,                       -- JSON: ["ile-de-france"]
+  age_min         INTEGER DEFAULT 16,
+  age_max         INTEGER DEFAULT 25,
+  specialites     TEXT,                       -- JSON: ["decrochage", "insertion", "handicap", "orientation"]
+  genre_preference TEXT,                      -- NULL, 'M', 'F'
+  capacite_max    INTEGER DEFAULT 50,
+  webhook_url     TEXT,                       -- notification externe (optionnel)
+  parcoureo_id    TEXT,                       -- ID Parcoureo pour SSO (optionnel)
+  actif           INTEGER DEFAULT 1,
+  cree_le         TEXT NOT NULL,
+  mis_a_jour_le   TEXT NOT NULL
+);
+```
+
+### Table `conseiller`
+
+Compte professionnel pour l'Espace Conseiller.
+
+```sql
+CREATE TABLE conseiller (
+  id              TEXT PRIMARY KEY,           -- UUID v4
+  email           TEXT NOT NULL UNIQUE,
+  mot_de_passe    TEXT,                       -- bcrypt hash (NULL si SSO uniquement)
+  prenom          TEXT NOT NULL,
+  nom             TEXT NOT NULL,
+  role            TEXT DEFAULT 'conseiller',  -- 'conseiller', 'admin_structure', 'super_admin'
+  structure_id    TEXT,                       -- FK → structure.id (NULL pour super_admin)
+  actif           INTEGER DEFAULT 1,
+  derniere_connexion TEXT,                    -- ISO 8601
+  cree_le         TEXT NOT NULL,
+  mis_a_jour_le   TEXT NOT NULL,
+  FOREIGN KEY (structure_id) REFERENCES structure(id)
+);
+```
+
+### Table `prise_en_charge`
+
+Suivi de la prise en charge d'un referral par un conseiller.
+
+```sql
+CREATE TABLE prise_en_charge (
+  id              TEXT PRIMARY KEY,           -- UUID v4
+  referral_id     TEXT NOT NULL,              -- FK → referral.id
+  conseiller_id   TEXT NOT NULL,              -- FK → conseiller.id
+  structure_id    TEXT NOT NULL,              -- FK → structure.id
+  statut          TEXT DEFAULT 'nouvelle',    -- 'nouvelle', 'en_attente', 'prise_en_charge', 'terminee', 'abandonnee'
+  notes           TEXT,                       -- JSON: tableau de notes horodatées
+  score_matching  REAL,                       -- 0.0-1.0
+  raison_matching TEXT,                       -- "age + departement + specialite"
+  assignee_manuellement INTEGER DEFAULT 0,
+  premiere_action_le TEXT,                    -- ISO 8601
+  terminee_le     TEXT,
+  cree_le         TEXT NOT NULL,
+  mis_a_jour_le   TEXT NOT NULL,
+  FOREIGN KEY (referral_id) REFERENCES referral(id),
+  FOREIGN KEY (conseiller_id) REFERENCES conseiller(id),
+  FOREIGN KEY (structure_id) REFERENCES structure(id)
+);
+```
+
+### Table `session_conseiller`
+
+Sessions JWT pour l'authentification conseiller.
+
+```sql
+CREATE TABLE session_conseiller (
+  id              TEXT PRIMARY KEY,           -- UUID v4
+  conseiller_id   TEXT NOT NULL,              -- FK → conseiller.id
+  jeton           TEXT NOT NULL UNIQUE,       -- JWT ID (jti claim)
+  expire_le       TEXT NOT NULL,
+  revoque         INTEGER DEFAULT 0,
+  cree_le         TEXT NOT NULL,
+  FOREIGN KEY (conseiller_id) REFERENCES conseiller(id)
+);
+```
+
+### Table `evenement_audit`
+
+Traçabilité RGPD de toutes les actions sensibles.
+
+```sql
+CREATE TABLE evenement_audit (
+  id              TEXT PRIMARY KEY,           -- UUID v4
+  conseiller_id   TEXT,                       -- FK → conseiller.id (NULL pour actions système)
+  action          TEXT NOT NULL,              -- 'login', 'claim_case', 'update_status', 'view_profile', 'export'
+  cible_type      TEXT,                       -- 'referral', 'prise_en_charge', 'conseiller', 'structure'
+  cible_id        TEXT,
+  details         TEXT,                       -- JSON
+  ip              TEXT,
+  horodatage      TEXT NOT NULL
+);
+```
+
+### Colonnes ajoutées à `referral`
+
+```sql
+ALTER TABLE referral ADD COLUMN structure_suggeree_id TEXT REFERENCES structure(id);
+ALTER TABLE referral ADD COLUMN localisation TEXT;      -- département ou ville du bénéficiaire
+ALTER TABLE referral ADD COLUMN genre TEXT;             -- 'M', 'F', 'autre', NULL
+ALTER TABLE referral ADD COLUMN age INTEGER;            -- âge du bénéficiaire
+```
+
+### Index Espace Conseiller
+
+```sql
+CREATE INDEX idx_pec_referral ON prise_en_charge(referral_id);
+CREATE INDEX idx_pec_conseiller ON prise_en_charge(conseiller_id);
+CREATE INDEX idx_pec_statut ON prise_en_charge(statut);
+CREATE INDEX idx_pec_structure ON prise_en_charge(structure_id);
+CREATE INDEX idx_referral_statut ON referral(statut);
+CREATE INDEX idx_referral_structure ON referral(structure_suggeree_id);
+CREATE INDEX idx_conseiller_structure ON conseiller(structure_id);
+CREATE INDEX idx_audit_conseiller ON evenement_audit(conseiller_id);
+CREATE INDEX idx_audit_horodatage ON evenement_audit(horodatage);
+CREATE INDEX idx_session_jeton ON session_conseiller(jeton);
+```
+
+---
+
 ## Schéma Drizzle (implémentation)
 
 ```typescript
@@ -514,6 +647,76 @@ export const sessionMagicLink = sqliteTable('session_magic_link', {
   expireLe: text('expire_le').notNull(),
   creeLe: text('cree_le').notNull(),
   utiliseLe: text('utilise_le'),
+})
+
+// === TABLES ESPACE CONSEILLER ===
+
+export const structure = sqliteTable('structure', {
+  id: text('id').primaryKey(),
+  nom: text('nom').notNull(),
+  type: text('type').notNull(),                         // 'mission_locale', 'cio', 'e2c', 'cidj', 'privee', 'autre'
+  departements: text('departements').notNull(),          // JSON: ["75", "92"]
+  regions: text('regions'),                              // JSON: ["ile-de-france"]
+  ageMin: integer('age_min').default(16),
+  ageMax: integer('age_max').default(25),
+  specialites: text('specialites'),                      // JSON: ["decrochage", "insertion"]
+  genrePreference: text('genre_preference'),             // NULL, 'M', 'F'
+  capaciteMax: integer('capacite_max').default(50),
+  webhookUrl: text('webhook_url'),
+  parcoureoId: text('parcoureo_id'),
+  actif: integer('actif').default(1),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const conseiller = sqliteTable('conseiller', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  motDePasse: text('mot_de_passe'),                      // bcrypt hash
+  prenom: text('prenom').notNull(),
+  nom: text('nom').notNull(),
+  role: text('role').default('conseiller'),               // 'conseiller', 'admin_structure', 'super_admin'
+  structureId: text('structure_id').references(() => structure.id),
+  actif: integer('actif').default(1),
+  derniereConnexion: text('derniere_connexion'),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const priseEnCharge = sqliteTable('prise_en_charge', {
+  id: text('id').primaryKey(),
+  referralId: text('referral_id').notNull().references(() => referral.id),
+  conseillerId: text('conseiller_id').notNull().references(() => conseiller.id),
+  structureId: text('structure_id').notNull().references(() => structure.id),
+  statut: text('statut').default('nouvelle'),             // 'nouvelle', 'en_attente', 'prise_en_charge', 'terminee', 'abandonnee'
+  notes: text('notes'),                                   // JSON: notes horodatées
+  scoreMatching: real('score_matching'),                   // 0.0-1.0
+  raisonMatching: text('raison_matching'),
+  assigneeManuellement: integer('assignee_manuellement').default(0),
+  premiereActionLe: text('premiere_action_le'),
+  termineeLe: text('terminee_le'),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const sessionConseiller = sqliteTable('session_conseiller', {
+  id: text('id').primaryKey(),
+  conseillerId: text('conseiller_id').notNull().references(() => conseiller.id),
+  jeton: text('jeton').notNull().unique(),                // JWT jti
+  expireLe: text('expire_le').notNull(),
+  revoque: integer('revoque').default(0),
+  creeLe: text('cree_le').notNull(),
+})
+
+export const evenementAudit = sqliteTable('evenement_audit', {
+  id: text('id').primaryKey(),
+  conseillerId: text('conseiller_id'),
+  action: text('action').notNull(),                       // 'login', 'claim_case', 'update_status', 'view_profile', 'export'
+  cibleType: text('cible_type'),                          // 'referral', 'prise_en_charge', 'conseiller', 'structure'
+  cibleId: text('cible_id'),
+  details: text('details'),                               // JSON
+  ip: text('ip'),
+  horodatage: text('horodatage').notNull(),
 })
 ```
 

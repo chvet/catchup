@@ -1,0 +1,217 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/data/db'
+import { conversation, message, utilisateur, referral, profilRiasec, structure, priseEnCharge } from '@/data/schema'
+import { eq, and, desc, sql } from 'drizzle-orm'
+import { v4 as uuidv4 } from 'uuid'
+import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
+import { openai } from '@ai-sdk/openai'
+import { generateText } from 'ai'
+import { recordUsage } from '@/lib/token-guard'
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const {
+      conversationId,
+      utilisateurId,
+      prenom,
+      moyenContact,
+      typeContact,
+      departement,
+      age,
+      genre,
+      fragilityLevel,
+    } = body
+
+    if (!conversationId || !utilisateurId) {
+      return NextResponse.json(
+        { error: 'conversationId and utilisateurId are required' },
+        { status: 400 }
+      )
+    }
+
+    const now = new Date().toISOString()
+
+    // 1. Update user info
+    const updateData: Record<string, unknown> = { misAJourLe: now }
+    if (prenom) updateData.prenom = prenom
+    if (age) updateData.age = age
+    if (departement) updateData.situation = departement
+    if (departement) updateData.source = departement // localisation
+    if (typeContact === 'telephone' && moyenContact) updateData.telephone = moyenContact
+    if (typeContact === 'email' && moyenContact) updateData.email = moyenContact
+
+    await db.update(utilisateur).set(updateData).where(eq(utilisateur.id, utilisateurId))
+
+    // 2. Calculate priority
+    const prioriteMap: Record<string, string> = {
+      high: 'critique',
+      medium: 'haute',
+      low: 'normale',
+      none: 'normale',
+    }
+    const priorite = prioriteMap[fragilityLevel] ?? 'normale'
+
+    // 3. Calculate detection level
+    const niveauDetectionMap: Record<string, number> = {
+      high: 3,
+      medium: 2,
+      low: 1,
+      none: 0,
+    }
+    const niveauDetection = niveauDetectionMap[fragilityLevel] ?? 0
+
+    // 4. Get last 20 messages for summary
+    const messages = await db
+      .select()
+      .from(message)
+      .where(eq(message.conversationId, conversationId))
+      .orderBy(desc(message.horodatage))
+      .limit(20)
+
+    const messagesOrdered = messages.reverse()
+
+    // 5. Generate conversation summary
+    let resumeConversation = ''
+    if (messagesOrdered.length > 0) {
+      const transcript = messagesOrdered
+        .map((m) => `${m.role === 'user' ? 'Bénéficiaire' : 'Assistant'}: ${m.contenu}`)
+        .join('\n')
+
+      try {
+        const { text, usage } = await generateText({
+          model: openai('gpt-4o-mini'),
+          maxTokens: 200, // Résumé court = pas besoin de plus
+          system:
+            'Tu es un assistant qui résume des conversations. Produis un résumé en 3 à 5 phrases en français. ' +
+            'Le résumé doit capturer la situation du bénéficiaire, ses besoins et son état émotionnel.',
+          prompt: `Résume cette conversation entre un jeune bénéficiaire et un chatbot d'orientation :\n\n${transcript}`,
+        })
+        resumeConversation = text
+
+        // Enregistrer la consommation dans le token guard
+        if (usage) {
+          recordUsage(
+            conversationId,
+            'system-referral',
+            usage.promptTokens,
+            usage.completionTokens,
+            'gpt-4o-mini'
+          )
+        }
+      } catch (err) {
+        console.error('[referrals] Summary generation failed:', err)
+        resumeConversation = `Conversation de ${messagesOrdered.length} messages.`
+      }
+    }
+
+    // 6. Matching: get active structures
+    const activeStructures = await db
+      .select()
+      .from(structure)
+      .where(eq(structure.actif, 1))
+
+    // Count active cases per structure
+    const structureDataList: StructureData[] = await Promise.all(
+      activeStructures.map(async (s) => {
+        const casActifsResult = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(priseEnCharge)
+          .where(
+            and(
+              eq(priseEnCharge.structureId, s.id),
+              sql`${priseEnCharge.statut} NOT IN ('terminee', 'annulee')`
+            )
+          )
+
+        return {
+          id: s.id,
+          nom: s.nom,
+          departements: JSON.parse(s.departements || '[]'),
+          regions: JSON.parse(s.regions || '[]'),
+          ageMin: s.ageMin ?? 16,
+          ageMax: s.ageMax ?? 25,
+          specialites: JSON.parse(s.specialites || '[]'),
+          genrePreference: s.genrePreference,
+          capaciteMax: s.capaciteMax ?? 50,
+          casActifs: casActifsResult[0]?.count ?? 0,
+          actif: true,
+        }
+      })
+    )
+
+    // Build matching criteria
+    const profil = await db
+      .select()
+      .from(profilRiasec)
+      .where(eq(profilRiasec.utilisateurId, utilisateurId))
+      .limit(1)
+
+    const riasecDominant: string[] = profil[0]?.dimensionsDominantes
+      ? JSON.parse(profil[0].dimensionsDominantes)
+      : []
+
+    const matchingCriteria: MatchingCriteria = {
+      age: age ?? null,
+      genre: genre ?? null,
+      departement: departement ?? null,
+      situation: null,
+      riasecDominant,
+      urgence: priorite === 'critique' ? 'critique' : priorite === 'haute' ? 'haute' : 'normale',
+      fragilite: fragilityLevel ?? 'none',
+    }
+
+    const matchResults = matcherStructures(matchingCriteria, structureDataList)
+    const bestMatch = matchResults[0] ?? null
+
+    // 7. Get RIASEC profile (already fetched above)
+    const riasecProfile = profil[0] ?? null
+
+    // 8. Create referral
+    const referralId = uuidv4()
+    await db.insert(referral).values({
+      id: referralId,
+      utilisateurId,
+      conversationId,
+      priorite,
+      niveauDetection,
+      motif: fragilityLevel === 'high'
+        ? 'Détresse détectée — orientation urgente'
+        : fragilityLevel === 'medium'
+          ? 'Fragilité modérée — accompagnement recommandé'
+          : 'Profil stabilisé — mise en relation',
+      resumeConversation,
+      moyenContact: moyenContact ?? null,
+      typeContact: typeContact ?? null,
+      statut: 'en_attente',
+      structureSuggereId: bestMatch?.structureId ?? null,
+      localisation: departement ?? null,
+      genre: genre ?? null,
+      ageBeneficiaire: age ?? null,
+      creeLe: now,
+      misAJourLe: now,
+    })
+
+    // 9. Return response — inclut les top 3 structures pour affichage au bénéficiaire
+    const top3 = matchResults.slice(0, 3).map(m => ({
+      nom: m.structureNom,
+      score: m.score,
+      raisons: m.raisons || [],
+    }))
+
+    return NextResponse.json({
+      referralId,
+      priorite,
+      structureSuggeree: bestMatch
+        ? { nom: bestMatch.structureNom, score: bestMatch.score }
+        : null,
+      structuresSuggerees: top3,
+    })
+  } catch (error) {
+    console.error('[referrals] Error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}

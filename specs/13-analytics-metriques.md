@@ -411,6 +411,25 @@ RAPPORT_HEBDO_DESTINATAIRES=equipe@fondation-jae.org
 
 ---
 
+## Dashboard Conseiller (cf. spec 17)
+
+En plus du dashboard admin interne, un **dashboard dédié aux conseillers** est disponible sur `/conseiller` (cf. spec 17 — Dashboard conseiller).
+
+Ce dashboard ajoute des métriques spécifiques à la prise en charge :
+
+| Métrique | Description |
+|----------|-------------|
+| Temps d'attente moyen par structure | Délai entre création referral et première action conseiller |
+| Taux de prise en charge | % des referrals effectivement pris en charge |
+| Distribution RIASEC des bénéficiaires | Radar chart des profils reçus |
+| Funnel chat → referral → prise en charge → terminé | Conversion à chaque étape |
+| Prises en charge par structure (empilé) | En cours / terminées / abandonnées |
+| Taux de remplissage des structures | Capacité utilisée vs max |
+
+Les données du dashboard conseiller proviennent des mêmes tables Turso, enrichies par les tables `structure`, `conseiller`, `prise_en_charge` et `evenement_audit` (cf. spec 07).
+
+---
+
 ## Métriques des métriques
 
 | Métrique | Description | Objectif |

@@ -250,11 +250,16 @@ Authorization: Bearer {WEBHOOK_TOKEN}
 ### Futur — Intégration Parcoureo
 Le webhook pointera vers l'API Parcoureo qui créera automatiquement un dossier dans le système du conseiller rattaché à la structure locale du jeune (Mission Locale, CIO, E2C, CIDJ...).
 
-### Futur — App conseiller
-Le conseiller recevra une notification push dans l'app conseiller (second projet) avec le dossier complet et pourra :
-- Voir le profil RIASEC
-- Lire le résumé
-- Contacter le jeune directement
+### Espace Conseiller (implémenté — cf. specs 15, 16, 17)
+L'Espace Conseiller est la plateforme de gestion de la file active. Le referral webhook alimente directement cette plateforme.
+
+Le conseiller accède à `/conseiller` et peut :
+- Voir la **file active** des demandes (triable par urgence, attente, âge, département)
+- Consulter le **profil RIASEC** complet + résumé IA de la conversation
+- **Prendre en charge** un cas (workflow : nouvelle → en_attente → prise_en_charge → terminée)
+- Bénéficier du **matching automatique** structure ↔ bénéficiaire (géo + âge + spécialité + capacité)
+- Suivre les **KPIs** sur un dashboard dédié (temps d'attente, taux de prise en charge, distribution RIASEC)
+- Le tout intégrable dans **Parcoureo** (iframe ou API REST avec JWT)
 
 ---
 
