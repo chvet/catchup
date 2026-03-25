@@ -11,9 +11,11 @@ import AccompagnementChat from '@/components/AccompagnementChat'
 interface SessionInfo {
   token: string
   referralId: string
+  conseillerId?: string
   conseillerPrenom: string
   conseillerNom: string
   structureNom: string
+  beneficiairePrenom?: string
 }
 
 const LS_ACCOMP_KEY = 'catchup_accompagnement'
@@ -101,12 +103,16 @@ export default function AccompagnementPage() {
 
       // Sauvegarder la session
       const ci = data.conseillerInfo || data.conseiller || {}
+      // Try to get the beneficiary name from localStorage
+      const benefPrenomStored = typeof localStorage !== 'undefined' ? localStorage.getItem('catchup_user_prenom') || '' : ''
       const sessionInfo: SessionInfo = {
         token: data.token,
         referralId: data.referralId,
+        conseillerId: data.conseillerId || '',
         conseillerPrenom: ci.prenom || 'Conseiller',
         conseillerNom: ci.nom || '',
         structureNom: ci.structureNom || '',
+        beneficiairePrenom: benefPrenomStored || undefined,
       }
       localStorage.setItem(LS_ACCOMP_KEY, JSON.stringify(sessionInfo))
       setSession(sessionInfo)
@@ -173,8 +179,11 @@ export default function AccompagnementPage() {
         <div className="flex-1 overflow-hidden">
           <AccompagnementChat
             token={session.token}
+            referralId={session.referralId}
+            conseillerId={session.conseillerId}
             conseillerPrenom={session.conseillerPrenom}
             structureNom={session.structureNom}
+            beneficiairePrenom={session.beneficiairePrenom}
           />
         </div>
       </div>

@@ -4,10 +4,11 @@
 import { getConseillerFromHeaders, jsonError, jsonSuccess } from '@/lib/api-helpers'
 import { logAudit } from '@/lib/auth'
 import { db } from '@/data/db'
-import { referral, priseEnCharge, messageDirect, codeVerification, utilisateur } from '@/data/schema'
+import { referral, priseEnCharge, messageDirect, codeVerification, utilisateur, conseiller } from '@/data/schema'
 import { eq, and, asc } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { sendPinCode } from '@/lib/sms'
+import { notifyBeneficiaireNewMessage } from '@/lib/push-triggers'
 
 // GET — Liste des messages + marquer comme lus
 export async function GET(
@@ -203,6 +204,16 @@ export async function POST(
         }
       }
     }
+
+    // Notification push au bénéficiaire
+    try {
+      const refForPush = await db.select({ utilisateurId: referral.utilisateurId }).from(referral).where(eq(referral.id, referralId))
+      if (refForPush.length > 0) {
+        const conseillerInfo = await db.select({ prenom: conseiller.prenom }).from(conseiller).where(eq(conseiller.id, ctx.id))
+        const cPrenom = conseillerInfo[0]?.prenom || 'Votre conseiller'
+        notifyBeneficiaireNewMessage(refForPush[0].utilisateurId, cPrenom).catch(() => {})
+      }
+    } catch { /* push non-bloquant */ }
 
     // Audit
     await logAudit(ctx.id, 'send_direct_message', 'message_direct', messageId, {

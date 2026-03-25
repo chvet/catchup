@@ -1,16 +1,49 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+
+interface StructureInfo {
+  nom: string
+  slug: string
+  type: string
+}
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-catchup-dark to-[#16213E] flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-catchup-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showRecovery, setShowRecovery] = useState(false)
+  const [structureInfo, setStructureInfo] = useState<StructureInfo | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const slug = searchParams.get('s') || ''
+
+  // Charger les infos de la structure si slug présent
+  useEffect(() => {
+    if (slug) {
+      fetch(`/api/structures/${slug}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) setStructureInfo(data)
+        })
+        .catch(() => {})
+    }
+  }, [slug])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,7 +54,7 @@ export default function LoginPage() {
       const res = await fetch('/api/conseiller/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, slug: slug || undefined }),
       })
 
       const data = await res.json()
@@ -32,7 +65,13 @@ export default function LoginPage() {
         return
       }
 
-      router.push('/conseiller')
+      // Rediriger vers le slug de la structure du conseiller
+      const targetSlug = data.slug || slug
+      if (targetSlug) {
+        router.push(`/conseiller?s=${targetSlug}`)
+      } else {
+        router.push('/conseiller')
+      }
     } catch {
       setError('Erreur de connexion au serveur')
       setLoading(false)
@@ -48,9 +87,15 @@ export default function LoginPage() {
             Catch&apos;Up
           </h1>
           <p className="text-catchup-primary text-lg">Espace Conseiller</p>
-          <p className="text-gray-400 text-sm mt-2">
-            Plateforme de mise en relation — Fondation JAE
-          </p>
+          {structureInfo ? (
+            <div className="mt-3 px-4 py-2 bg-white/10 rounded-lg border border-white/20">
+              <p className="text-white font-medium text-sm">{structureInfo.nom}</p>
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm mt-2">
+              Plateforme de mise en relation — Fondation JAE
+            </p>
+          )}
         </div>
 
         {/* Formulaire */}
@@ -103,13 +148,11 @@ export default function LoginPage() {
                 tabIndex={-1}
               >
                 {showPassword ? (
-                  // Icône œil barré (masquer)
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
                     <line x1="1" y1="1" x2="23" y2="23" />
                   </svg>
                 ) : (
-                  // Icône œil (afficher)
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                     <circle cx="12" cy="12" r="3" />
@@ -139,7 +182,10 @@ export default function LoginPage() {
           </button>
 
           <p className="text-center text-xs text-gray-400 mt-4">
-            Accès réservé aux conseillers habilités
+            {structureInfo
+              ? `Accès réservé aux conseillers de ${structureInfo.nom}`
+              : 'Accès réservé aux conseillers habilités'
+            }
           </p>
         </form>
 
@@ -170,11 +216,6 @@ export default function LoginPage() {
                 <span className="shrink-0 w-6 h-6 rounded-full bg-catchup-primary/30 text-catchup-primary flex items-center justify-center text-xs font-bold">3</span>
                 <p>
                   <strong className="text-white">Délai de traitement</strong> — votre accès sera rétabli sous 24h ouvrées après vérification de votre identité.
-                </p>
-              </div>
-              <div className="mt-3 pt-3 border-t border-white/10">
-                <p className="text-gray-400 text-[11px]">
-                  Pour des raisons de sécurité, les mots de passe ne peuvent pas être envoyés par email. Un nouveau mot de passe temporaire vous sera communiqué par votre administrateur.
                 </p>
               </div>
             </div>

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Entrypoint Docker — Catch'Up
-# Initialise la BDD au premier démarrage, puis lance le serveur
+# Initialise la BDD au premier démarrage, puis lance les serveurs
 
 DB_PATH="/app/data/local.db"
 
@@ -12,6 +12,10 @@ if [ ! -f "$DB_PATH" ]; then
 else
   echo "📦 Base de données existante trouvée"
 fi
+
+# Lancer le serveur WebSocket de visio en arrière-plan
+echo "📹 Démarrage du serveur visio (port 3003)..."
+node src/visio/server.js &
 
 # Lancer le serveur Next.js
 echo "🚀 Démarrage de Catch'Up..."

@@ -10,6 +10,8 @@ import {
 import DirectChat from '@/components/conseiller/DirectChat'
 import JournalEvenements from '@/components/conseiller/JournalEvenements'
 import BrisDeGlaceModal from '@/components/conseiller/BrisDeGlaceModal'
+import OnlineDot from '@/components/OnlineDot'
+import { useIsOnline } from '@/hooks/useOnlineStatus'
 
 interface CaseDetail {
   referral: {
@@ -132,6 +134,9 @@ export default function CaseDetailPage() {
   const [tiersList, setTiersList] = useState<TiersInfo[]>([])
   const [bdgTiers, setBdgTiers] = useState<TiersInfo | null>(null)
   const [bdgOpen, setBdgOpen] = useState(false)
+
+  // Online status of the beneficiary (using referral ID as heartbeat userId)
+  const beneficiaireOnline = useIsOnline(id)
 
   useEffect(() => {
     fetch(`/api/conseiller/file-active/${id}`)
@@ -264,15 +269,16 @@ export default function CaseDetailPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Link href="/conseiller/file-active" className="text-gray-400 hover:text-gray-600">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
+        <div className="flex items-center gap-3 md:gap-4 min-w-0">
+          <Link href="/conseiller/file-active" className="text-gray-400 hover:text-gray-600 shrink-0">
             ← Retour
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
               {beneficiaire?.prenom || 'Anonyme'}
               {beneficiaire?.age && <span className="text-gray-400 font-normal ml-2">{beneficiaire.age} ans</span>}
+              <OnlineDot online={beneficiaireOnline} showLabel />
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -324,7 +330,7 @@ export default function CaseDetailPage() {
         {/* Colonne gauche — Onglets */}
         <div className="lg:col-span-2 space-y-0">
           {/* Barre d'onglets */}
-          <div className="bg-white rounded-t-xl border border-gray-100 border-b-0 flex overflow-x-auto">
+          <div className="bg-white rounded-t-xl border border-gray-100 border-b-0 flex overflow-x-auto scrollbar-hide">
             {tabs.map(tab => (
               <button
                 key={tab.key}
@@ -696,37 +702,6 @@ export default function CaseDetailPage() {
             )}
           </div>
 
-          {/* Matching */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Structures suggérées</h3>
-            {matching.length > 0 ? (
-              <div className="space-y-3">
-                {matching.map((m, idx) => (
-                  <div key={m.structureId} className={`p-3 rounded-lg border ${idx === 0 ? 'border-catchup-primary bg-catchup-primary/5' : 'border-gray-100'}`}>
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="font-medium text-sm text-gray-800">{m.structureNom}</p>
-                      <span className={`text-sm font-bold ${
-                        m.score >= 80 ? 'text-green-600' : m.score >= 50 ? 'text-yellow-600' : 'text-red-600'
-                      }`}>
-                        {m.score}%
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mb-1">
-                      {m.raisons.map(r => (
-                        <span key={r} className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
-                          ✅ {r}
-                        </span>
-                      ))}
-                    </div>
-                    <p className="text-xs text-gray-400">Remplissage : {m.tauxRemplissage}%</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-400 text-sm">Aucune structure compatible trouvée</p>
-            )}
-          </div>
-
           {/* Chronologie */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-3">Chronologie</h3>
@@ -789,7 +764,7 @@ function ChatBubble({
       )}
 
       <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-        <div className={`max-w-[75%] ${isUser ? 'order-2' : 'order-1'}`}>
+        <div className={`max-w-[85%] md:max-w-[75%] ${isUser ? 'order-2' : 'order-1'}`}>
           {/* Nom expéditeur */}
           <p className={`text-xs mb-1 ${isUser ? 'text-right text-gray-400' : 'text-left text-catchup-primary/70'}`}>
             {isUser ? beneficiairePrenom : '🤖 IA Catch\'Up'}

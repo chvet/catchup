@@ -69,6 +69,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       statut: newStatut,
+      videoUrl: action === 'accepter' ? parsed.jitsiUrl : null,
+      // backward compat
       jitsiUrl: action === 'accepter' ? parsed.jitsiUrl : null,
     })
   } catch (error) {

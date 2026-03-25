@@ -4,10 +4,11 @@
 import { getConseillerFromHeaders, jsonError, jsonSuccess } from '@/lib/api-helpers'
 import { logAudit } from '@/lib/auth'
 import { db } from '@/data/db'
-import { referral, utilisateur, profilRiasec, indiceConfiance, conversation, priseEnCharge, structure } from '@/data/schema'
+import { referral, utilisateur, profilRiasec, indiceConfiance, conversation, priseEnCharge, structure, conseiller } from '@/data/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
+import { notifyBeneficiaireAccepted } from '@/lib/push-triggers'
 
 export async function GET(
   request: Request,
@@ -203,6 +204,11 @@ export async function POST(
 
     // Audit
     await logAudit(ctx.id, 'claim_case', 'referral', id)
+
+    // Notification push au bénéficiaire
+    const conseillerRows = await db.select({ prenom: conseiller.prenom }).from(conseiller).where(eq(conseiller.id, ctx.id))
+    const conseillerPrenom = conseillerRows[0]?.prenom || 'Votre conseiller'
+    notifyBeneficiaireAccepted(ref.utilisateurId, conseillerPrenom).catch(() => {})
 
     return jsonSuccess({ id: pecId, message: 'Prise en charge créée' }, 201)
   } catch (error) {

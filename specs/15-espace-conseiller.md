@@ -128,19 +128,39 @@ Alertes en temps réel affichées simultanément dans la sidebar et la topbar, r
 ## File active
 
 ### Vue d'ensemble
-La file active est le coeur de l'application. Elle affiche toutes les demandes de prise en charge (referrals) destinées à la structure du conseiller.
+La file active est le coeur de l'application. Elle affiche toutes les demandes de prise en charge (referrals) destinées à la structure du conseiller, organisées en **3 onglets**.
 
-### Règles de visibilité
+### Système d'onglets (tabs)
 
-| Rôle | Vue "Tous + mes cas" (défaut) | Vue "Ma structure" |
-|------|-------------------------------|-------------------|
-| **Conseiller** | Tous les cas en attente/nouvelle + ses propres prises en charge | Tous les cas en attente + cas pris en charge par sa structure + cas suggérés à sa structure |
-| **Admin structure** | Idem conseiller | Idem + gestion complète |
-| **Super admin** | Tous les cas, tous les statuts | Tous les cas |
+La page affiche une **barre d'onglets sticky** en haut avec 3 vues :
 
-Le toggle "Tous + mes cas / Ma structure" permet au conseiller de basculer entre les deux vues.
+| Onglet | Contenu | Tri par défaut | Visibilité |
+|--------|---------|----------------|------------|
+| **🔔 En attente** (défaut) | Referrals avec statut `en_attente` ou `nouvelle` | Urgence DESC puis date ASC (plus anciens d'abord) | Tous les conseillers |
+| **🤝 Mes accompagnements** | Cas où le conseiller connecté a une `priseEnCharge` active (statut `prise_en_charge`, filtré par `conseillerId`) | Dernière activité DESC (plus récent d'abord) | Tous les conseillers |
+| **📋 Tous les cas** | Tous les referrals, tous statuts | Date demande DESC | `admin_structure` et `super_admin` uniquement |
 
-Les cas annulés sont masqués par défaut (sauf filtre explicite sur le statut "Annulée").
+**Badge sur chaque onglet :** compteur du nombre d'éléments dans cet onglet.
+
+**Style des onglets :**
+- Onglet actif : bordure inférieure colorée + texte en gras + badge coloré (fond primary, texte blanc)
+- Onglet inactif : texte gris + badge gris
+- La barre d'onglets est **sticky** en haut de la page
+
+### Données et filtrage
+
+- L'API `GET /api/conseiller/file-active` est appelée **une seule fois** avec une limite haute (500)
+- Le filtrage par onglet est **client-side**
+- Les filtres (urgence, recherche, date, etc.) s'appliquent **dans l'onglet sélectionné**
+- Le filtre "Statut" est **masqué** sur les onglets "En attente" et "Mes accompagnements" (le statut est implicite)
+- Le filtre "Statut" est **visible** uniquement sur l'onglet "Tous les cas"
+- Changement d'onglet → réinitialisation du filtre statut et de la pagination
+
+### Contexte conseiller
+
+- Le hook `useConseiller()` fournit `conseiller.id` et `conseiller.role`
+- `conseiller.id` est utilisé pour filtrer "Mes accompagnements" (`priseEnCharge.conseillerId === conseiller.id`)
+- `conseiller.role` détermine la visibilité de l'onglet "Tous les cas" (`admin_structure` ou `super_admin`)
 
 ### Tableau filtrable et triable
 
@@ -154,6 +174,7 @@ Les cas annulés sont masqués par défaut (sauf filtre explicite sur le statut 
 | **Profil RIASEC** | Mini badge des 2 dimensions dominantes | Non |
 | **Attente** | Temps écoulé depuis la demande (ex: "2h", "1j", "3j") | Oui |
 | **Statut** | Badge coloré (nouvelle, en attente, prise en charge, terminée) | Oui |
+| **Dernière activité** | Temps relatif depuis le dernier message/action (visible uniquement sur l'onglet "Mes accompagnements") | Oui |
 | **Actions** | Bouton "Voir" (lien vers détail du cas) | — |
 
 **Tri par clic sur en-tête :**
@@ -168,23 +189,27 @@ Deux niveaux : filtres principaux (toujours visibles) + filtres avancés (toggle
 
 **Filtres principaux :**
 
-| Filtre | Options |
-|--------|---------|
-| Recherche | Texte libre sur prénom/localisation |
-| Urgence | Toutes, Normale, Haute, Critique |
-| Statut | Tous, Nouvelle, En attente, Prise en charge, Terminée, Abandonnée |
+| Filtre | Options | Visibilité |
+|--------|---------|------------|
+| Urgence | Toutes, Normale, Haute, Critique | Tous les onglets |
+| Statut | Tous, Nouvelle, En attente, Prise en charge, Terminée, Abandonnée | Onglet "Tous les cas" uniquement |
 
 **Filtres avancés (panneau dépliable) :**
 
 | Filtre | Options |
 |--------|---------|
+| Recherche prénom | Texte libre |
 | Localisation | Saisie libre de département |
 | Âge min / max | Inputs numériques |
 | Date du / au | Sélecteurs de date (HTML date input) |
 
+### Pagination
+- Pagination client-side : 20 éléments par page
+- Réinitialisation à la page 1 lors du changement d'onglet ou de filtre
+
 ### Rafraîchissement
 - **Polling toutes les 30 secondes** (pas de WebSocket pour le MVP)
-- Indicateur visuel "Dernière mise à jour il y a Xs"
+- Les données sont rechargées silencieusement sans réinitialiser l'onglet actif
 - Futur : Server-Sent Events pour les notifications en temps réel
 
 ---
@@ -626,3 +651,77 @@ Le conseiller peut planifier un RDV depuis le chat. Une carte est affichée avec
 **Composants :**
 - `PlanifierRdvModal.tsx` — date/heure/description
 - `RdvCard.tsx` — carte avec les 2 boutons d'agenda
+
+---
+
+## Dashboard Super Admin multi-structures
+
+### Page `/conseiller/admin`
+
+Dashboard complet accessible uniquement au role `super_admin`. Si un utilisateur non super_admin accede a cette page, il est redirige vers `/conseiller`.
+
+### Vue d'ensemble (KPIs globaux)
+
+Cartes en haut de page affichant les metriques agregees de toutes les structures :
+
+| KPI | Description |
+|-----|-------------|
+| En attente | Total des beneficiaires en attente (toutes structures) |
+| Prises en charge actives | Total des accompagnements en cours |
+| Terminees ce mois | Nombre de prises en charge terminees dans le mois en cours |
+| Ruptures ce mois | Nombre de ruptures/abandons dans le mois en cours |
+| Attente moyenne | Temps moyen entre creation du referral et premiere action (en heures) |
+| Taux prise en charge | Pourcentage de referrals ayant donne lieu a une prise en charge |
+
+### Tableau comparatif des structures
+
+Tableau triable avec une ligne par structure active. Colonnes :
+
+| Colonne | Description | Tri |
+|---------|-------------|-----|
+| Structure | Nom (lien vers `/conseiller/structures/{id}`) + type | Oui |
+| Conseillers | Nombre de conseillers actifs rattaches | Oui |
+| En attente | Cas en attente (badge colore selon severite) | Oui |
+| Pris en charge | Cas actuellement en accompagnement | Oui |
+| Termines | Cas termines ce mois | Oui |
+| Ruptures | Cas en rupture | Oui |
+| Attente moy. | Temps moyen d'attente par structure | Oui |
+| Taux PEC | Taux de prise en charge (pris en charge / total) | Oui |
+| Charge | Barre de progression visuelle (cas actifs / capacite max) | Non |
+
+**Code couleur des lignes :**
+- Rouge : > 5 cas en attente
+- Orange : > 3 cas en attente
+- Vert (defaut) : <= 3 cas en attente
+
+### Graphiques (Recharts)
+
+| Graphique | Type | Contenu |
+|-----------|------|---------|
+| Cas par structure | BarChart (stacked, horizontal) | en_attente, prise_en_charge, terminee, rupture par structure |
+| Evolution des demandes | LineChart | Nombre de demandes par jour sur les 30 derniers jours |
+| Repartition des statuts | PieChart (donut) | Distribution globale des statuts de referral |
+
+### Alertes
+
+Trois niveaux d'alertes affichees en haut du dashboard :
+
+| Alerte | Couleur | Condition |
+|--------|---------|-----------|
+| Structures en surcharge | Rouge | Structure avec > 5 cas en attente |
+| Attentes prolongees | Orange | Beneficiaires en attente depuis > 48 heures |
+| Structures inactives | Gris | Aucun conseiller connecte depuis 24 heures |
+
+### API
+
+`GET /api/conseiller/admin/stats` — super_admin uniquement. Retourne :
+- `kpis` : metriques globales agregees
+- `structures` : statistiques detaillees par structure
+- `barChartData` : donnees pour le graphique stacked bar
+- `evolutionJours` : nombre de demandes par jour (30 derniers jours)
+- `repartitionStatuts` : distribution globale des statuts
+- `alertes` : structures en alerte, attentes > 48h, structures sans connexion
+
+### Navigation
+
+L'item "Administration" apparait dans la sidebar uniquement pour les `super_admin`, positionne avant "Parametres".

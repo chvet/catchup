@@ -21,6 +21,8 @@ export const utilisateur = sqliteTable('utilisateur', {
   preferences: text('preferences'),
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),
+  motDePasse: text('mot_de_passe'),
+  sessionToken: text('session_token').unique(),
   derniereVisite: text('derniere_visite'),
   supprimeLe: text('supprime_le'),
 })
@@ -166,6 +168,7 @@ export const sessionMagicLink = sqliteTable('session_magic_link', {
 export const structure = sqliteTable('structure', {
   id: text('id').primaryKey(),
   nom: text('nom').notNull(),
+  slug: text('slug').unique(),
   type: text('type').notNull(),
   departements: text('departements').notNull(),
   regions: text('regions'),
@@ -330,6 +333,18 @@ export const brisDeGlace = sqliteTable('bris_de_glace', {
   justification: text('justification').notNull(),
   ip: text('ip'),
   horodatage: text('horodatage').notNull(),
+})
+
+// === PUSH NOTIFICATIONS ===
+
+export const pushSubscription = sqliteTable('push_subscription', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(), // 'conseiller' | 'beneficiaire'
+  userId: text('user_id').notNull(), // conseillerId or utilisateurId
+  endpoint: text('endpoint').notNull(),
+  keysP256dh: text('keys_p256dh').notNull(),
+  keysAuth: text('keys_auth').notNull(),
+  creeLe: text('cree_le').notNull(),
 })
 
 // === VÉRIFICATION / AUTHENTIFICATION ===

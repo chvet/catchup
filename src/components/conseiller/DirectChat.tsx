@@ -8,6 +8,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import VideoCallCard from '@/components/VideoCallCard'
 import RdvCard from '@/components/RdvCard'
 import PlanifierRdvModal from '@/components/conseiller/PlanifierRdvModal'
+import OnlineDot from '@/components/OnlineDot'
+import { useIsOnline } from '@/hooks/useOnlineStatus'
 
 interface DirectMessage {
   id: string
@@ -30,6 +32,7 @@ interface DirectChatProps {
 interface DocumentPayload {
   type: 'document'
   filename: string
+  originalName?: string
   mimeType: string
   size: number
   url: string
@@ -49,12 +52,29 @@ interface RdvPayload {
   titre: string
   dateDebut: string
   dateFin: string
+  lieu?: string
   description?: string
   googleUrl: string
   icsUrl: string
+  statut?: string
+  motifRefus?: string
 }
 
-type StructuredPayload = DocumentPayload | VideoPayload | RdvPayload
+interface RupturePayload {
+  type: 'rupture'
+  motif: string
+  comportementInaproprie?: boolean
+  parConseiller?: boolean
+  parBeneficiaire?: boolean
+}
+
+interface SystemPayload {
+  type: 'system'
+  content: string
+  comportementInaproprie?: boolean
+}
+
+type StructuredPayload = DocumentPayload | VideoPayload | RdvPayload | RupturePayload | SystemPayload
 
 // --- Helpers ---
 
@@ -84,7 +104,12 @@ function tryParseStructured(contenu: string | null | undefined): StructuredPaylo
   if (!contenu.startsWith('{') || !contenu.includes('"type"')) return null
   try {
     const parsed = JSON.parse(contenu)
-    if (parsed && typeof parsed.type === 'string') return parsed as StructuredPayload
+    if (parsed && typeof parsed.type === 'string') {
+      if (parsed.type === 'video' && parsed.id && !parsed.appelVideoId) {
+        parsed.appelVideoId = parsed.id
+      }
+      return parsed as StructuredPayload
+    }
   } catch { /* not JSON */ }
   return null
 }
@@ -112,7 +137,7 @@ function DocumentCard({ doc }: { doc: DocumentPayload }) {
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="text-2xl">{mimeIcon(doc.mimeType)}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">{doc.filename}</p>
+          <p className="text-sm font-medium text-gray-900 truncate">{doc.originalName || doc.filename}</p>
           <p className="text-xs text-gray-400">{formatFileSize(doc.size)}</p>
         </div>
       </div>
@@ -156,12 +181,16 @@ function UploadProgress({ progress }: { progress: number }) {
 // --- Main component ---
 
 export default function DirectChat({ referralId, beneficiairePrenom, beneficiaireAge, priseEnChargeStatut }: DirectChatProps) {
+  // Real online status for the beneficiary (using referralId as heartbeat userId)
+  const beneficiaireOnline = useIsOnline(referralId)
+
   const [messages, setMessages] = useState<DirectMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [codeInfo, setCodeInfo] = useState<{ code: string; moyenContact: string } | null>(null)
   const [resending, setResending] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
   const [connected, setConnected] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
@@ -174,8 +203,18 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   // RDV modal state
   const [rdvModalOpen, setRdvModalOpen] = useState(false)
 
+  // Rupture modal state
+  const [ruptureModalOpen, setRuptureModalOpen] = useState(false)
+  const [ruptureMotif, setRuptureMotif] = useState('')
+  const [ruptureInaproprie, setRuptureInaproprie] = useState(false)
+  const [ruptureLoading, setRuptureLoading] = useState(false)
+  const [ruptured, setRuptured] = useState(false)
+
   // Video call loading state
   const [videoLoading, setVideoLoading] = useState(false)
+
+  // RDV reminder loading state
+  const [rdvReminderLoading, setRdvReminderLoading] = useState(false)
 
   // Charger les messages initiaux
   useEffect(() => {
@@ -333,6 +372,8 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
       if (res.ok) {
         const data = await res.json()
         setCodeInfo({ code: data.code, moyenContact: data.moyenContact })
+        setResendSuccess(true)
+        setTimeout(() => setResendSuccess(false), 3000)
       }
     } catch (err) {
       console.error('Erreur renvoi code:', err)
@@ -369,12 +410,114 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
     setVideoLoading(false)
   }, [referralId, videoLoading])
 
+  // Trouver le dernier RDV dans les messages (pour le bouton "Rappeler le RDV")
+  const latestRdv = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const parsed = tryParseStructured(messages[i].contenu)
+      if (parsed && parsed.type === 'rdv') return parsed as RdvPayload
+    }
+    return null
+  })()
+
+  // Rappeler le RDV — renvoie le dernier RDV comme nouveau message
+  const handleRdvReminder = useCallback(async () => {
+    if (rdvReminderLoading || !latestRdv) return
+    setRdvReminderLoading(true)
+
+    try {
+      const res = await fetch(`/api/conseiller/file-active/${referralId}/direct-messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contenu: JSON.stringify({
+            type: 'rdv',
+            id: latestRdv.id,
+            titre: latestRdv.titre,
+            dateDebut: latestRdv.dateDebut,
+            dateFin: latestRdv.dateFin,
+            lieu: latestRdv.lieu,
+            description: latestRdv.description,
+            googleUrl: latestRdv.googleUrl,
+            icsUrl: latestRdv.icsUrl,
+          }),
+        }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        const newMsg = data.message || data
+        if (newMsg.id) {
+          setMessages(prev => prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg])
+        }
+      }
+    } catch (err) {
+      console.error('Erreur rappel RDV:', err)
+    }
+
+    setRdvReminderLoading(false)
+  }, [referralId, rdvReminderLoading, latestRdv])
+
   // Callback quand un RDV est créé via le modal
   const handleRdvCreated = useCallback((rdv: { id: string; titre: string; dateDebut: string; dateFin: string; googleUrl: string; icsUrl: string }) => {
-    // Le message sera ajouté via SSE, mais on peut aussi l'ajouter localement
-    // si le serveur le renvoie dans la réponse du modal
-    // (PlanifierRdvModal fait le POST et appelle onCreated)
+    // Ajouter le message RDV localement dans le chat
+    const rdvMessage: DirectMessage = {
+      id: `rdv-${rdv.id}`,
+      expediteurType: 'conseiller',
+      expediteurId: '',
+      contenu: JSON.stringify({
+        type: 'rdv',
+        id: rdv.id,
+        titre: rdv.titre,
+        dateDebut: rdv.dateDebut,
+        dateFin: rdv.dateFin,
+        googleUrl: rdv.googleUrl,
+        icsUrl: rdv.icsUrl,
+      }),
+      lu: false,
+      horodatage: new Date().toISOString(),
+    }
+    setMessages(prev => [...prev, rdvMessage])
+    setRdvModalOpen(false)
   }, [])
+
+  // Rompre l'accompagnement
+  const handleRupture = useCallback(async () => {
+    if (ruptureLoading || !ruptureMotif.trim()) return
+    setRuptureLoading(true)
+
+    try {
+      const res = await fetch(`/api/conseiller/file-active/${referralId}/rupture`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          motif: ruptureMotif.trim(),
+          comportementInaproprie: ruptureInaproprie,
+        }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.message) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === data.message.id)) return prev
+            return [...prev, data.message]
+          })
+        }
+        setRuptured(true)
+        setRuptureModalOpen(false)
+        setRuptureMotif('')
+        setRuptureInaproprie(false)
+      } else {
+        const err = await res.json().catch(() => null)
+        alert(err?.error || 'Erreur lors de la rupture')
+      }
+    } catch (err) {
+      console.error('Erreur rupture', err)
+      alert('Erreur lors de la rupture')
+    }
+
+    setRuptureLoading(false)
+  }, [referralId, ruptureMotif, ruptureInaproprie, ruptureLoading])
 
   // Render un message en fonction de son contenu
   const renderMessageContent = useCallback((msg: DirectMessage) => {
@@ -421,12 +564,77 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
               titre: parsed.titre,
               dateDebut: parsed.dateDebut,
               dateFin: parsed.dateFin,
+              lieu: parsed.lieu,
               description: parsed.description,
               googleUrl: parsed.googleUrl,
               icsUrl: parsed.icsUrl,
+              statut: parsed.statut,
+              motifRefus: parsed.motifRefus,
+            }}
+            viewerType="conseiller"
+            onResend={async (rdv) => {
+              // Renvoyer le RDV comme nouveau message dans le chat
+              try {
+                const res = await fetch(`/api/conseiller/file-active/${referralId}/direct-messages`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    contenu: JSON.stringify({
+                      type: 'rdv',
+                      id: rdv.id,
+                      titre: rdv.titre,
+                      dateDebut: rdv.dateDebut,
+                      dateFin: rdv.dateFin,
+                      lieu: rdv.lieu,
+                      description: rdv.description,
+                      googleUrl: rdv.googleUrl,
+                      icsUrl: rdv.icsUrl,
+                    }),
+                  }),
+                })
+                if (res.ok) {
+                  const data = await res.json()
+                  const newMsg = data.message || data
+                  if (newMsg.id) {
+                    setMessages(prev => prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg])
+                  }
+                }
+              } catch (err) {
+                console.error('Erreur rappel RDV:', err)
+              }
             }}
           />
         )
+
+      case 'rupture': {
+        const ruptureData = parsed as RupturePayload
+        return (
+          <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">&#9888;&#65039;</span>
+              <span className="text-sm font-semibold text-red-800">Accompagnement rompu</span>
+            </div>
+            <p className="text-sm text-red-700">{ruptureData.motif}</p>
+            {ruptureData.comportementInaproprie && (
+              <p className="text-xs text-red-600 mt-1 font-medium">
+                &#128308; Comportement inappropri&eacute; signal&eacute;
+              </p>
+            )}
+            {ruptureData.parBeneficiaire && (
+              <p className="text-xs text-red-600 mt-1">Rupture initi&eacute;e par le b&eacute;n&eacute;ficiaire (nouvelle demande)</p>
+            )}
+          </div>
+        )
+      }
+
+      case 'system': {
+        const sysData = parsed as SystemPayload
+        return (
+          <div className="rounded-xl border border-gray-300 bg-gray-50 p-3">
+            <p className="text-sm text-gray-700">{sysData.content}</p>
+          </div>
+        )
+      }
 
       default:
         return (
@@ -440,6 +648,16 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
         )
     }
   }, [])
+
+  if (priseEnChargeStatut === 'rupture') {
+    return (
+      <div className="text-center py-12">
+        <p className="text-4xl mb-3">&#9888;&#65039;</p>
+        <p className="text-red-600 font-medium">Accompagnement rompu</p>
+        <p className="text-gray-400 text-sm mt-1">Cet accompagnement a &eacute;t&eacute; interrompu.</p>
+      </div>
+    )
+  }
 
   if (priseEnChargeStatut !== 'prise_en_charge') {
     return (
@@ -462,17 +680,22 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
             <p className="text-sm font-medium text-gray-700">
               {beneficiairePrenom}{beneficiaireAge ? `, ${beneficiaireAge} ans` : ''}
             </p>
-            <div className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className="text-xs text-gray-400">
-                {connected ? 'Connecté' : 'Hors ligne'}
-              </span>
-            </div>
+            <OnlineDot online={beneficiaireOnline} showLabel />
           </div>
         </div>
-        <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded border border-gray-200">
-          Chat direct
-        </span>
+        <div className="flex items-center gap-2">
+          {!ruptured && (
+            <button
+              onClick={() => setRuptureModalOpen(true)}
+              className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+            >
+              &#9888;&#65039; Rompre
+            </button>
+          )}
+          <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded border border-gray-200">
+            Chat direct
+          </span>
+        </div>
       </div>
 
       {/* Alerte code PIN + bouton renvoyer */}
@@ -502,7 +725,12 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
 
       {/* Bouton renvoyer le code — toujours visible quand il n'y a pas d'alerte PIN active */}
       {!codeInfo && (
-        <div className="mx-6 mt-2 flex justify-end">
+        <div className="mx-6 mt-2 flex items-center justify-end gap-2">
+          {resendSuccess && (
+            <span className="text-xs text-green-600 bg-green-50 px-2.5 py-1 rounded-lg animate-pulse">
+              ✅ Code envoyé !
+            </span>
+          )}
           <button
             onClick={handleResendCode}
             disabled={resending}
@@ -567,7 +795,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
                 </div>
               )}
               <div className={`flex ${isConseiller ? 'justify-end' : 'justify-start'}`}>
-                <div className={isStructured ? 'max-w-[85%] md:max-w-[70%]' : 'max-w-[75%]'}>
+                <div className={isStructured ? 'max-w-[85%] md:max-w-[70%]' : 'max-w-[85%] md:max-w-[75%]'}>
                   {renderMessageContent(msg)}
                   <div className={`flex items-center gap-1 mt-0.5 ${isConseiller ? 'justify-end' : 'justify-start'}`}>
                     <span className="text-[10px] text-gray-400">
@@ -588,8 +816,16 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
       {/* Upload progress */}
       {uploading && <UploadProgress progress={uploadProgress} />}
 
+      {/* Bandeau rupture */}
+      {ruptured && (
+        <div className="mx-6 mb-2 p-3 bg-red-50 border border-red-200 rounded-lg text-center">
+          <p className="text-sm text-red-700 font-medium">&#9888;&#65039; Accompagnement rompu</p>
+          <p className="text-xs text-red-500 mt-1">La conversation est cl&ocirc;tur&eacute;e.</p>
+        </div>
+      )}
+
       {/* Barre d'actions + zone de saisie */}
-      <div className="border-t border-gray-100 bg-white">
+      {!ruptured && <div className="border-t border-gray-100 bg-white">
         {/* Action bar */}
         <div className="px-6 pt-2 pb-1 flex items-center gap-1">
           {/* Document upload */}
@@ -647,6 +883,23 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
             </span>
           </button>
 
+          {/* Rappeler le RDV — visible uniquement s'il y a un RDV existant */}
+          {latestRdv && (
+            <button
+              onClick={handleRdvReminder}
+              disabled={rdvReminderLoading}
+              className="group relative flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-orange-600 hover:bg-orange-50 border border-orange-200 transition-colors disabled:opacity-50"
+              title="Rappeler le RDV au bénéficiaire"
+            >
+              {rdvReminderLoading ? (
+                <div className="w-3.5 h-3.5 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>📅</>
+              )}
+              <span>Rappeler le RDV</span>
+            </button>
+          )}
+
           <div className="flex-1" />
         </div>
 
@@ -672,6 +925,63 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
           </div>
         </div>
       </div>
+
+      }
+
+      {/* Modal rupture */}
+      {ruptureModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-bold text-red-700 mb-1">&#9888;&#65039; Rompre l&apos;accompagnement</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Cette action est irr&eacute;versible. L&apos;accompagnement sera cl&ocirc;tur&eacute; et le b&eacute;n&eacute;ficiaire sera notifi&eacute;.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Motif de la rupture <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={ruptureMotif}
+                onChange={e => setRuptureMotif(e.target.value)}
+                rows={3}
+                placeholder="Expliquez la raison de la rupture..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent outline-none resize-none"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 mb-6 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ruptureInaproprie}
+                onChange={e => setRuptureInaproprie(e.target.checked)}
+                className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+              />
+              <span className="text-sm text-gray-700">Signaler un comportement inappropri&eacute;</span>
+            </label>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setRuptureModalOpen(false)
+                  setRuptureMotif('')
+                  setRuptureInaproprie(false)
+                }}
+                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleRupture}
+                disabled={!ruptureMotif.trim() || ruptureLoading}
+                className="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {ruptureLoading ? 'Rupture en cours...' : 'Confirmer la rupture'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal planification RDV */}
       <PlanifierRdvModal

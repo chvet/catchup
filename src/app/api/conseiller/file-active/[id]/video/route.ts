@@ -1,9 +1,9 @@
 // POST /api/conseiller/file-active/[id]/video — Proposer un appel vidéo
-// (génère un lien Jitsi Meet, insère un message structuré dans le chat + événement journal)
+// (génère une URL Daily.co, insère un message structuré dans le chat + événement journal)
 
 import { getConseillerFromHeaders, jsonError, jsonSuccess } from '@/lib/api-helpers'
 import { logJournal } from '@/lib/journal'
-import { generateJitsiRoomUrl } from '@/lib/jitsi'
+import { createDailyRoom } from '@/lib/jitsi'
 import { db } from '@/data/db'
 import { priseEnCharge, messageDirect } from '@/data/schema'
 import { eq } from 'drizzle-orm'
@@ -30,13 +30,12 @@ export async function POST(
       return jsonError('Prise en charge non active', 400)
     }
 
-    // Générer l'URL Jitsi
-    const jitsiUrl = generateJitsiRoomUrl(pec.id)
+    // Créer une room Daily.co (24h)
+    const videoUrl = await createDailyRoom(pec.id)
     const now = new Date().toISOString()
     const msgId = uuidv4()
 
     // Insérer un message structuré dans le chat (type: video)
-    // C'est ce message que le DirectChat parse pour afficher le VideoCallCard
     await db.insert(messageDirect).values({
       id: msgId,
       priseEnChargeId: pec.id,
@@ -46,7 +45,7 @@ export async function POST(
         type: 'video',
         id: msgId,
         statut: 'en_attente',
-        jitsiUrl,
+        jitsiUrl: videoUrl,
         proposePar: ctx.id,
       }),
       conversationType: 'conseiller_beneficiaire',
@@ -57,33 +56,28 @@ export async function POST(
     // Log journal
     await logJournal(pec.id, 'video_proposee', 'conseiller', ctx.id,
       'Appel vidéo proposé par le conseiller',
-      { details: { jitsiUrl, messageId: msgId } }
+      { details: { videoUrl, messageId: msgId } }
     )
 
-    // Retourner le message complet pour que DirectChat puisse l'ajouter
-    // dans son state sans attendre le SSE
+    // Retourner le message complet
     return jsonSuccess({
       id: msgId,
-      jitsiUrl,
-      message: {
+      priseEnChargeId: pec.id,
+      expediteurType: 'conseiller',
+      expediteurId: ctx.id,
+      contenu: JSON.stringify({
+        type: 'video',
         id: msgId,
-        priseEnChargeId: pec.id,
-        expediteurType: 'conseiller',
-        expediteurId: ctx.id,
-        contenu: JSON.stringify({
-          type: 'video',
-          id: msgId,
-          statut: 'en_attente',
-          jitsiUrl,
-          proposePar: ctx.id,
-        }),
-        conversationType: 'conseiller_beneficiaire',
-        horodatage: now,
-        lu: 0,
-      },
+        statut: 'en_attente',
+        jitsiUrl: videoUrl,
+        proposePar: ctx.id,
+      }),
+      conversationType: 'conseiller_beneficiaire',
+      horodatage: now,
+      lu: 0,
     })
   } catch (error) {
-    console.error('[Video]', error)
+    console.error('[Video Propose]', error)
     return jsonError('Erreur serveur', 500)
   }
 }

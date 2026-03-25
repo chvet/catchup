@@ -18,6 +18,13 @@
 html, body {
   height: 100%;
   overflow: hidden;
+  overflow-x: hidden;
+}
+
+/* Online status dot pulse animation */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* Scrollbar */

@@ -7,6 +7,7 @@ import { useConseiller } from '@/components/conseiller/ConseillerProvider'
 interface StructureItem {
   id: string
   nom: string
+  slug?: string
   type: string
   departements: string
   ageMin: number
@@ -44,6 +45,7 @@ export default function StructuresPage() {
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     nom: '',
     type: 'mission_locale',
@@ -107,6 +109,17 @@ export default function StructuresPage() {
     if (res.ok) {
       setStructures(prev => prev.filter(s => s.id !== id))
       setDeleteConfirm(null)
+    }
+  }
+
+  const handleCopyStructureLink = async (id: string, slug: string) => {
+    const url = `https://catchup.jaeprive.fr/?s=${slug}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedId(id)
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch {
+      // fallback
     }
   }
 
@@ -307,6 +320,27 @@ export default function StructuresPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-1 ml-2" onClick={e => e.stopPropagation()}>
+                    {s.slug && (
+                      <button
+                        onClick={() => handleCopyStructureLink(s.id, s.slug!)}
+                        className={`relative p-1.5 rounded-lg transition-colors ${
+                          copiedId === s.id
+                            ? 'text-green-600 bg-green-50'
+                            : 'text-gray-400 hover:text-catchup-primary hover:bg-catchup-primary/10'
+                        }`}
+                        title={copiedId === s.id ? 'Lien copié !' : 'Copier le lien QR Code'}
+                      >
+                        {copiedId === s.id ? (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM15.75 16.5a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5zM18 19.5a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" />
+                          </svg>
+                        )}
+                      </button>
+                    )}
                     <button
                       onClick={() => router.push(`/conseiller/structures/${s.id}`)}
                       className="p-1.5 text-gray-400 hover:text-catchup-primary rounded-lg hover:bg-catchup-primary/10 transition-colors"
@@ -365,6 +399,45 @@ export default function StructuresPage() {
                     <p className="text-xs text-gray-500">Cas actifs</p>
                   </div>
                 </div>
+
+                {/* QR Code + Lien */}
+                {s.slug && (
+                  <div className="mt-3 pt-3 border-t border-gray-100" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={`/api/qrcode?size=80&data=${encodeURIComponent(`https://catchup.jaeprive.fr/?s=${s.slug}`)}`}
+                        alt="QR Code"
+                        className="w-16 h-16 rounded border border-gray-200"
+                        loading="lazy"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-gray-400 mb-1">Lien bénéficiaire :</p>
+                        <p className="text-xs text-catchup-primary font-mono truncate">
+                          catchup.jaeprive.fr/?s={s.slug}
+                        </p>
+                        <div className="flex gap-2 mt-1.5">
+                          <button
+                            onClick={() => handleCopyStructureLink(s.id, s.slug!)}
+                            className={`text-[10px] px-2 py-1 rounded transition-colors ${
+                              copiedId === s.id
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-100 text-gray-600 hover:bg-catchup-primary/10 hover:text-catchup-primary'
+                            }`}
+                          >
+                            {copiedId === s.id ? '✅ Copié !' : '📋 Copier'}
+                          </button>
+                          <a
+                            href={`/api/qrcode?size=300&data=${encodeURIComponent(`https://catchup.jaeprive.fr/?s=${s.slug}`)}`}
+                            download={`qr-${s.slug}.png`}
+                            className="text-[10px] px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-catchup-primary/10 hover:text-catchup-primary transition-colors"
+                          >
+                            ⬇️ QR Code
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}

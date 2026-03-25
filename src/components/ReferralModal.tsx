@@ -121,6 +121,11 @@ interface ReferralModalProps {
   urgency: 'immediate' | 'gentle'
   reason?: string
   prenomSuggested?: string
+  emailSuggested?: string
+  telephoneSuggested?: string
+  ageSuggested?: number
+  departementSuggested?: string
+  structureSlug?: string
 }
 
 interface FormErrors {
@@ -138,20 +143,32 @@ export default function ReferralModal({
   urgency,
   reason,
   prenomSuggested,
+  emailSuggested,
+  telephoneSuggested,
+  ageSuggested,
+  departementSuggested,
+  structureSlug,
 }: ReferralModalProps) {
   const [prenom, setPrenom] = useState(prenomSuggested || '')
-  const [typeContact, setTypeContact] = useState<'email' | 'telephone'>('email')
-  const [moyenContact, setMoyenContact] = useState('')
-  const [departement, setDepartement] = useState('')
-  const [age, setAge] = useState('')
+  const [typeContact, setTypeContact] = useState<'email' | 'telephone'>(telephoneSuggested ? 'telephone' : 'email')
+  const [moyenContact, setMoyenContact] = useState(emailSuggested || telephoneSuggested || '')
+  const [departement, setDepartement] = useState(departementSuggested || '')
+  const [age, setAge] = useState(ageSuggested ? String(ageSuggested) : '')
   const [errors, setErrors] = useState<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'asking' | 'loading' | 'done' | 'denied'>('idle')
+  const [geoCity, setGeoCity] = useState<string | null>(null)
+  const [codePostalInput, setCodePostalInput] = useState('')
 
-  // Sync prenomSuggested when it changes
+  // Sync suggested values when they change
   useEffect(() => {
     if (prenomSuggested) setPrenom(prenomSuggested)
-  }, [prenomSuggested])
+    if (emailSuggested && !moyenContact) { setMoyenContact(emailSuggested); setTypeContact('email') }
+    if (telephoneSuggested && !moyenContact) { setMoyenContact(telephoneSuggested); setTypeContact('telephone') }
+    if (ageSuggested && !age) setAge(String(ageSuggested))
+    if (departementSuggested && !departement) setDepartement(departementSuggested)
+  }, [prenomSuggested, emailSuggested, telephoneSuggested, ageSuggested, departementSuggested])
 
   // Animate in
   useEffect(() => {
@@ -161,6 +178,52 @@ export default function ReferralModal({
       setIsVisible(false)
     }
   }, [isOpen])
+
+  // Plus de demande automatique — le bouton 📍 dans le champ déclenche la géoloc
+
+  const handleGeolocRequest = async () => {
+    if (!navigator.geolocation) {
+      setGeoStatus('denied')
+      return
+    }
+    setGeoStatus('loading')
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          // Reverse geocoding via API adresse du gouvernement (retourne le code postal)
+          const { latitude, longitude } = position.coords
+          const res = await fetch(
+            `https://api-adresse.data.gouv.fr/reverse/?lon=${longitude}&lat=${latitude}&limit=1`
+          )
+          if (res.ok) {
+            const data = await res.json()
+            if (data.features && data.features.length > 0) {
+              const props = data.features[0].properties
+              const cp = props.postcode || ''
+              const ville = props.city || props.label || ''
+              const dept = cp.substring(0, 2) === '97' ? cp.substring(0, 3) : cp.substring(0, 2)
+              setDepartement(dept)
+              setCodePostalInput(cp)
+              setGeoCity(`${ville} (${cp})`)
+              setGeoStatus('done')
+              return
+            }
+          }
+          setGeoStatus('denied')
+        } catch {
+          setGeoStatus('denied')
+        }
+      },
+      () => {
+        setGeoStatus('denied')
+      },
+      { timeout: 10000, enableHighAccuracy: false }
+    )
+  }
+
+  const handleGeolocRefuse = () => {
+    setGeoStatus('denied')
+  }
 
   // Reset on close
   useEffect(() => {
@@ -194,8 +257,8 @@ export default function ReferralModal({
     }
 
     const ageNum = parseInt(age, 10)
-    if (!age || isNaN(ageNum) || ageNum < 12 || ageNum > 30) {
-      newErrors.age = 'Ton âge doit être entre 12 et 30 ans'
+    if (!age || isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
+      newErrors.age = 'Ton âge ne semble pas correct'
     }
 
     setErrors(newErrors)
@@ -368,30 +431,86 @@ export default function ReferralModal({
               )}
             </div>
 
-            {/* Département */}
+            {/* Géolocalisation + Département */}
             <div>
-              <label htmlFor="ref-departement" className="block text-sm font-medium text-gray-700 mb-1">
-                Ton département
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ta localisation
               </label>
-              <select
-                id="ref-departement"
-                value={departement}
-                onChange={(e) => setDepartement(e.target.value)}
-                className={`w-full px-4 py-3 rounded-xl border text-gray-900 bg-white focus:outline-none focus:ring-2 transition-colors appearance-none ${
-                  errors.departement
-                    ? 'border-red-300 focus:ring-red-200'
-                    : 'border-gray-200 focus:ring-blue-200 focus:border-blue-400'
-                } ${!departement ? 'text-gray-400' : ''}`}
-              >
-                <option value="" disabled>
-                  Choisis ton département
-                </option>
-                {DEPARTEMENTS.map((dep) => (
-                  <option key={dep.code} value={dep.code}>
-                    {dep.code} — {dep.nom}
-                  </option>
-                ))}
-              </select>
+
+              {/* Champ de saisie avec bouton GPS intégré */}
+              {geoStatus === 'done' && geoCity ? (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-xl mb-2 flex items-center justify-between">
+                  <p className="text-sm text-green-800">
+                    📍 {geoCity}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setGeoStatus('idle'); setDepartement(''); setGeoCity(null); setCodePostalInput('') }}
+                    className="text-xs text-green-600 hover:text-green-800 underline"
+                  >
+                    Modifier
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div className="relative flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleGeolocRequest}
+                      disabled={geoStatus === 'loading'}
+                      className="shrink-0 px-3 py-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-600 hover:bg-blue-100 active:bg-blue-200 transition-colors disabled:opacity-50"
+                      title="Me géolocaliser"
+                    >
+                      {geoStatus === 'loading' ? (
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <span className="text-lg">📍</span>
+                      )}
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Code postal (ex: 75012)"
+                      value={codePostalInput}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, 5)
+                        setCodePostalInput(val)
+                        // Auto-détection du département
+                        if (val.length >= 2) {
+                          const prefix = val.slice(0, 2)
+                          // Cas spéciaux Corse
+                          if (val.startsWith('20') && val.length >= 3) {
+                            const dep = parseInt(val.slice(0, 3)) <= 201 ? '2A' : '2B'
+                            setDepartement(dep)
+                          } else if (DEPARTEMENTS.find(d => d.code === prefix)) {
+                            setDepartement(prefix)
+                          } else if (prefix === '97' && val.length >= 3) {
+                            const dep = val.slice(0, 3)
+                            if (DEPARTEMENTS.find(d => d.code === dep)) {
+                              setDepartement(dep)
+                            }
+                          }
+                        } else {
+                          setDepartement('')
+                        }
+                      }}
+                      className={`w-full px-4 py-3 rounded-xl border text-gray-900 bg-white focus:outline-none focus:ring-2 transition-colors ${
+                        errors.departement
+                          ? 'border-red-300 focus:ring-red-200'
+                          : 'border-gray-200 focus:ring-blue-200 focus:border-blue-400'
+                      }`}
+                    />
+                    {departement && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded">
+                        ✅ {DEPARTEMENTS.find(d => d.code === departement)?.nom || departement}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    {departement ? `Département détecté : ${departement}` : 'Entre ton code postal (ex: 75012) ou ton numéro de département (ex: 69)'}
+                  </p>
+                </div>
+              )}
               {errors.departement && (
                 <p className="text-red-500 text-xs mt-1">{errors.departement}</p>
               )}
@@ -405,8 +524,8 @@ export default function ReferralModal({
               <input
                 id="ref-age"
                 type="number"
-                min={12}
-                max={30}
+                min={1}
+                max={120}
                 value={age}
                 onChange={(e) => setAge(e.target.value)}
                 placeholder="Ex : 17"
@@ -459,7 +578,7 @@ export default function ReferralModal({
               ) : isImmediate ? (
                 'Je veux parler à quelqu\u2019un'
               ) : (
-                'Oui, je veux être accompagné(e)'
+                'Oui, je demande à être accompagné(e) par un conseiller'
               )}
             </button>
 
@@ -469,7 +588,7 @@ export default function ReferralModal({
               onClick={onClose}
               className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
             >
-              Non merci, je continue avec l&apos;IA
+              Non merci, je préfère continuer avec l&apos;IA pour le moment
             </button>
 
             {/* RGPD notice */}

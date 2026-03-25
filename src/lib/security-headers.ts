@@ -24,13 +24,15 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
     // Styles : self + inline (Tailwind génère des styles inline)
     "style-src 'self' 'unsafe-inline'",
     // Images : self + data URIs (avatars, icônes) + blob (previews)
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://api.qrserver.com",
     // Fonts : self
     "font-src 'self' data:",
-    // Connexions API : self + Jitsi (visio) + OpenAI (chat IA)
-    "connect-src 'self' https://api.openai.com wss://*.jitsi.net https://*.jitsi.net",
-    // Frames : Jitsi pour la visio uniquement
-    "frame-src https://*.jitsi.net",
+    // Connexions API : self + visio WebSocket + OpenAI (chat IA)
+    "connect-src 'self' https://api.openai.com wss://visio.catchup.jaeprive.fr ws://localhost:3003 https://geo.api.gouv.fr https://api-adresse.data.gouv.fr",
+    // Frames : self uniquement (visio intégrée en composant React)
+    "frame-src 'self'",
+    // Media : self + blob (visio audio/video playback)
+    "media-src 'self' blob:",
     // Objets/embeds : aucun (bloque Flash, PDF embeds, etc.)
     "object-src 'none'",
     // Base URI : self uniquement (empêche le détournement de balise <base>)

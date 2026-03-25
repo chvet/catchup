@@ -9,16 +9,16 @@ import bcrypt from 'bcryptjs'
 // ── Données réalistes ───────────────────────────────────────────────
 
 const STRUCTURES_DATA = [
-  { nom: 'Mission Locale Paris 15',     type: 'mission_locale', deps: ['75','92'],  regions: ['ile-de-france'],              ageMin: 16, ageMax: 25, spes: ['insertion','decrochage','emploi'],             genre: null,  cap: 50 },
-  { nom: 'CIO Lyon 3',                  type: 'cio',            deps: ['69'],       regions: ['auvergne-rhone-alpes'],       ageMin: 14, ageMax: 25, spes: ['orientation','reorientation','lyceen'],        genre: null,  cap: 40 },
-  { nom: 'E2C Lille Métropole',          type: 'e2c',            deps: ['59','62'],  regions: ['hauts-de-france'],            ageMin: 16, ageMax: 25, spes: ['decrochage','insertion','remobilisation'],     genre: null,  cap: 30 },
-  { nom: 'Mission Locale Marseille',     type: 'mission_locale', deps: ['13','84'],  regions: ['provence-alpes-cote-d-azur'], ageMin: 16, ageMax: 25, spes: ['insertion','emploi','entrepreneuriat'],        genre: null,  cap: 45 },
-  { nom: 'PAIO Toulouse',               type: 'paio',           deps: ['31','32'],  regions: ['occitanie'],                  ageMin: 16, ageMax: 25, spes: ['accueil','orientation','insertion'],           genre: null,  cap: 35 },
-  { nom: 'Mission Locale Bordeaux',      type: 'mission_locale', deps: ['33','40'],  regions: ['nouvelle-aquitaine'],         ageMin: 16, ageMax: 25, spes: ['insertion','emploi','logement'],               genre: null,  cap: 50 },
-  { nom: 'CIO Nantes',                  type: 'cio',            deps: ['44','85'],  regions: ['pays-de-la-loire'],           ageMin: 14, ageMax: 25, spes: ['orientation','reorientation','lyceen'],        genre: null,  cap: 35 },
-  { nom: 'E2C Strasbourg',              type: 'e2c',            deps: ['67','68'],  regions: ['grand-est'],                  ageMin: 16, ageMax: 25, spes: ['decrochage','insertion','remobilisation'],     genre: null,  cap: 25 },
-  { nom: 'Mission Locale Nice',          type: 'mission_locale', deps: ['06'],       regions: ['provence-alpes-cote-d-azur'], ageMin: 16, ageMax: 25, spes: ['insertion','emploi','tourisme'],               genre: null,  cap: 40 },
-  { nom: 'Fondation JAE',               type: 'fondation',      deps: ['69','75','13','59','31','33','44','67','06'], regions: ['nationale'], ageMin: 14, ageMax: 30, spes: ['orientation','innovation','numerique'], genre: null, cap: 100 },
+  { nom: 'Mission Locale Paris 15',     slug: 'ml-paris15',      type: 'mission_locale', deps: ['75','92'],  regions: ['ile-de-france'],              ageMin: 16, ageMax: 25, spes: ['insertion','decrochage','emploi'],             genre: null,  cap: 50 },
+  { nom: 'CIO Lyon 3',                  slug: 'cio-lyon',        type: 'cio',            deps: ['69'],       regions: ['auvergne-rhone-alpes'],       ageMin: 14, ageMax: 25, spes: ['orientation','reorientation','lyceen'],        genre: null,  cap: 40 },
+  { nom: 'E2C Lille Métropole',          slug: 'e2c-lille',       type: 'e2c',            deps: ['59','62'],  regions: ['hauts-de-france'],            ageMin: 16, ageMax: 25, spes: ['decrochage','insertion','remobilisation'],     genre: null,  cap: 30 },
+  { nom: 'Mission Locale Marseille',     slug: 'ml-marseille',    type: 'mission_locale', deps: ['13','84'],  regions: ['provence-alpes-cote-d-azur'], ageMin: 16, ageMax: 25, spes: ['insertion','emploi','entrepreneuriat'],        genre: null,  cap: 45 },
+  { nom: 'PAIO Toulouse',               slug: 'paio-toulouse',   type: 'paio',           deps: ['31','32'],  regions: ['occitanie'],                  ageMin: 16, ageMax: 25, spes: ['accueil','orientation','insertion'],           genre: null,  cap: 35 },
+  { nom: 'Mission Locale Bordeaux',      slug: 'ml-bordeaux',     type: 'mission_locale', deps: ['33','40'],  regions: ['nouvelle-aquitaine'],         ageMin: 16, ageMax: 25, spes: ['insertion','emploi','logement'],               genre: null,  cap: 50 },
+  { nom: 'CIO Nantes',                  slug: 'cio-nantes',      type: 'cio',            deps: ['44','85'],  regions: ['pays-de-la-loire'],           ageMin: 14, ageMax: 25, spes: ['orientation','reorientation','lyceen'],        genre: null,  cap: 35 },
+  { nom: 'E2C Strasbourg',              slug: 'e2c-strasbourg',  type: 'e2c',            deps: ['67','68'],  regions: ['grand-est'],                  ageMin: 16, ageMax: 25, spes: ['decrochage','insertion','remobilisation'],     genre: null,  cap: 25 },
+  { nom: 'Mission Locale Nice',          slug: 'ml-nice',         type: 'mission_locale', deps: ['06'],       regions: ['provence-alpes-cote-d-azur'], ageMin: 16, ageMax: 25, spes: ['insertion','emploi','tourisme'],               genre: null,  cap: 40 },
+  { nom: 'Fondation JAE',               slug: 'fondation-jae',   type: 'fondation',      deps: ['69','75','13','59','31','33','44','67','06'], regions: ['nationale'], ageMin: 14, ageMax: 30, spes: ['orientation','innovation','numerique'], genre: null, cap: 100 },
 ]
 
 // structIdx maps to STRUCTURES_DATA index
@@ -458,6 +458,7 @@ async function seed() {
   // === DROP ALL TABLES ===
   console.log('[1/6] Suppression des tables existantes...')
   const tablesToDrop = [
+    'push_subscription',
     'bris_de_glace', 'rendez_vous', 'evenement_journal',
     'demande_consentement', 'participant_conversation', 'tiers_intervenant',
     'message_direct', 'prise_en_charge', 'session_conseiller', 'evenement_audit',
@@ -554,7 +555,7 @@ async function seed() {
   )`)
 
   await client.execute(`CREATE TABLE structure (
-    id TEXT PRIMARY KEY, nom TEXT NOT NULL, type TEXT NOT NULL,
+    id TEXT PRIMARY KEY, nom TEXT NOT NULL, slug TEXT UNIQUE, type TEXT NOT NULL,
     departements TEXT NOT NULL, regions TEXT, age_min INTEGER DEFAULT 16,
     age_max INTEGER DEFAULT 25, specialites TEXT, genre_preference TEXT,
     capacite_max INTEGER DEFAULT 50, webhook_url TEXT, parcoureo_id TEXT,
@@ -648,6 +649,12 @@ async function seed() {
     expire_le TEXT NOT NULL, cree_le TEXT NOT NULL
   )`)
 
+  await client.execute(`CREATE TABLE push_subscription (
+    id TEXT PRIMARY KEY, type TEXT NOT NULL, user_id TEXT NOT NULL,
+    endpoint TEXT NOT NULL, keys_p256dh TEXT NOT NULL, keys_auth TEXT NOT NULL,
+    cree_le TEXT NOT NULL
+  )`)
+
   const now = new Date().toISOString()
 
   // === STRUCTURES (10) ===
@@ -658,9 +665,9 @@ async function seed() {
     const id = uuidv4()
     structureIds.push(id)
     await client.execute({
-      sql: `INSERT INTO structure (id, nom, type, departements, regions, age_min, age_max, specialites, genre_preference, capacite_max, actif, cree_le, mis_a_jour_le)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-      args: [id, s.nom, s.type, JSON.stringify(s.deps), JSON.stringify(s.regions), s.ageMin, s.ageMax, JSON.stringify(s.spes), s.genre, s.cap, now, now],
+      sql: `INSERT INTO structure (id, nom, slug, type, departements, regions, age_min, age_max, specialites, genre_preference, capacite_max, actif, cree_le, mis_a_jour_le)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      args: [id, s.nom, s.slug, s.type, JSON.stringify(s.deps), JSON.stringify(s.regions), s.ageMin, s.ageMax, JSON.stringify(s.spes), s.genre, s.cap, now, now],
     })
   }
 

@@ -5,7 +5,17 @@ import { getConseillerFromHeaders, hasRole, jsonError, jsonSuccess } from '@/lib
 import { logAudit } from '@/lib/auth'
 import { db } from '@/data/db'
 import { structure, conseiller, priseEnCharge } from '@/data/schema'
-import { eq, and, sql, notInArray } from 'drizzle-orm'
+import { eq, and, sql, notInArray, ne } from 'drizzle-orm'
+
+/** Generate a URL-safe slug from a French name */
+function slugify(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
 
 type Params = { params: Promise<{ structureId: string }> }
 
@@ -112,9 +122,29 @@ export async function PUT(request: Request, { params }: Params) {
       }
     }
 
+    // Validate slug if provided
+    if (body.slug !== undefined) {
+      if (typeof body.slug !== 'string' || body.slug.trim().length === 0) {
+        return jsonError('Le slug ne peut pas etre vide', 400)
+      }
+      // Enforce slug format: lowercase, alphanumeric, hyphens only
+      const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+      if (!slugRegex.test(body.slug)) {
+        return jsonError('Le slug ne peut contenir que des lettres minuscules, chiffres et tirets', 400)
+      }
+      // Check uniqueness
+      const existingSlug = await db
+        .select({ id: structure.id })
+        .from(structure)
+        .where(and(eq(structure.slug, body.slug), sql`${structure.id} != ${structureId}`))
+      if (existingSlug.length > 0) {
+        return jsonError('Ce slug est deja utilise par une autre structure', 409)
+      }
+    }
+
     // Build the update object (only allowed fields)
     const allowedFields = [
-      'nom', 'type', 'departements', 'regions', 'ageMin', 'ageMax',
+      'nom', 'slug', 'type', 'departements', 'regions', 'ageMin', 'ageMax',
       'specialites', 'genrePreference', 'capaciteMax', 'webhookUrl', 'parcoureoId', 'actif',
     ]
 

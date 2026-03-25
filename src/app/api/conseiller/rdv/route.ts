@@ -8,7 +8,7 @@ import { rendezVous, priseEnCharge, referral, utilisateur, messageDirect } from 
 import { eq, and, gte, lte, asc } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { logJournal } from '@/lib/journal'
-import { generateJitsiRoomUrl } from '@/lib/jitsi'
+import { createDailyRoom } from '@/lib/jitsi'
 
 export async function GET(request: Request) {
   try {
@@ -130,10 +130,12 @@ export async function POST(request: Request) {
       return jsonError('Prise en charge introuvable ou non autorisée', 404)
     }
 
+    const referralId = pecs[0].referralId
+
     // Si lieu === 'visio' et pas de lien, générer automatiquement
     let finalLienVisio = lienVisio || null
     if (lieu === 'visio' && !finalLienVisio) {
-      finalLienVisio = generateJitsiRoomUrl(priseEnChargeId)
+      finalLienVisio = await createDailyRoom(priseEnChargeId)
     }
 
     const now = new Date().toISOString()
@@ -167,12 +169,18 @@ export async function POST(request: Request) {
       expediteurId: ctx.id,
       contenu: JSON.stringify({
         type: 'rdv',
+        id: rdvId,
         rdvId,
         titre,
-        dateHeure,
-        dureeMinutes: dureeMinutes || 30,
+        dateDebut: dateHeure,
+        dateFin: new Date(new Date(dateHeure).getTime() + (dureeMinutes || 30) * 60000).toISOString(),
         lieu: lieu || null,
+        description: description || null,
         lienVisio: finalLienVisio,
+        statut: 'propose',
+        proposePar: ctx.id,
+        googleUrl: `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titre)}&dates=${new Date(dateHeure).toISOString().replace(/[-:]/g, '').replace('.000', '')}/${new Date(new Date(dateHeure).getTime() + (dureeMinutes || 30) * 60000).toISOString().replace(/[-:]/g, '').replace('.000', '')}&details=${encodeURIComponent(description || 'Rendez-vous Catch\'Up')}&location=${encodeURIComponent(lieu === 'visio' ? (finalLienVisio || 'Visioconférence') : (lieu || ''))}`,
+        icsUrl: `/api/conseiller/file-active/${referralId}/rdv/${rdvId}/ics`,
       }),
       conversationType: 'direct',
       lu: 0,

@@ -14,7 +14,7 @@ export const LIMITS = {
   MAX_MESSAGES_PER_CONVERSATION: parseInt(process.env.MAX_MESSAGES_PER_CONV || '50'),
 
   // Nombre max de tokens en sortie par message (déjà à 500 dans le chat)
-  MAX_OUTPUT_TOKENS: parseInt(process.env.MAX_OUTPUT_TOKENS || '500'),
+  MAX_OUTPUT_TOKENS: parseInt(process.env.MAX_OUTPUT_TOKENS || '350'),
 
   // Budget quotidien global en dollars (toutes conversations confondues)
   DAILY_BUDGET_USD: parseFloat(process.env.DAILY_BUDGET_USD || '10.00'),

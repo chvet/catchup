@@ -41,6 +41,7 @@ export async function GET() {
         id: structureData.id,
         nom: structureData.nom,
         type: structureData.type,
+        slug: structureData.slug || null,
       } : null,
     })
   } catch (error) {

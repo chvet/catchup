@@ -7,10 +7,10 @@ export const maxDuration = 30
 
 export async function POST(req: Request) {
   try {
-    const { messages, profile, messageCount, fromQuiz, fragilityLevel, conversationId } = await req.json()
+    const { messages, profile, messageCount, fromQuiz, fragilityLevel, conversationId, userName } = await req.json()
 
     // ── Construire le system prompt ──
-    const systemPrompt = buildSystemPrompt(profile, messageCount || messages.length, fromQuiz, fragilityLevel)
+    const systemPrompt = buildSystemPrompt(profile, messageCount || messages.length, fromQuiz, fragilityLevel, userName)
 
     // ── Token Guard : vérifier les quotas AVANT d'appeler l'API ──
     const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0].trim()

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/data/db'
-import { conversation, message, utilisateur, referral, profilRiasec, structure, priseEnCharge } from '@/data/schema'
+import { conversation, message, utilisateur, referral, profilRiasec, structure, priseEnCharge, messageDirect, evenementAudit } from '@/data/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
 import { openai } from '@ai-sdk/openai'
 import { generateText } from 'ai'
 import { recordUsage } from '@/lib/token-guard'
+import { logJournal } from '@/lib/journal'
+import { notifyConseillerNewCase } from '@/lib/push-triggers'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +23,7 @@ export async function POST(request: NextRequest) {
       age,
       genre,
       fragilityLevel,
+      structureSlug,
     } = body
 
     if (!conversationId || !utilisateurId) {
@@ -32,14 +35,21 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString()
 
-    // 1. Update user info
+    // 1. Update user info (sans écraser l'email si conflit UNIQUE)
     const updateData: Record<string, unknown> = { misAJourLe: now }
     if (prenom) updateData.prenom = prenom
     if (age) updateData.age = age
     if (departement) updateData.situation = departement
     if (departement) updateData.source = departement // localisation
     if (typeContact === 'telephone' && moyenContact) updateData.telephone = moyenContact
-    if (typeContact === 'email' && moyenContact) updateData.email = moyenContact
+    if (typeContact === 'email' && moyenContact) {
+      // Vérifier que l'email n'est pas déjà utilisé par un autre utilisateur
+      const existingEmail = await db.select({ id: utilisateur.id }).from(utilisateur)
+        .where(and(eq(utilisateur.email, moyenContact), sql`${utilisateur.id} != ${utilisateurId}`))
+      if (existingEmail.length === 0) {
+        updateData.email = moyenContact
+      }
+    }
 
     await db.update(utilisateur).set(updateData).where(eq(utilisateur.id, utilisateurId))
 
@@ -105,6 +115,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 5b. If structureSlug provided, resolve to structure ID for prioritized matching
+    let structureSuggereIdFromSlug: string | null = null
+    if (structureSlug && typeof structureSlug === 'string') {
+      const slugMatch = await db
+        .select({ id: structure.id })
+        .from(structure)
+        .where(and(eq(structure.slug, structureSlug), eq(structure.actif, 1)))
+      if (slugMatch.length > 0) {
+        structureSuggereIdFromSlug = slugMatch[0].id
+      }
+    }
+
     // 6. Matching: get active structures
     const activeStructures = await db
       .select()
@@ -167,6 +189,59 @@ export async function POST(request: NextRequest) {
     // 7. Get RIASEC profile (already fetched above)
     const riasecProfile = profil[0] ?? null
 
+    // 7b. Auto-rupture : si le bénéficiaire a déjà un accompagnement actif, le clôturer
+    const activeReferrals = await db
+      .select({
+        referralId: referral.id,
+        pecId: priseEnCharge.id,
+      })
+      .from(referral)
+      .innerJoin(priseEnCharge, eq(priseEnCharge.referralId, referral.id))
+      .where(
+        and(
+          eq(referral.utilisateurId, utilisateurId),
+          eq(priseEnCharge.statut, 'prise_en_charge')
+        )
+      )
+
+    for (const active of activeReferrals) {
+      // Clôturer la prise en charge
+      await db.update(priseEnCharge).set({
+        statut: 'rupture',
+        termineeLe: now,
+        misAJourLe: now,
+      }).where(eq(priseEnCharge.id, active.pecId))
+
+      // Clôturer le referral
+      await db.update(referral).set({
+        statut: 'rupture',
+        misAJourLe: now,
+      }).where(eq(referral.id, active.referralId))
+
+      // Envoyer un message système dans l'ancien chat
+      await db.insert(messageDirect).values({
+        id: uuidv4(),
+        priseEnChargeId: active.pecId,
+        expediteurType: 'conseiller',
+        expediteurId: 'systeme',
+        contenu: JSON.stringify({
+          type: 'rupture',
+          motif: 'Le bénéficiaire a initié une nouvelle demande.',
+          comportementInaproprie: false,
+          parBeneficiaire: true,
+        }),
+        conversationType: 'direct',
+        lu: 0,
+        horodatage: now,
+      })
+
+      // Log journal
+      await logJournal(active.pecId, 'rupture_beneficiaire', 'systeme', utilisateurId,
+        'Le bénéficiaire a initié une nouvelle demande. L\'accompagnement précédent est clôturé.',
+        { details: { nouvelleConversationId: conversationId } }
+      )
+    }
+
     // 8. Create referral
     const referralId = uuidv4()
     await db.insert(referral).values({
@@ -184,13 +259,19 @@ export async function POST(request: NextRequest) {
       moyenContact: moyenContact ?? null,
       typeContact: typeContact ?? null,
       statut: 'en_attente',
-      structureSuggereId: bestMatch?.structureId ?? null,
+      structureSuggereId: structureSuggereIdFromSlug ?? bestMatch?.structureId ?? null,
       localisation: departement ?? null,
       genre: genre ?? null,
       ageBeneficiaire: age ?? null,
       creeLe: now,
       misAJourLe: now,
     })
+
+    // 8b. Notification push aux conseillers de la structure suggérée
+    const targetStructureId = structureSuggereIdFromSlug ?? bestMatch?.structureId
+    if (targetStructureId) {
+      notifyConseillerNewCase(targetStructureId, { prenom: prenom || undefined, priorite }).catch(() => {})
+    }
 
     // 9. Return response — inclut les top 3 structures pour affichage au bénéficiaire
     const top3 = matchResults.slice(0, 3).map(m => ({

@@ -16,9 +16,13 @@ export type JournalEventType =
   | 'video_acceptee'
   | 'video_refusee'
   | 'rdv_planifie'
+  | 'rdv_accepte'
+  | 'rdv_refuse'
   | 'bris_de_glace'
   | 'tiers_invite'
   | 'tiers_revoque'
+  | 'rupture_conseiller'
+  | 'rupture_beneficiaire'
 
 export type ActeurType = 'conseiller' | 'beneficiaire' | 'tiers' | 'systeme'
 

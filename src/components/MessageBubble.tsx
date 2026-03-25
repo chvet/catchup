@@ -11,7 +11,8 @@ interface Props {
 
 export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode }: Props) {
   const isUser = message.role === 'user'
-  const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const msgDate = message.createdAt ? new Date(message.createdAt) : new Date()
+  const time = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
   return (
     <div className={`flex mb-2.5 msg-appear ${isUser ? 'justify-end' : 'justify-start'}`}>

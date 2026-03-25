@@ -13,9 +13,11 @@ interface Props {
   onReset: () => void
   rgaaMode: boolean
   ttsEnabled: boolean
+  authPrenom?: string | null
+  onAuthClick?: () => void
 }
 
-export default function ChatHeader({ profile, streak = 0, hasMessages = false, onToggleProfile, onToggleRgaa, onToggleTts, onReset, rgaaMode, ttsEnabled }: Props) {
+export default function ChatHeader({ profile, streak = 0, hasMessages = false, onToggleProfile, onToggleRgaa, onToggleTts, onReset, rgaaMode, ttsEnabled, authPrenom, onAuthClick }: Props) {
   const hasProfile = hasSignificantProfile(profile)
 
   return (
@@ -72,13 +74,35 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
         </HeaderBtn>
 
+        {onAuthClick && (
+          <button
+            onClick={onAuthClick}
+            className="p-2 rounded-full hover:bg-white/10 transition-colors relative flex items-center gap-1"
+            title={authPrenom ? authPrenom : 'Mon compte'}
+          >
+            {authPrenom ? (
+              <>
+                <span className="text-xs font-semibold max-w-[60px] truncate hidden sm:inline">{authPrenom}</span>
+                <span className="w-2 h-2 bg-green-400 rounded-full border border-white/50" />
+              </>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            )}
+          </button>
+        )}
+
         <button
           onClick={onToggleProfile}
           className="p-2 rounded-full hover:bg-white/10 transition-colors relative"
-          title="Mon profil"
+          title="Mon profil RIASEC"
         >
+          {/* Icône cible / bullseye pour le profil RIASEC */}
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            <circle cx="12" cy="12" r="10" strokeWidth={2} />
+            <circle cx="12" cy="12" r="6" strokeWidth={2} />
+            <circle cx="12" cy="12" r="2" fill="currentColor" />
           </svg>
           {hasProfile && (
             <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-catchup-primary" />

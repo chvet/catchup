@@ -7,6 +7,7 @@ import { useConseiller } from '@/components/conseiller/ConseillerProvider'
 interface StructureDetail {
   id: string
   nom: string
+  slug?: string
   type: string
   departements: string
   ageMin: number
@@ -80,6 +81,11 @@ export default function StructureDetailPage() {
     capaciteMax: 50,
   })
 
+  const [slugEditing, setSlugEditing] = useState(false)
+  const [slugValue, setSlugValue] = useState('')
+  const [slugSaving, setSlugSaving] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
+
   const isAdmin = conseiller?.role === 'admin_structure' || conseiller?.role === 'super_admin'
   const isSuperAdmin = conseiller?.role === 'super_admin'
 
@@ -119,6 +125,7 @@ export default function StructureDetailPage() {
         specialites: specs.join(', '),
         capaciteMax: structure.capaciteMax,
       })
+      setSlugValue(structure.slug || '')
     }
   }, [structure])
 
@@ -193,6 +200,92 @@ export default function StructureDetailPage() {
       setConseillers(prev =>
         prev.map(c => c.id === conseillerId ? { ...c, actif: currentActif ? 0 : 1 } : c)
       )
+    }
+  }
+
+  const structureUrl = structure.slug
+    ? `https://catchup.jaeprive.fr/?s=${structure.slug}`
+    : null
+  const encodedUrl = structureUrl ? encodeURIComponent(structureUrl) : ''
+  const qrCodeSrc = structureUrl
+    ? `/api/qrcode?size=200&data=${encodedUrl}`
+    : null
+  const qrCodeLargeSrc = structureUrl
+    ? `/api/qrcode?size=300&data=${encodedUrl}`
+    : null
+
+  const handleCopyLink = async () => {
+    if (!structureUrl) return
+    try {
+      await navigator.clipboard.writeText(structureUrl)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      // fallback
+    }
+  }
+
+  const handleDownloadQR = async () => {
+    if (!qrCodeSrc) return
+    const link = document.createElement('a')
+    link.href = qrCodeSrc
+    link.download = `qrcode-${structure.slug}.png`
+    link.target = '_blank'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handlePrintPoster = () => {
+    if (!structureUrl || !qrCodeLargeSrc) return
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Affiche Catch'Up - ${structure.nom}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; padding: 40px; text-align: center;
+          }
+          h1 { font-size: 2.5rem; color: #1a1a1a; margin-bottom: 1rem; }
+          .qr { margin: 2rem 0; }
+          .url { font-size: 1.1rem; color: #555; margin-bottom: 1.5rem; word-break: break-all; }
+          .cta { font-size: 1.4rem; color: #6366f1; font-weight: 600; }
+          @media print { body { padding: 60px; } }
+        </style>
+      </head>
+      <body>
+        <h1>${structure.nom}</h1>
+        <div class="qr"><img src="${window.location.origin}${qrCodeLargeSrc}" alt="QR Code" width="300" height="300" /></div>
+        <p class="url">${structureUrl}</p>
+        <p class="cta">Scannez pour acc&eacute;der &agrave; Catch&rsquo;Up</p>
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
+  const handleSlugSave = async () => {
+    if (!slugValue.trim()) return
+    setSlugSaving(true)
+    try {
+      const res = await fetch(`/api/conseiller/structures/${structureId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: slugValue.trim().toLowerCase() }),
+      })
+      if (res.ok) {
+        await fetchData()
+        setSlugEditing(false)
+      }
+    } finally {
+      setSlugSaving(false)
     }
   }
 
@@ -382,6 +475,114 @@ export default function StructureDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Lien & QR Code */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Lien &amp; QR Code</h3>
+
+        {/* Slug */}
+        <div className="mb-4">
+          <p className="text-xs text-gray-400 mb-1">Slug de la structure</p>
+          {slugEditing ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={slugValue}
+                onChange={e => setSlugValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+                placeholder="mon-structure"
+              />
+              <button
+                onClick={handleSlugSave}
+                disabled={slugSaving}
+                className="px-3 py-2 bg-catchup-primary text-white rounded-lg text-sm font-medium hover:bg-catchup-primary/90 transition-colors disabled:opacity-50"
+              >
+                {slugSaving ? '...' : 'Enregistrer'}
+              </button>
+              <button
+                onClick={() => { setSlugEditing(false); setSlugValue(structure.slug || '') }}
+                className="px-3 py-2 text-gray-500 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-mono text-gray-700 bg-gray-50 px-3 py-1.5 rounded-lg">
+                {structure.slug || <span className="text-gray-400 italic">Non défini</span>}
+              </span>
+              <button
+                onClick={() => { setSlugValue(structure.slug || ''); setSlugEditing(true) }}
+                className="px-2 py-1 text-xs text-catchup-primary border border-catchup-primary rounded hover:bg-catchup-primary/10 transition-colors"
+              >
+                Modifier
+              </button>
+            </div>
+          )}
+        </div>
+
+        {structureUrl ? (
+          <>
+            {/* Lien personnalise */}
+            <div className="mb-4">
+              <p className="text-xs text-gray-400 mb-1">Lien personnalisé</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={structureUrl}
+                  className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 font-mono"
+                />
+                <button
+                  onClick={handleCopyLink}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    linkCopied
+                      ? 'bg-green-500 text-white'
+                      : 'bg-catchup-primary text-white hover:bg-catchup-primary/90'
+                  }`}
+                >
+                  {linkCopied ? 'Copié !' : 'Copier'}
+                </button>
+              </div>
+            </div>
+
+            {/* QR Code */}
+            <div className="mb-4">
+              <p className="text-xs text-gray-400 mb-2">QR Code</p>
+              <div className="flex items-start gap-4">
+                <div className="border border-gray-200 rounded-lg p-2 bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrCodeSrc!}
+                    alt={`QR Code pour ${structure.nom}`}
+                    width={200}
+                    height={200}
+                    className="block"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={handleDownloadQR}
+                    className="px-4 py-2 text-sm font-medium text-catchup-primary border border-catchup-primary rounded-lg hover:bg-catchup-primary/10 transition-colors"
+                  >
+                    Télécharger le QR Code
+                  </button>
+                  <button
+                    onClick={handlePrintPoster}
+                    className="px-4 py-2 text-sm font-medium text-white bg-catchup-primary rounded-lg hover:bg-catchup-primary/90 transition-colors"
+                  >
+                    Imprimer l&apos;affiche
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="text-sm text-gray-400 bg-gray-50 rounded-lg p-4 text-center">
+            Définissez un slug pour générer le lien personnalisé et le QR Code.
+          </div>
+        )}
+      </div>
 
       {/* Delete confirmation */}
       {deleteConfirm && (

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { ConseillerProvider, type ConseillerInfo } from '@/components/conseiller/ConseillerProvider'
+import PushNotificationManager from '@/components/PushNotificationManager'
+import { useHeartbeat } from '@/hooks/useHeartbeat'
 
 interface AlertsData {
   enAttente: number
@@ -23,6 +25,9 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
   const pathname = usePathname()
 
   const isLoginPage = pathname === '/conseiller/login'
+
+  // Send heartbeat for the conseiller
+  useHeartbeat('conseiller', conseiller?.id)
 
   // Détecter le responsive (mobile < 1024px)
   useEffect(() => {
@@ -110,7 +115,10 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
           { href: '/conseiller/conseillers', label: 'Conseillers', icon: '👥' },
         ]
       : []),
-    { href: '/conseiller/parametres', label: 'Paramètres', icon: '⚙️' },
+    ...(conseiller?.role === 'super_admin'
+      ? [{ href: '/conseiller/admin', label: 'Administration', icon: '⚙️' }]
+      : []),
+    { href: '/conseiller/parametres', label: 'Paramètres', icon: '🔧' },
   ]
 
   return (
@@ -235,6 +243,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
                 {pathname.startsWith('/conseiller/file-active') && 'File active'}
                 {pathname.startsWith('/conseiller/structures') && 'Structures'}
                 {pathname.startsWith('/conseiller/conseillers') && 'Conseillers'}
+                {pathname.startsWith('/conseiller/admin') && 'Administration'}
                 {pathname.startsWith('/conseiller/parametres') && 'Paramètres'}
               </nav>
             </div>
@@ -285,6 +294,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
           </div>
         </main>
       </div>
+      {conseiller && <PushNotificationManager type="conseiller" />}
     </ConseillerProvider>
   )
 }

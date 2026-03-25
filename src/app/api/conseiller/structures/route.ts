@@ -8,6 +8,16 @@ import { structure, conseiller, priseEnCharge } from '@/data/schema'
 import { eq, and, like, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 
+/** Generate a URL-safe slug from a French name */
+function slugify(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove accents
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')    // replace non-alphanumeric with hyphens
+    .replace(/^-+|-+$/g, '')        // trim leading/trailing hyphens
+}
+
 export async function GET(request: Request) {
   try {
     const ctx = await getConseillerFromHeaders()
@@ -35,6 +45,7 @@ export async function GET(request: Request) {
       .select({
         id: structure.id,
         nom: structure.nom,
+        slug: structure.slug,
         type: structure.type,
         departements: structure.departements,
         regions: structure.regions,
@@ -70,7 +81,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { nom, type, departements, regions, ageMin, ageMax, specialites, genrePreference, capaciteMax, webhookUrl, parcoureoId } = body
+    const { nom, type, departements, regions, ageMin, ageMax, specialites, genrePreference, capaciteMax, webhookUrl, parcoureoId, slug: slugInput } = body
 
     if (!nom || typeof nom !== 'string' || nom.trim().length === 0) {
       return jsonError('Le nom est requis', 400)
@@ -89,10 +100,21 @@ export async function POST(request: Request) {
       return jsonError('Au moins un departement est requis', 400)
     }
 
+    // Generate or validate slug
+    const generatedSlug = slugInput ? slugify(slugInput) : slugify(nom)
+    const existingSlug = await db
+      .select({ id: structure.id })
+      .from(structure)
+      .where(eq(structure.slug, generatedSlug))
+    if (existingSlug.length > 0) {
+      return jsonError('Ce slug est deja utilise', 409)
+    }
+
     const now = new Date().toISOString()
     const newStructure = {
       id: uuidv4(),
       nom: nom.trim(),
+      slug: generatedSlug,
       type,
       departements: JSON.stringify(departements),
       regions: regions ? JSON.stringify(regions) : null,

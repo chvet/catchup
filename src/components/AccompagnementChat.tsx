@@ -7,6 +7,25 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import VideoCallCard from './VideoCallCard'
 import RdvCard from './RdvCard'
+import PushNotificationManager from './PushNotificationManager'
+import OnlineDot from './OnlineDot'
+import { useHeartbeat } from '@/hooks/useHeartbeat'
+import { useIsOnline } from '@/hooks/useOnlineStatus'
+
+// Parse les dates SQLite ("2024-01-15 14:30:00") qui échouent sur Safari/iOS
+function safeParseDate(dateStr: string): Date {
+  if (!dateStr) return new Date()
+  // Remplacer l'espace par T et ajouter Z si pas de timezone
+  let normalized = dateStr
+  if (normalized.includes(' ') && !normalized.includes('T')) {
+    normalized = normalized.replace(' ', 'T')
+  }
+  if (!normalized.endsWith('Z') && !normalized.includes('+') && !normalized.includes('-', 10)) {
+    normalized += 'Z'
+  }
+  const d = new Date(normalized)
+  return isNaN(d.getTime()) ? new Date() : d
+}
 
 interface DirectMessage {
   id: string
@@ -19,9 +38,13 @@ interface DirectMessage {
 
 interface AccompagnementChatProps {
   token: string
+  referralId?: string
+  conseillerId?: string
   conseillerPrenom: string
   structureNom: string
+  beneficiairePrenom?: string
   onNewMessage?: () => void // callback pour notifier le parent (badge)
+  embedded?: boolean // quand true, pas de header (le parent fournit le header)
 }
 
 // Types de contenu structuré dans les messages
@@ -46,21 +69,44 @@ interface VideoContent {
 interface RdvContent {
   type: 'rdv'
   id: string
+  rdvId?: string
   titre: string
   dateDebut: string
   dateFin: string
+  lieu?: string
   description?: string
   googleUrl: string
   icsUrl: string
+  statut?: string
+  proposePar?: string
+  motifRefus?: string
 }
 
-type StructuredContent = DocumentContent | VideoContent | RdvContent
+interface RuptureContent {
+  type: 'rupture'
+  motif: string
+  comportementInaproprie?: boolean
+  parConseiller?: boolean
+  parBeneficiaire?: boolean
+}
+
+interface SystemContent {
+  type: 'system'
+  content: string
+  comportementInaproprie?: boolean
+}
+
+type StructuredContent = DocumentContent | VideoContent | RdvContent | RuptureContent | SystemContent
 
 function parseMessageContent(contenu: string | null | undefined): StructuredContent | null {
   if (!contenu || typeof contenu !== 'string') return null
   try {
     const parsed = JSON.parse(contenu)
     if (parsed && typeof parsed === 'object' && parsed.type) {
+      // Normaliser : le JSON stocké utilise "id" mais l'interface attend "appelVideoId"
+      if (parsed.type === 'video' && parsed.id && !parsed.appelVideoId) {
+        parsed.appelVideoId = parsed.id
+      }
       return parsed as StructuredContent
     }
   } catch {
@@ -83,7 +129,12 @@ function getFileIcon(mimeType: string): string {
   return '\u{1F4CE}'
 }
 
-export default function AccompagnementChat({ token, conseillerPrenom, structureNom, onNewMessage }: AccompagnementChatProps) {
+export default function AccompagnementChat({ token, referralId, conseillerId, conseillerPrenom, structureNom, beneficiairePrenom, onNewMessage, embedded = false }: AccompagnementChatProps) {
+  // Send heartbeat for the beneficiary
+  useHeartbeat('beneficiaire', referralId)
+  // Check if the conseiller is online
+  const conseillerOnline = useIsOnline(conseillerId)
+
   const [messages, setMessages] = useState<DirectMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [input, setInput] = useState('')
@@ -96,6 +147,8 @@ export default function AccompagnementChat({ token, conseillerPrenom, structureN
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [error, setError] = useState<string | null>(null)
+  const [ruptured, setRuptured] = useState(false)
+  const [ruptureInfo, setRuptureInfo] = useState<RuptureContent | null>(null)
 
   // Charger les messages initiaux
   useEffect(() => {
@@ -107,7 +160,17 @@ export default function AccompagnementChat({ token, conseillerPrenom, structureN
         return r.json()
       })
       .then(data => {
-        setMessages(data.messages || [])
+        const msgs = data.messages || []
+        setMessages(msgs)
+        // Vérifier si un message de rupture existe déjà
+        for (const m of msgs) {
+          const parsed = parseMessageContent(m.contenu)
+          if (parsed && parsed.type === 'rupture') {
+            setRuptured(true)
+            setRuptureInfo(parsed as RuptureContent)
+            break
+          }
+        }
         setLoading(false)
       })
       .catch((err) => {
@@ -125,12 +188,21 @@ export default function AccompagnementChat({ token, conseillerPrenom, structureN
 
     es.onmessage = (event) => {
       try {
-        const msg: DirectMessage = JSON.parse(event.data)
+        const data = JSON.parse(event.data)
+        // SSE envoie { type: 'connected' } ou { type: 'message', ...fields }
+        if (data.type === 'connected') { setConnected(true); return }
+        const msg: DirectMessage = data.message || data
+        if (!msg.id) return
         setMessages(prev => {
           if (prev.some(m => m.id === msg.id)) return prev
           return [...prev, msg]
         })
-        // Notifier le parent si c'est un message du conseiller
+        // Détecter les messages de rupture en temps réel
+        const parsedMsg = parseMessageContent(msg.contenu)
+        if (parsedMsg && parsedMsg.type === 'rupture') {
+          setRuptured(true)
+          setRuptureInfo(parsedMsg as RuptureContent)
+        }
         if (msg.expediteurType === 'conseiller' && onNewMessage) {
           onNewMessage()
         }
@@ -203,23 +275,23 @@ export default function AccompagnementChat({ token, conseillerPrenom, structureN
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const data = JSON.parse(xhr.responseText)
-              if (data.messageId) {
-                // Le message sera reçu via SSE, ou on l'ajoute manuellement
-                const docMessage: DirectMessage = {
-                  id: data.messageId,
-                  expediteurType: 'beneficiaire',
-                  expediteurId: '',
-                  contenu: JSON.stringify({
-                    type: 'document',
-                    filename: data.document.filename,
-                    originalName: data.document.originalName,
-                    size: data.document.size,
-                    mimeType: data.document.mimeType,
-                    url: data.document.url,
-                  }),
-                  lu: false,
-                  horodatage: new Date().toISOString(),
-                }
+              // Utiliser le message complet retourné par l'API si disponible
+              const docMessage: DirectMessage = data.message || {
+                id: data.messageId,
+                expediteurType: 'beneficiaire',
+                expediteurId: '',
+                contenu: JSON.stringify({
+                  type: 'document',
+                  filename: data.document.filename,
+                  originalName: data.document.originalName,
+                  size: data.document.size,
+                  mimeType: data.document.mimeType,
+                  url: data.document.url,
+                }),
+                lu: false,
+                horodatage: new Date().toISOString(),
+              }
+              if (docMessage.id) {
                 setMessages(prev => {
                   if (prev.some(m => m.id === docMessage.id)) return prev
                   return [...prev, docMessage]
@@ -267,21 +339,68 @@ export default function AccompagnementChat({ token, conseillerPrenom, structureN
       })
 
       if (res.ok) {
+        const responseData = await res.json()
         // Mettre à jour le statut du message vidéo localement
         setMessages(prev => prev.map(msg => {
-          const content = parseMessageContent(msg.contenu)
-          if (content && content.type === 'video' && (content as VideoContent).appelVideoId === appelVideoId) {
-            const updated = {
-              ...content,
-              statut: action === 'accepter' ? 'acceptee' : 'refusee',
+          if (msg.id === appelVideoId) {
+            // Mettre à jour le JSON stocké dans contenu
+            try {
+              const parsed = JSON.parse(msg.contenu)
+              parsed.statut = action === 'accepter' ? 'acceptee' : 'refusee'
+              return { ...msg, contenu: JSON.stringify(parsed) }
+            } catch {
+              return msg
             }
-            return { ...msg, contenu: JSON.stringify(updated) }
+          }
+          return msg
+        }))
+
+        // Si accepté, ouvrir directement la visio sur mobile
+        if (action === 'accepter' && responseData.jitsiUrl) {
+          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+          if (isMobile) {
+            // Append beneficiary role and name to the visio URL
+            const visioUrl = new URL(responseData.jitsiUrl, window.location.origin)
+            visioUrl.searchParams.set('role', 'beneficiaire')
+            if (beneficiairePrenom) visioUrl.searchParams.set('name', beneficiairePrenom)
+            window.open(visioUrl.toString(), '_blank', 'noopener,noreferrer')
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Erreur réponse vidéo', err)
+    }
+  }, [token])
+
+  // Réponse à un RDV proposé
+  const handleRdvResponse = useCallback(async (rdvMsgId: string, action: 'accepter' | 'refuser', motif?: string) => {
+    try {
+      const res = await fetch('/api/accompagnement/rdv/reponse', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ messageId: rdvMsgId, action, motif }),
+      })
+
+      if (res.ok) {
+        setMessages(prev => prev.map(msg => {
+          if (msg.id === rdvMsgId) {
+            try {
+              const parsed = JSON.parse(msg.contenu)
+              parsed.statut = action === 'accepter' ? 'accepte' : 'refuse'
+              if (motif) parsed.motifRefus = motif
+              return { ...msg, contenu: JSON.stringify(parsed) }
+            } catch {
+              return msg
+            }
           }
           return msg
         }))
       }
     } catch (err) {
-      console.error('Erreur réponse vidéo', err)
+      console.error('Erreur réponse RDV', err)
     }
   }, [token])
 
@@ -342,7 +461,7 @@ export default function AccompagnementChat({ token, conseillerPrenom, structureN
         return (
           <VideoCallCard
             proposal={{
-              id: video.appelVideoId,
+              id: msg.id, // ID du message (pas du payload) pour l'API de réponse
               statut: video.statut,
               jitsiUrl: video.jitsiUrl,
               proposePar: video.proposePar,
@@ -358,7 +477,60 @@ export default function AccompagnementChat({ token, conseillerPrenom, structureN
       case 'rdv': {
         const rdv = structured as RdvContent
         return (
-          <RdvCard rdv={rdv} />
+          <RdvCard
+            rdv={rdv}
+            viewerType="beneficiaire"
+            onAccept={(id) => handleRdvResponse(msg.id, 'accepter')}
+            onDecline={(id, motif) => handleRdvResponse(msg.id, 'refuser', motif)}
+          />
+        )
+      }
+
+      case 'rupture': {
+        const ruptureData = structured as RuptureContent
+        return (
+          <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 w-full">
+            {ruptureData.comportementInaproprie ? (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">&#9888;&#65039;</span>
+                  <span className="text-sm font-semibold text-red-800">Accompagnement interrompu</span>
+                </div>
+                <p className="text-sm text-red-700">
+                  Votre accompagnement a &eacute;t&eacute; interrompu. Un comportement inappropri&eacute; a &eacute;t&eacute; signal&eacute;.
+                </p>
+              </>
+            ) : ruptureData.parBeneficiaire ? (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">&#8505;&#65039;</span>
+                  <span className="text-sm font-semibold text-gray-800">Accompagnement cl&ocirc;tur&eacute;</span>
+                </div>
+                <p className="text-sm text-gray-700">
+                  Cet accompagnement a &eacute;t&eacute; cl&ocirc;tur&eacute; suite &agrave; une nouvelle demande.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">&#9888;&#65039;</span>
+                  <span className="text-sm font-semibold text-red-800">Accompagnement cl&ocirc;tur&eacute;</span>
+                </div>
+                <p className="text-sm text-red-700">
+                  Votre accompagnement a &eacute;t&eacute; cl&ocirc;tur&eacute; par votre conseiller.
+                </p>
+              </>
+            )}
+          </div>
+        )
+      }
+
+      case 'system': {
+        const sysData = structured as SystemContent
+        return (
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 w-full">
+            <p className="text-sm text-gray-600">{sysData.content}</p>
+          </div>
         )
       }
 
@@ -394,21 +566,21 @@ export default function AccompagnementChat({ token, conseillerPrenom, structureN
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* En-tête du chat */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-catchup-primary/5 to-white">
-        <div className="w-10 h-10 rounded-full bg-catchup-primary/20 flex items-center justify-center">
-          <span className="text-lg">{'\u{1F464}'}</span>
+    <div className="flex flex-col h-full bg-white overflow-x-hidden">
+      <PushNotificationManager type="beneficiaire" />
+      {/* En-tête du chat (masqué en mode embedded) */}
+      {!embedded && (
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-catchup-primary/5 to-white">
+          <div className="w-10 h-10 rounded-full bg-catchup-primary/20 flex items-center justify-center">
+            <span className="text-lg">{'\u{1F464}'}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-800 truncate">{conseillerPrenom}</p>
+            <p className="text-xs text-gray-500 truncate">{structureNom}</p>
+          </div>
+          <OnlineDot online={conseillerOnline || connected} showLabel />
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-800 truncate">{conseillerPrenom}</p>
-          <p className="text-xs text-gray-500 truncate">{structureNom}</p>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
-          <span className="text-xs text-gray-400">{connected ? 'En ligne' : 'Connexion...'}</span>
-        </div>
-      </div>
+      )}
 
       {/* Zone de messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
@@ -427,9 +599,10 @@ export default function AccompagnementChat({ token, conseillerPrenom, structureN
         ) : (
           messages.map((msg, idx) => {
             const isMine = msg.expediteurType === 'beneficiaire'
-            const time = new Date(msg.horodatage)
+            const time = safeParseDate(msg.horodatage)
+            const prevTime = idx > 0 ? safeParseDate(messages[idx - 1].horodatage) : null
             const showTime = idx === 0 || (
-              time.getTime() - new Date(messages[idx - 1].horodatage).getTime() > 5 * 60 * 1000
+              prevTime ? time.getTime() - prevTime.getTime() > 5 * 60 * 1000 : true
             )
             const structured = parseMessageContent(msg.contenu)
             const isCard = structured !== null
@@ -494,54 +667,67 @@ export default function AccompagnementChat({ token, conseillerPrenom, structureN
         </div>
       )}
 
-      {/* Zone de saisie (mobile-optimized) */}
-      <div className="px-3 py-2 border-t border-gray-100 bg-white safe-area-bottom">
-        <div className="flex items-end gap-2">
-          {/* Bouton upload document */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-catchup-primary hover:bg-catchup-primary/10 rounded-full disabled:opacity-40 transition-all active:scale-95"
-            aria-label="Joindre un fichier"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-            </svg>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={handleFileSelect}
-            accept="*/*"
-          />
-
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSend()
-              }
-            }}
-            placeholder="Message..."
-            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-full text-sm focus:ring-2 focus:ring-catchup-primary focus:border-transparent outline-none transition bg-gray-50"
-            disabled={sending}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || sending}
-            className="w-10 h-10 flex items-center justify-center bg-catchup-primary text-white rounded-full hover:bg-catchup-primary/90 disabled:opacity-40 transition-all active:scale-95"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-          </button>
+      {/* Zone de saisie (mobile-optimized) ou bandeau rupture */}
+      {ruptured ? (
+        <div className="px-4 py-3 border-t border-red-200 bg-red-50 safe-area-bottom">
+          <p className="text-sm text-red-700 font-medium text-center">
+            {ruptureInfo?.comportementInaproprie
+              ? '\u26A0\uFE0F Votre accompagnement a \u00E9t\u00E9 interrompu. Un comportement inappropri\u00E9 a \u00E9t\u00E9 signal\u00E9.'
+              : ruptureInfo?.parBeneficiaire
+                ? 'Cet accompagnement a \u00E9t\u00E9 cl\u00F4tur\u00E9 suite \u00E0 une nouvelle demande.'
+                : 'Votre accompagnement a \u00E9t\u00E9 cl\u00F4tur\u00E9 par votre conseiller.'
+            }
+          </p>
         </div>
-      </div>
+      ) : (
+        <div className="px-3 py-2 border-t border-gray-100 bg-white safe-area-bottom">
+          <div className="flex items-end gap-2">
+            {/* Bouton upload document */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-catchup-primary hover:bg-catchup-primary/10 rounded-full disabled:opacity-40 transition-all active:scale-95"
+              aria-label="Joindre un fichier"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleFileSelect}
+              accept="*/*"
+            />
+
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+              placeholder="Message..."
+              className="flex-1 px-4 py-2.5 border border-gray-200 rounded-full text-sm focus:ring-2 focus:ring-catchup-primary focus:border-transparent outline-none transition bg-gray-50"
+              disabled={sending}
+            />
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || sending}
+              className="w-10 h-10 flex items-center justify-center bg-catchup-primary text-white rounded-full hover:bg-catchup-primary/90 disabled:opacity-40 transition-all active:scale-95"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

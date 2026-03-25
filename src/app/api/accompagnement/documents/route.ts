@@ -74,10 +74,21 @@ export async function POST(request: Request) {
       result.document
     )
 
+    // Retourner le message complet pour affichage immédiat côté client
+    const now = new Date().toISOString()
     return NextResponse.json(
       {
         messageId,
         document: result.document,
+        message: {
+          id: messageId,
+          priseEnChargeId: beneficiaire.priseEnChargeId,
+          expediteurType: 'beneficiaire',
+          expediteurId: beneficiaire.utilisateurId,
+          contenu: JSON.stringify(result.document),
+          lu: 0,
+          horodatage: now,
+        },
       },
       { status: 201 }
     )

@@ -102,10 +102,21 @@ export async function POST(
       size: result.document.size,
     })
 
+    // Retourner le message complet pour affichage immédiat côté client
+    const now = new Date().toISOString()
     return jsonSuccess(
       {
         messageId,
         document: result.document,
+        message: {
+          id: messageId,
+          priseEnChargeId: pec.id,
+          expediteurType: 'conseiller',
+          expediteurId: ctx.id,
+          contenu: JSON.stringify(result.document),
+          lu: 0,
+          horodatage: now,
+        },
       },
       201
     )

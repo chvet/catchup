@@ -2,11 +2,12 @@
 // Messagerie directe bénéficiaire ↔ conseiller
 
 import { db } from '@/data/db'
-import { messageDirect, conseiller, structure } from '@/data/schema'
+import { messageDirect, conseiller, structure, utilisateur } from '@/data/schema'
 import { eq, asc } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 import { getBeneficiaireFromToken } from '@/lib/accompagnement-helpers'
+import { notifyConseillerNewMessage } from '@/lib/push-triggers'
 
 export async function GET(request: Request) {
   try {
@@ -107,6 +108,13 @@ export async function POST(request: Request) {
     }
 
     await db.insert(messageDirect).values(newMessage)
+
+    // Notification push au conseiller
+    try {
+      const users = await db.select({ prenom: utilisateur.prenom }).from(utilisateur).where(eq(utilisateur.id, beneficiaire.utilisateurId))
+      const prenom = users[0]?.prenom || 'Un beneficiaire'
+      notifyConseillerNewMessage(beneficiaire.conseillerId, prenom).catch(() => {})
+    } catch { /* push non-bloquant */ }
 
     return NextResponse.json({ message: newMessage }, { status: 201 })
   } catch (error) {

@@ -117,9 +117,9 @@ async function getO365Token(): Promise<string | null> {
 
 // ─── Envoi par Email via Office 365 (Microsoft Graph API) ───
 async function sendEmailO365(to: string, subject: string, body: string): Promise<NotificationResult> {
-  const senderEmail = process.env.O365_SENDER_EMAIL
+  const senderEmail = process.env.O365_SENDER_EMAIL || process.env.SMTP_FROM
   if (!senderEmail) {
-    return { sent: false, channel: 'email', error: 'O365_SENDER_EMAIL not set' }
+    return { sent: false, channel: 'email', error: 'O365_SENDER_EMAIL or SMTP_FROM not set' }
   }
 
   const token = await getO365Token()
@@ -240,7 +240,7 @@ async function sendEmail(to: string, subject: string, body: string): Promise<Not
   }
 
   // 2. Office 365 Graph API
-  const o365Configured = process.env.O365_TENANT_ID && process.env.O365_CLIENT_ID && process.env.O365_CLIENT_SECRET && process.env.O365_SENDER_EMAIL
+  const o365Configured = process.env.O365_TENANT_ID && process.env.O365_CLIENT_ID && process.env.O365_CLIENT_SECRET
   if (o365Configured) {
     const result = await sendEmailO365(to, subject, body)
     if (result.sent) return result

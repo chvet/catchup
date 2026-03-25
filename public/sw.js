@@ -1,7 +1,8 @@
 // Service Worker Catch'Up
 // Gestion du cache et des notifications push
 
-const CACHE_NAME = 'catchup-v1';
+const CACHE_NAME = 'catchup-v2';
+const API_CACHE_NAME = 'catchup-api-v1';
 
 // Ressources à pré-cacher lors de l'installation
 const PRE_CACHE_URLS = [
@@ -29,7 +30,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name !== CACHE_NAME)
+          .filter((name) => name !== CACHE_NAME && name !== API_CACHE_NAME)
           .map((name) => caches.delete(name))
       );
     })
@@ -43,7 +44,19 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Réseau uniquement pour les appels API
+  // Stale-while-revalidate pour les API fiches (données métiers cachéables)
+  if (url.pathname.startsWith('/api/fiches') && request.method === 'GET') {
+    event.respondWith(staleWhileRevalidate(request, API_CACHE_NAME));
+    return;
+  }
+
+  // Stale-while-revalidate pour les infos structure (rarement modifiées)
+  if (url.pathname.startsWith('/api/structures/') && request.method === 'GET') {
+    event.respondWith(staleWhileRevalidate(request, API_CACHE_NAME));
+    return;
+  }
+
+  // Réseau uniquement pour les autres appels API (chat, referrals, etc.)
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(networkOnly(request));
     return;
@@ -63,8 +76,37 @@ self.addEventListener('fetch', (event) => {
 
 // Vérifie si la ressource est un asset statique
 function isStaticAsset(pathname) {
-  return /\.(js|css|png|jpg|jpeg|gif|svg|webp|woff|woff2|ttf|eot|ico)$/.test(pathname)
+  return /\.(js|css|png|jpg|jpeg|gif|svg|webp|avif|woff|woff2|ttf|eot|ico)$/.test(pathname)
     || pathname.startsWith('/_next/static/');
+}
+
+// Stratégie : stale-while-revalidate — sert le cache instantanément et met à jour en arrière-plan
+async function staleWhileRevalidate(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+
+  // Revalider en arrière-plan (fire-and-forget)
+  const fetchPromise = fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        cache.put(request, response.clone());
+      }
+      return response;
+    })
+    .catch(() => null);
+
+  // Retourner le cache immédiatement s'il existe, sinon attendre le réseau
+  if (cached) {
+    return cached;
+  }
+
+  const networkResponse = await fetchPromise;
+  if (networkResponse) return networkResponse;
+
+  return new Response(JSON.stringify({ error: 'Hors connexion' }), {
+    status: 503,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 // Stratégie : cache d'abord, puis réseau en fallback
@@ -123,36 +165,23 @@ async function networkOnly(request) {
 }
 
 // --- Notifications Push ---
-// Gestion de la réception des notifications push (pour usage futur)
+// Réception et affichage des notifications push
 self.addEventListener('push', (event) => {
-  // Données par défaut si le payload est vide
-  const defaultData = {
-    title: "Catch'Up",
-    body: "Tu as une nouvelle suggestion !",
-    icon: '/icons/icon.svg',
-    badge: '/icons/icon.svg',
-    tag: 'catchup-notification',
-  };
-
-  let data = defaultData;
-
-  if (event.data) {
-    try {
-      data = { ...defaultData, ...event.data.json() };
-    } catch {
-      data.body = event.data.text();
-    }
-  }
+  const data = event.data
+    ? (() => {
+        try { return event.data.json(); }
+        catch { return { title: "Catch'Up", body: event.data.text() }; }
+      })()
+    : { title: "Catch'Up", body: 'Nouvelle notification' };
 
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: data.icon,
-      badge: data.badge,
-      tag: data.tag,
-      data: data.url || '/',
-      // Vibrer sur mobile
-      vibrate: [100, 50, 100],
+      icon: '/icons/icon.svg',
+      badge: '/icons/icon.svg',
+      vibrate: [200, 100, 200],
+      data: { url: data.url || '/' },
+      actions: data.actions || [],
     })
   );
 });
@@ -162,23 +191,21 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetUrl = event.notification.data || '/';
+  const url = event.notification.data?.url || '/';
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // Chercher un onglet déjà ouvert sur l'app
-      const existingClient = clients.find((client) => {
+      const existingClient = clientList.find((client) => {
         return new URL(client.url).origin === self.location.origin;
       });
 
       if (existingClient) {
-        // Naviguer vers l'URL cible et donner le focus
-        existingClient.navigate(targetUrl);
+        existingClient.navigate(url);
         return existingClient.focus();
       }
 
-      // Sinon, ouvrir un nouvel onglet
-      return self.clients.openWindow(targetUrl);
+      return self.clients.openWindow(url);
     })
   );
 });

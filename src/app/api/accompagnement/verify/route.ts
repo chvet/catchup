@@ -122,6 +122,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       token,
       referralId: ref.id,
+      conseillerId: pec.conseillerId,
       conseillerInfo: conseillerInfo
         ? {
             prenom: conseillerInfo.prenom,

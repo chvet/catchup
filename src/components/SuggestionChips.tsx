@@ -11,26 +11,33 @@ interface Props {
 }
 
 export default function SuggestionChips({ onSelect, messageCount = 0, compact = false, dynamicSuggestions }: Props) {
-  // Priorité : suggestions dynamiques de l'IA > suggestions statiques par phase
-  const suggestions: Suggestion[] =
+  // Priorité : suggestions dynamiques de l'IA (contextuelles)
+  // On n'affiche les suggestions statiques QUE pour le premier message (INITIAL_SUGGESTIONS)
+  // Après, si l'IA n'a pas fourni de suggestions, on n'en montre pas
+  const allSuggestions: Suggestion[] =
     dynamicSuggestions && dynamicSuggestions.length > 0
       ? dynamicSuggestions
       : messageCount === 0
         ? INITIAL_SUGGESTIONS
-        : getSuggestions(messageCount)
+        : [] // Pas de fallback statique — les suggestions doivent venir de l'IA
+
+  // Max 3 suggestions
+  const suggestions = allSuggestions.slice(0, 3)
+
+  if (suggestions.length === 0) return null
 
   return (
-    <div className={`flex flex-wrap gap-2 ${compact ? 'justify-start' : 'justify-center'} ${compact ? 'max-w-lg' : ''}`}>
+    <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-nowrap pb-1 px-1">
       {suggestions.map((s, i) => (
         <button
           key={`${s.text}-${i}`}
           onClick={() => onSelect(`${s.emoji} ${s.text}`)}
           className={`
-            chip-hover inline-flex items-center gap-1.5
+            chip-hover inline-flex items-center gap-1
             bg-white border border-catchup-primary/20
             text-catchup-primary rounded-full shadow-sm
-            transition-all active:scale-95
-            ${compact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'}
+            transition-all active:scale-95 shrink-0 whitespace-nowrap
+            ${compact ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs'}
           `}
         >
           <span>{s.emoji}</span>

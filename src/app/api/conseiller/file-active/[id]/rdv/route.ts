@@ -5,7 +5,7 @@ import { getConseillerFromHeaders, jsonError, jsonSuccess } from '@/lib/api-help
 import { logJournal } from '@/lib/journal'
 import { generateGoogleCalendarUrl, generateICS } from '@/lib/calendar'
 import { db } from '@/data/db'
-import { priseEnCharge, evenementJournal } from '@/data/schema'
+import { priseEnCharge, evenementJournal, messageDirect } from '@/data/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -91,13 +91,37 @@ export async function POST(
       { details: { titre, dateDebut, dateFin } }
     )
 
+    const icsUrl = `/api/conseiller/file-active/${id}/rdv/${rdvId}/ics`
+
+    // Insérer un message structuré dans le chat pour que le bénéficiaire voie le RDV
+    await db.insert(messageDirect).values({
+      id: uuidv4(),
+      priseEnChargeId: pec.id,
+      expediteurType: 'conseiller',
+      expediteurId: ctx.id,
+      contenu: JSON.stringify({
+        type: 'rdv',
+        id: rdvId,
+        titre,
+        dateDebut,
+        dateFin,
+        description: description || '',
+        lieu: lieu || '',
+        googleUrl,
+        icsUrl,
+      }),
+      conversationType: 'direct',
+      lu: 0,
+      horodatage: now,
+    })
+
     return jsonSuccess({
       id: rdvId,
       titre,
       dateDebut,
       dateFin,
       googleUrl,
-      icsUrl: `/api/conseiller/file-active/${id}/rdv/${rdvId}/ics`,
+      icsUrl,
     })
   } catch (error) {
     console.error('[RDV]', error)

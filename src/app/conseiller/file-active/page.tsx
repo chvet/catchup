@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { useConseiller } from '@/components/conseiller/ConseillerProvider'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import OnlineDot from '@/components/OnlineDot'
 
 interface ReferralItem {
   id: string
@@ -32,6 +35,7 @@ interface ReferralItem {
     heures: number
     label: string
   }
+  derniereActivite?: string | null
 }
 
 interface Pagination {
@@ -41,13 +45,15 @@ interface Pagination {
   pages: number
 }
 
-type SortColumn = 'urgence' | 'prenom' | 'age' | 'dateDemande' | 'attente' | 'statut' | 'localisation'
+type SortColumn = 'urgence' | 'prenom' | 'age' | 'dateDemande' | 'attente' | 'statut' | 'localisation' | 'derniereActivite'
 type SortDirection = 'asc' | 'desc'
 
 interface SortState {
   column: SortColumn
   direction: SortDirection
 }
+
+type TabId = 'en_attente' | 'mes_accompagnements' | 'tous'
 
 const URGENCE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   normale: { bg: 'bg-green-100', text: 'text-green-800', label: 'Normale' },
@@ -59,10 +65,11 @@ const STATUT_STYLES: Record<string, { bg: string; text: string; label: string }>
   en_attente: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'En attente' },
   nouvelle: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Nouvelle' },
   prise_en_charge: { bg: 'bg-green-100', text: 'text-green-800', label: 'Prise en charge' },
-  terminee: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Terminée' },
-  recontacte: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Recontacté' },
-  abandonnee: { bg: 'bg-red-50', text: 'text-red-600', label: 'Abandonnée' },
-  echoue: { bg: 'bg-red-50', text: 'text-red-600', label: 'Échouée' },
+  terminee: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Terminee' },
+  recontacte: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Recontacte' },
+  abandonnee: { bg: 'bg-red-50', text: 'text-red-600', label: 'Abandonnee' },
+  echoue: { bg: 'bg-red-50', text: 'text-red-600', label: 'Echouee' },
+  rupture: { bg: 'bg-red-100', text: 'text-red-700', label: '\u26A0\uFE0F Rupture' },
 }
 
 const URGENCE_ORDER: Record<string, number> = {
@@ -78,7 +85,6 @@ function getTopDimensions(item: ReferralItem): string {
       return dims.slice(0, 2).join('-')
     } catch { /* */ }
   }
-  // Fallback : calculer depuis les scores
   const scores = [
     { k: 'R', v: item.r || 0 },
     { k: 'I', v: item.i || 0 },
@@ -99,14 +105,33 @@ function formatDateFr(dateStr: string): string {
     const minutes = String(d.getMinutes()).padStart(2, '0')
     return `${day}/${month} ${hours}h${minutes}`
   } catch {
-    return '—'
+    return '\u2014'
+  }
+}
+
+function formatRelativeTime(dateStr: string): string {
+  try {
+    const now = new Date()
+    const d = new Date(dateStr)
+    const diffMs = now.getTime() - d.getTime()
+    const diffMin = Math.floor(diffMs / 60000)
+    if (diffMin < 1) return "A l'instant"
+    if (diffMin < 60) return `Il y a ${diffMin}min`
+    const diffH = Math.floor(diffMin / 60)
+    if (diffH < 24) return `Il y a ${diffH}h`
+    const diffD = Math.floor(diffH / 24)
+    return `Il y a ${diffD}j`
+  } catch {
+    return '\u2014'
   }
 }
 
 export default function FileActivePage() {
-  const [referrals, setReferrals] = useState<ReferralItem[]>([])
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, pages: 0 })
+  const conseiller = useConseiller()
+  const [allReferrals, setAllReferrals] = useState<ReferralItem[]>([])
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 200, total: 0, pages: 0 })
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<TabId>('en_attente')
   const [filters, setFilters] = useState({
     statut: '',
     urgence: '',
@@ -121,34 +146,61 @@ export default function FileActivePage() {
   })
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [sort, setSort] = useState<SortState>({ column: 'urgence', direction: 'desc' })
-  const [scope, setScope] = useState<'default' | 'structure'>('default')
 
-  const fetchData = useCallback(async (page = 1) => {
+  const isAdmin = conseiller?.role === 'admin_structure' || conseiller?.role === 'super_admin'
+
+  // Fetch all data once (no server-side statut/urgence filter — client-side filtering)
+  const fetchData = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams({ page: String(page), limit: '20', scope })
-    if (filters.statut) params.set('statut', filters.statut)
-    if (filters.urgence) params.set('urgence', filters.urgence)
+    const params = new URLSearchParams({ page: '1', limit: '500' })
 
     try {
       const res = await fetch(`/api/conseiller/file-active?${params}`)
       const data = await res.json()
-      setReferrals(data.data || [])
-      setPagination(data.pagination || { page: 1, limit: 20, total: 0, pages: 0 })
+      setAllReferrals(data.data || [])
+      setPagination(data.pagination || { page: 1, limit: 500, total: 0, pages: 0 })
     } catch (err) {
       console.error('Erreur file active:', err)
     }
     setLoading(false)
-  }, [filters, scope])
+  }, [])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
 
-  // Auto-refresh toutes les 30s
+  // Auto-refresh every 30s
   useEffect(() => {
-    const interval = setInterval(() => fetchData(pagination.page), 30000)
+    const interval = setInterval(() => fetchData(), 30000)
     return () => clearInterval(interval)
-  }, [fetchData, pagination.page])
+  }, [fetchData])
+
+  // Tab-level filtering
+  const tabFilteredReferrals = useMemo(() => {
+    switch (activeTab) {
+      case 'en_attente':
+        return allReferrals.filter(r => r.statut === 'en_attente' || r.statut === 'nouvelle')
+      case 'mes_accompagnements':
+        if (!conseiller?.id) return []
+        return allReferrals.filter(
+          r => r.priseEnCharge?.statut === 'prise_en_charge' && r.priseEnCharge?.conseillerId === conseiller.id
+        )
+      case 'tous':
+        return allReferrals
+      default:
+        return allReferrals
+    }
+  }, [allReferrals, activeTab, conseiller?.id])
+
+  // Counts for badges
+  const tabCounts = useMemo(() => {
+    const enAttente = allReferrals.filter(r => r.statut === 'en_attente' || r.statut === 'nouvelle').length
+    const mesAccompagnements = conseiller?.id
+      ? allReferrals.filter(r => r.priseEnCharge?.statut === 'prise_en_charge' && r.priseEnCharge?.conseillerId === conseiller.id).length
+      : 0
+    const tous = allReferrals.length
+    return { enAttente, mesAccompagnements, tous }
+  }, [allReferrals, conseiller?.id])
 
   const handleSort = (column: SortColumn) => {
     setSort(prev => ({
@@ -159,12 +211,22 @@ export default function FileActivePage() {
 
   const sortArrow = (column: SortColumn) => {
     if (sort.column !== column) return null
-    return <span className="ml-1 text-catchup-primary">{sort.direction === 'asc' ? '▲' : '▼'}</span>
+    return <span className="ml-1 text-catchup-primary">{sort.direction === 'asc' ? '\u25B2' : '\u25BC'}</span>
   }
 
-  // Client-side filtering and sorting
+  // Client-side filtering (within the tab) and sorting
   const processedReferrals = useMemo(() => {
-    let filtered = [...referrals]
+    let filtered = [...tabFilteredReferrals]
+
+    // Apply statut filter only on "tous" tab
+    if (activeTab === 'tous' && filters.statut) {
+      filtered = filtered.filter(r => r.statut === filters.statut)
+    }
+
+    // Apply urgence filter on all tabs
+    if (filters.urgence) {
+      filtered = filtered.filter(r => r.priorite === filters.urgence)
+    }
 
     // Advanced filters
     const { search, localisation, ageMin, ageMax, dateFrom, dateTo } = advancedFilters
@@ -209,7 +271,6 @@ export default function FileActivePage() {
       switch (column) {
         case 'urgence':
           cmp = (URGENCE_ORDER[a.priorite] || 0) - (URGENCE_ORDER[b.priorite] || 0)
-          // Tri secondaire par date (les plus anciens d'abord à urgence égale)
           if (cmp === 0) cmp = new Date(a.creeLe).getTime() - new Date(b.creeLe).getTime()
           return mult * cmp
         case 'prenom':
@@ -218,7 +279,6 @@ export default function FileActivePage() {
           return mult * ((a.age || 0) - (b.age || 0))
         case 'dateDemande':
           cmp = new Date(a.creeLe).getTime() - new Date(b.creeLe).getTime()
-          // Tri secondaire par urgence (les plus urgents d'abord à date égale)
           if (cmp === 0) cmp = (URGENCE_ORDER[b.priorite] || 0) - (URGENCE_ORDER[a.priorite] || 0)
           return mult * cmp
         case 'attente':
@@ -227,13 +287,36 @@ export default function FileActivePage() {
           return mult * a.statut.localeCompare(b.statut, 'fr')
         case 'localisation':
           return mult * (a.localisation || '').localeCompare(b.localisation || '', 'fr')
+        case 'derniereActivite': {
+          const aDate = a.derniereActivite ? new Date(a.derniereActivite).getTime() : 0
+          const bDate = b.derniereActivite ? new Date(b.derniereActivite).getTime() : 0
+          return mult * (aDate - bDate)
+        }
         default:
           return 0
       }
     })
 
+    // Default sort for "en_attente" tab: urgence desc then date asc (oldest first)
+    // This is already handled by the default sort state
+
     return filtered
-  }, [referrals, advancedFilters, sort])
+  }, [tabFilteredReferrals, filters, advancedFilters, sort, activeTab])
+
+  // Pagination on processed results
+  const PAGE_SIZE = 20
+  const [currentPage, setCurrentPage] = useState(1)
+
+  // Reset page when tab or filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, filters, advancedFilters])
+
+  const totalPages = Math.ceil(processedReferrals.length / PAGE_SIZE)
+  const paginatedReferrals = processedReferrals.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  )
 
   const hasAdvancedFilters = advancedFilters.search || advancedFilters.localisation ||
     advancedFilters.ageMin || advancedFilters.ageMax || advancedFilters.dateFrom || advancedFilters.dateTo
@@ -242,23 +325,88 @@ export default function FileActivePage() {
     setAdvancedFilters({ search: '', localisation: '', ageMin: '', ageMax: '', dateFrom: '', dateTo: '' })
   }
 
+  // Online status for all referral IDs in the current page
+  const pageReferralIds = useMemo(() => paginatedReferrals.map(r => r.id), [paginatedReferrals])
+  const onlineStatuses = useOnlineStatus(pageReferralIds)
+
   const thClass = 'px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700 transition-colors'
+
+  const tabs: { id: TabId; label: string; count: number; adminOnly?: boolean }[] = [
+    { id: 'en_attente', label: '\uD83D\uDD14 En attente', count: tabCounts.enAttente },
+    { id: 'mes_accompagnements', label: '\uD83E\uDD1D Mes accompagnements', count: tabCounts.mesAccompagnements },
+    { id: 'tous', label: '\uD83D\uDCCB Tous les cas', count: tabCounts.tous, adminOnly: true },
+  ]
+
+  const visibleTabs = tabs.filter(t => !t.adminOnly || isAdmin)
+
+  // When switching tabs, reset statut filter
+  const handleTabChange = (tabId: TabId) => {
+    setActiveTab(tabId)
+    setFilters(f => ({ ...f, statut: '' }))
+    // Set default sort per tab
+    if (tabId === 'en_attente') {
+      setSort({ column: 'urgence', direction: 'desc' })
+    } else if (tabId === 'mes_accompagnements') {
+      setSort({ column: 'derniereActivite', direction: 'desc' })
+    } else {
+      setSort({ column: 'dateDemande', direction: 'desc' })
+    }
+  }
+
+  const showStatutFilter = activeTab === 'tous'
+  const showDerniereActiviteColumn = activeTab === 'mes_accompagnements'
 
   return (
     <div>
-      {/* Header + top-level filters */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">File active</h1>
           <p className="text-gray-500 text-sm">
-            {processedReferrals.length !== pagination.total
-              ? `${processedReferrals.length} affichée(s) / ${pagination.total} demande(s)`
-              : `${pagination.total} demande(s)`
+            {processedReferrals.length !== tabFilteredReferrals.length
+              ? `${processedReferrals.length} filtree(s) / ${tabFilteredReferrals.length} dans cet onglet`
+              : `${tabFilteredReferrals.length} demande(s)`
             }
           </p>
         </div>
+      </div>
 
-        <div className="flex gap-3 items-center">
+      {/* Sticky tab bar */}
+      <div className="sticky top-0 z-20 bg-gray-50 -mx-3 px-3 md:-mx-6 md:px-6 border-b border-gray-200 mb-4">
+        <div className="flex gap-0 overflow-x-auto whitespace-nowrap scrollbar-hide">
+          {visibleTabs.map(tab => {
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={`relative flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap
+                  ${isActive
+                    ? 'text-catchup-primary border-b-2 border-catchup-primary'
+                    : 'text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300'
+                  }
+                `}
+              >
+                <span className={isActive ? 'font-bold' : ''}>{tab.label}</span>
+                <span
+                  className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold
+                    ${isActive
+                      ? 'bg-catchup-primary text-white'
+                      : 'bg-gray-200 text-gray-600'
+                    }
+                  `}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center justify-between mb-4 overflow-x-auto">
+        <div className="flex gap-2 md:gap-3 items-center">
           <select
             value={filters.urgence}
             onChange={e => setFilters(f => ({ ...f, urgence: e.target.value }))}
@@ -270,42 +418,21 @@ export default function FileActivePage() {
             <option value="critique">Critique</option>
           </select>
 
-          <select
-            value={filters.statut}
-            onChange={e => setFilters(f => ({ ...f, statut: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
-          >
-            <option value="">Tous statuts</option>
-            <option value="nouvelle">Nouvelle</option>
-            <option value="en_attente">En attente</option>
-            <option value="prise_en_charge">Prise en charge</option>
-            <option value="terminee">Terminée</option>
-            <option value="abandonnee">Abandonnée</option>
-          </select>
-
-          {/* Scope : mes cas / ma structure */}
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-            <button
-              onClick={() => setScope('default')}
-              className={`px-3 py-2 text-sm transition-colors ${
-                scope === 'default'
-                  ? 'bg-catchup-primary text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
+          {showStatutFilter && (
+            <select
+              value={filters.statut}
+              onChange={e => setFilters(f => ({ ...f, statut: e.target.value }))}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
             >
-              Tous + mes cas
-            </button>
-            <button
-              onClick={() => setScope('structure')}
-              className={`px-3 py-2 text-sm border-l border-gray-300 transition-colors ${
-                scope === 'structure'
-                  ? 'bg-catchup-primary text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              Ma structure
-            </button>
-          </div>
+              <option value="">Tous statuts</option>
+              <option value="nouvelle">Nouvelle</option>
+              <option value="en_attente">En attente</option>
+              <option value="prise_en_charge">Prise en charge</option>
+              <option value="rupture">Rupture</option>
+              <option value="terminee">Terminee</option>
+              <option value="abandonnee">Abandonnee</option>
+            </select>
+          )}
 
           <button
             onClick={() => setShowAdvanced(v => !v)}
@@ -315,7 +442,7 @@ export default function FileActivePage() {
                 : 'border-gray-300 text-gray-600 hover:bg-gray-50'
             }`}
           >
-            Filtres avancés {hasAdvancedFilters ? '●' : ''}
+            Filtres avances {hasAdvancedFilters ? '\u25CF' : ''}
           </button>
         </div>
       </div>
@@ -325,10 +452,10 @@ export default function FileActivePage() {
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 shadow-sm">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Recherche prénom</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Recherche prenom</label>
               <input
                 type="text"
-                placeholder="Prénom..."
+                placeholder="Prenom..."
                 value={advancedFilters.search}
                 onChange={e => setAdvancedFilters(f => ({ ...f, search: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
@@ -338,7 +465,7 @@ export default function FileActivePage() {
               <label className="block text-xs font-medium text-gray-500 mb-1">Localisation</label>
               <input
                 type="text"
-                placeholder="Département..."
+                placeholder="Departement..."
                 value={advancedFilters.localisation}
                 onChange={e => setAdvancedFilters(f => ({ ...f, localisation: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
@@ -346,7 +473,7 @@ export default function FileActivePage() {
             </div>
             <div className="flex gap-2">
               <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Âge min</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Age min</label>
                 <input
                   type="number"
                   placeholder="16"
@@ -358,7 +485,7 @@ export default function FileActivePage() {
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Âge max</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Age max</label>
                 <input
                   type="number"
                   placeholder="30"
@@ -400,26 +527,30 @@ export default function FileActivePage() {
         </div>
       )}
 
-      {/* Tableau */}
+      {/* Table */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="w-10 h-10 border-4 border-catchup-primary border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : referrals.length === 0 ? (
+      ) : tabFilteredReferrals.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
-          <p className="text-4xl mb-4">📭</p>
-          <p className="text-gray-500 text-lg">Aucune demande dans la file active</p>
-          <p className="text-gray-400 text-sm mt-1">Les nouvelles demandes apparaîtront ici automatiquement</p>
+          <p className="text-4xl mb-4">{activeTab === 'mes_accompagnements' ? '\uD83D\uDCCB' : '\uD83D\uDCED'}</p>
+          <p className="text-gray-500 text-lg">
+            {activeTab === 'en_attente' && 'Aucune demande en attente'}
+            {activeTab === 'mes_accompagnements' && 'Aucun accompagnement en cours'}
+            {activeTab === 'tous' && 'Aucune demande dans la file active'}
+          </p>
+          <p className="text-gray-400 text-sm mt-1">Les nouvelles demandes apparaitront ici automatiquement</p>
         </div>
       ) : processedReferrals.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
-          <p className="text-4xl mb-4">🔍</p>
-          <p className="text-gray-500 text-lg">Aucun résultat pour ces filtres</p>
+          <p className="text-4xl mb-4">{'\uD83D\uDD0D'}</p>
+          <p className="text-gray-500 text-lg">Aucun resultat pour ces filtres</p>
           <button
             onClick={clearAdvancedFilters}
             className="mt-3 text-sm text-catchup-primary hover:underline"
           >
-            Effacer les filtres avancés
+            Effacer les filtres avances
           </button>
         </div>
       ) : (
@@ -432,10 +563,10 @@ export default function FileActivePage() {
                     Urgence{sortArrow('urgence')}
                   </th>
                   <th className={thClass} onClick={() => handleSort('prenom')}>
-                    Bénéficiaire{sortArrow('prenom')}
+                    Beneficiaire{sortArrow('prenom')}
                   </th>
                   <th className={thClass} onClick={() => handleSort('age')}>
-                    Âge{sortArrow('age')}
+                    Age{sortArrow('age')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
                     RIASEC
@@ -452,13 +583,18 @@ export default function FileActivePage() {
                   <th className={thClass} onClick={() => handleSort('statut')}>
                     Statut{sortArrow('statut')}
                   </th>
+                  {showDerniereActiviteColumn && (
+                    <th className={thClass} onClick={() => handleSort('derniereActivite')}>
+                      Derniere activite{sortArrow('derniereActivite')}
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
                     Action
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {processedReferrals.map(r => {
+                {paginatedReferrals.map(r => {
                   const urgStyle = URGENCE_STYLES[r.priorite] || URGENCE_STYLES.normale
                   const statStyle = STATUT_STYLES[r.statut] || STATUT_STYLES.en_attente
 
@@ -472,14 +608,17 @@ export default function FileActivePage() {
                     >
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${urgStyle.bg} ${urgStyle.text}`}>
-                          {r.priorite === 'critique' ? '🔴' : r.priorite === 'haute' ? '🟠' : '🟢'} {urgStyle.label}
+                          {r.priorite === 'critique' ? '\uD83D\uDD34' : r.priorite === 'haute' ? '\uD83D\uDFE0' : '\uD83D\uDFE2'} {urgStyle.label}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-800">{r.prenom || 'Anonyme'}</p>
+                        <div className="flex items-center gap-2">
+                          {onlineStatuses[r.id]?.online && <OnlineDot online={true} />}
+                          <p className="font-medium text-gray-800">{r.prenom || 'Anonyme'}</p>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {r.age ? `${r.age} ans` : '—'}
+                        {r.age ? `${r.age} ans` : '\u2014'}
                       </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center px-2 py-1 rounded bg-catchup-primary/10 text-catchup-primary text-xs font-mono font-medium">
@@ -490,7 +629,7 @@ export default function FileActivePage() {
                         {formatDateFr(r.creeLe)}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {r.localisation ? `📍 ${r.localisation}` : '—'}
+                        {r.localisation ? `\uD83D\uDCCD ${r.localisation}` : '\u2014'}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-sm font-medium ${
@@ -506,6 +645,11 @@ export default function FileActivePage() {
                           {statStyle.label}
                         </span>
                       </td>
+                      {showDerniereActiviteColumn && (
+                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                          {r.derniereActivite ? formatRelativeTime(r.derniereActivite) : formatRelativeTime(r.creeLe)}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-right">
                         <Link
                           href={`/conseiller/file-active/${r.id}`}
@@ -522,22 +666,22 @@ export default function FileActivePage() {
           </div>
 
           {/* Pagination */}
-          {pagination.pages > 1 && (
+          {totalPages > 1 && (
             <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
               <p className="text-sm text-gray-500">
-                Page {pagination.page} sur {pagination.pages}
+                Page {currentPage} sur {totalPages} ({processedReferrals.length} resultats)
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => fetchData(pagination.page - 1)}
-                  disabled={pagination.page <= 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
                   className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 hover:bg-gray-50"
                 >
-                  Précédent
+                  Precedent
                 </button>
                 <button
-                  onClick={() => fetchData(pagination.page + 1)}
-                  disabled={pagination.page >= pagination.pages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
                   className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 hover:bg-gray-50"
                 >
                   Suivant

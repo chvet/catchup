@@ -2,6 +2,7 @@
 
 import { useChat, type Message } from 'ai/react'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { v4 as uuidv4 } from 'uuid'
 import MessageBubble from './MessageBubble'
 import ChatHeader from './ChatHeader'
@@ -9,13 +10,17 @@ import ChatInput from './ChatInput'
 import SuggestionChips from './SuggestionChips'
 import ProfilePanel from './ProfilePanel'
 import TypingIndicator from './TypingIndicator'
-import InstallBanner from './InstallBanner'
+// InstallBanner désactivé pour le moment — sera réactivé quand l'app native existera
 import { UserProfile, EMPTY_PROFILE } from '@/core/types'
 import { extractProfileFromMessage, extractSuggestionsFromMessage, cleanMessageContent, mergeProfiles, type DynamicSuggestion } from '@/core/profile-parser'
 import { calculerIndiceConfiance } from '@/core/confidence'
 import { getFragilityLevel, type FragilityLevel } from '@/core/fragility-detector'
-import ReferralModal from './ReferralModal'
 import ReferralStatusTag from './ReferralStatusTag'
+import AccompagnementChat from './AccompagnementChat'
+
+// Lazy-load heavy modal components (only shown on user action)
+const ReferralModal = dynamic(() => import('./ReferralModal'), { ssr: false })
+const FichesSearchOverlay = dynamic(() => import('./FichesSearchOverlay'), { ssr: false })
 import {
   loadGameState, saveGameState, updateStreak,
   evaluateJaugeActions, checkBadges,
@@ -35,6 +40,14 @@ const LS_USER_ID = 'catchup_utilisateur_id'
 const LS_REFERRAL_ID = 'catchup_referral_id'
 const LS_REFERRAL_REFUSED_AT = 'catchup_referral_refused_at'
 const LS_BENEFICIAIRE_INFO = 'catchup_beneficiaire_info'
+const LS_STRUCTURE_SLUG = 'catchup_structure_slug'
+const LS_USER_PRENOM = 'catchup_user_prenom'
+
+interface StructureInfo {
+  nom: string
+  slug: string
+  type: string
+}
 
 interface BeneficiaireInfo {
   prenom: string
@@ -70,6 +83,10 @@ function saveToLS(key: string, value: unknown) {
 
 export default function ChatApp() {
   const [sessionId] = useState(() => loadFromLS<string>(LS_SESSION_KEY, '') || uuidv4())
+  const [savedPrenom] = useState<string>(() => {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem(LS_USER_PRENOM) || ''
+  })
   const [profile, setProfile] = useState<UserProfile>(() => loadFromLS<UserProfile>(LS_PROFILE_KEY, { ...EMPTY_PROFILE }))
   const [showProfile, setShowProfile] = useState(false)
   const [dynamicSuggestions, setDynamicSuggestions] = useState<DynamicSuggestion[] | null>(null)
@@ -92,9 +109,86 @@ export default function ChatApp() {
   const [showStructures, setShowStructures] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [structureInfo, setStructureInfo] = useState<StructureInfo | null>(null)
+  const [showFichesSearch, setShowFichesSearch] = useState(false)
+
+  // ── Authentification bénéficiaire ──
+  const LS_USER_TOKEN = 'catchup_user_token'
+  interface AuthUser { prenom: string; email: string; utilisateurId: string; token: string }
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup')
+  const [authPrenom, setAuthPrenom] = useState('')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [showAuthProfile, setShowAuthProfile] = useState(false)
+
+  // ── Toggle IA / Conseiller ──
+  type ChatMode = 'ia' | 'conseiller'
+  const [chatMode, setChatMode] = useState<ChatMode>('ia')
+  const [conseillerUnread, setConseillerUnread] = useState(false)
+
+  // Session accompagnement (token + infos conseiller)
+  interface AccompSessionInfo {
+    token: string
+    referralId: string
+    conseillerId?: string
+    conseillerPrenom: string
+    structureNom: string
+    beneficiairePrenom?: string
+  }
+  const [accompSession, setAccompSession] = useState<AccompSessionInfo | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const raw = localStorage.getItem('catchup_accompagnement')
+      return raw ? JSON.parse(raw) : null
+    } catch { return null }
+  })
+
+  // Inline PIN verification state
+  const [pinEmail, setPinEmail] = useState('')
+  const [pinCode, setPinCode] = useState(['', '', '', '', '', ''])
+  const [pinError, setPinError] = useState('')
+  const [pinVerifying, setPinVerifying] = useState(false)
+  const pinInputRefs = useRef<(HTMLInputElement | null)[]>([])
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const prevSuggestionRef = useRef<string>('')
+
+  // Détection du slug structure dans l'URL ou localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    // 1. Chercher ?s=SLUG dans l'URL
+    const params = new URLSearchParams(window.location.search)
+    let slug = params.get('s') || ''
+
+    // 2. Si trouvé, persister dans localStorage et nettoyer l'URL
+    if (slug) {
+      localStorage.setItem(LS_STRUCTURE_SLUG, slug)
+      const url = new URL(window.location.href)
+      url.searchParams.delete('s')
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash)
+    } else {
+      // 3. Sinon, vérifier localStorage (retour sans param)
+      slug = localStorage.getItem(LS_STRUCTURE_SLUG) || ''
+    }
+
+    // 4. Si on a un slug, fetch les infos de la structure
+    if (slug) {
+      fetch(`/api/structures/${encodeURIComponent(slug)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && data.nom) {
+            setStructureInfo({ nom: data.nom, slug: data.slug, type: data.type })
+          }
+        })
+        .catch(() => { /* structure non trouvée — on continue sans */ })
+    }
+  }, [])
 
   // Charger l'état de gamification au montage
   useEffect(() => {
@@ -115,7 +209,7 @@ export default function ChatApp() {
     api: '/api/chat',
     id: sessionId,
     initialMessages: loadFromLS<Message[]>(LS_MESSAGES_KEY, []),
-    body: { profile, messageCount: 0, fromQuiz, fragilityLevel: currentFragility },
+    body: { profile, messageCount: 0, fromQuiz, fragilityLevel: currentFragility, userName: savedPrenom || profile.name || undefined },
     onFinish: (message) => {
       const extracted = extractProfileFromMessage(message.content)
       if (extracted) {
@@ -210,11 +304,13 @@ export default function ChatApp() {
     }
   }, [messages])
 
-  // Polling statut referral (si un referral existe)
+  // Polling statut referral (si un referral existe) — with timeout for slow networks
   useEffect(() => {
     if (!referralId) return
     const checkStatus = () => {
-      fetch(`/api/referrals/${referralId}/status`)
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10000) // 10s timeout
+      fetch(`/api/referrals/${referralId}/status`, { signal: controller.signal })
         .then(r => r.ok ? r.json() : null)
         .then(d => {
           if (d) {
@@ -225,6 +321,7 @@ export default function ChatApp() {
           }
         })
         .catch(() => {})
+        .finally(() => clearTimeout(timeout))
     }
     checkStatus()
     const interval = setInterval(checkStatus, 30000)
@@ -316,8 +413,21 @@ export default function ChatApp() {
     }
   }, [messages.length, append])
 
-  // Init TTS voices
-  useEffect(() => { tts?.init() }, [])
+  // Init TTS voices + déverrouillage mobile au premier tap
+  useEffect(() => {
+    tts?.init()
+    const unlockHandler = () => {
+      tts?.unlock()
+      document.removeEventListener('touchstart', unlockHandler)
+      document.removeEventListener('click', unlockHandler)
+    }
+    document.addEventListener('touchstart', unlockHandler, { once: true })
+    document.addEventListener('click', unlockHandler, { once: true })
+    return () => {
+      document.removeEventListener('touchstart', unlockHandler)
+      document.removeEventListener('click', unlockHandler)
+    }
+  }, [])
 
   // Auto-scroll
   useEffect(() => {
@@ -329,20 +439,115 @@ export default function ChatApp() {
     setTimeout(() => inputRef.current?.focus(), 300)
   }, [])
 
+  // ── Restore session from token on mount ──
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const token = localStorage.getItem('catchup_user_token')
+    if (!token) return
+    fetch('/api/beneficiaire/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'restore', token }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.ok) {
+          setAuthUser({ prenom: data.prenom, email: data.email, utilisateurId: data.utilisateurId, token })
+          if (data.utilisateurId) { setUtilisateurId(data.utilisateurId); saveToLS(LS_USER_ID, data.utilisateurId) }
+          if (data.prenom) { try { localStorage.setItem(LS_USER_PRENOM, data.prenom) } catch {} }
+          if (data.referral) { setReferralId(data.referral.id); saveToLS(LS_REFERRAL_ID, data.referral.id); setReferralStatus(data.referral.statut) }
+          if (data.conversationId) { setConversationId(data.conversationId); saveToLS(LS_CONVERSATION_ID, data.conversationId) }
+        } else {
+          // Token invalid, clear it
+          localStorage.removeItem('catchup_user_token')
+        }
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── Auth handlers ──
+  const handleAuthSubmit = useCallback(async () => {
+    setAuthError('')
+    if (authMode === 'signup') {
+      if (!authPrenom.trim()) { setAuthError('Entre ton prenom'); return }
+      if (!authEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authEmail.trim())) { setAuthError('Email invalide'); return }
+      if (authPassword.length < 6) { setAuthError('Mot de passe : 6 caracteres minimum'); return }
+    } else {
+      if (!authEmail.trim()) { setAuthError('Entre ton email'); return }
+      if (!authPassword) { setAuthError('Entre ton mot de passe'); return }
+    }
+
+    setAuthLoading(true)
+    try {
+      const payload = authMode === 'signup'
+        ? { action: 'signup', prenom: authPrenom.trim(), email: authEmail.trim(), password: authPassword, utilisateurId: utilisateurId || undefined, conversationId: conversationId || undefined }
+        : { action: 'login', email: authEmail.trim(), password: authPassword }
+      const res = await fetch('/api/beneficiaire/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok) { setAuthError(data.error || 'Erreur'); setAuthLoading(false); return }
+
+      // Save token
+      localStorage.setItem('catchup_user_token', data.token)
+      setAuthUser({ prenom: data.prenom, email: data.email, utilisateurId: data.utilisateurId, token: data.token })
+
+      // Link IDs
+      if (data.utilisateurId) { setUtilisateurId(data.utilisateurId); saveToLS(LS_USER_ID, data.utilisateurId) }
+      if (data.prenom) { setProfile(prev => ({ ...prev, name: data.prenom })); try { localStorage.setItem(LS_USER_PRENOM, data.prenom) } catch {} }
+      if (data.conversationId) { setConversationId(data.conversationId); saveToLS(LS_CONVERSATION_ID, data.conversationId) }
+      if (data.referral) { setReferralId(data.referral.id); saveToLS(LS_REFERRAL_ID, data.referral.id); setReferralStatus(data.referral.statut) }
+
+      // If login restored messages, reload to apply them
+      if (authMode === 'login' && data.messages && data.messages.length > 0) {
+        saveToLS(LS_MESSAGES_KEY, data.messages)
+        if (data.profile) {
+          const restored = loadFromLS(LS_PROFILE_KEY, { ...EMPTY_PROFILE })
+          setProfile({ ...restored, R: data.profile.R ?? 0, I: data.profile.I ?? 0, A: data.profile.A ?? 0, S: data.profile.S ?? 0, E: data.profile.E ?? 0, C: data.profile.C ?? 0 })
+        }
+        window.location.reload()
+      }
+
+      // Close modal
+      setShowAuthModal(false)
+      setAuthEmail('')
+      setAuthPassword('')
+      setAuthPrenom('')
+    } catch {
+      setAuthError('Erreur de connexion')
+    }
+    setAuthLoading(false)
+  }, [authMode, authPrenom, authEmail, authPassword, utilisateurId, conversationId])
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('catchup_user_token')
+    setAuthUser(null)
+    setShowAuthProfile(false)
+  }, [])
+
   // Suggestion → direct send
   const handleSuggestion = useCallback((text: string) => {
     append({ role: 'user', content: text })
   }, [append])
 
-  // TTS per message
+  // TTS per message — unlock à chaque clic pour mobile
   const handleSpeak = useCallback((messageId: string, content: string) => {
+    // Toujours unlock au clic (user gesture requis sur mobile)
+    tts?.unlock()
+
     if (speakingMsgId === messageId) {
       tts?.stop()
       setSpeakingMsgId(null)
     } else {
       tts?.stop()
       setSpeakingMsgId(messageId)
-      tts?.speak(cleanMessageContent(content), () => setSpeakingMsgId(null))
+      // Petit délai après unlock pour laisser iOS traiter
+      setTimeout(() => {
+        tts?.speak(cleanMessageContent(content), () => setSpeakingMsgId(null))
+      }, 150)
     }
   }, [speakingMsgId])
 
@@ -359,12 +564,13 @@ export default function ChatApp() {
     setShowResetConfirm(true)
   }, [])
   const confirmReset = useCallback(() => {
-    // Effacer les données de conversation
+    // Effacer les données de conversation + referral pour repartir de zéro
     localStorage.removeItem(LS_MESSAGES_KEY)
     localStorage.removeItem(LS_PROFILE_KEY)
     localStorage.removeItem(LS_SESSION_KEY)
     localStorage.removeItem(LS_QUIZ_KEY)
     localStorage.removeItem(LS_SUGGESTIONS_COUNT)
+    localStorage.removeItem(LS_REFERRAL_ID)
     setShowResetConfirm(false)
     // Recharger la page pour repartir de zéro proprement
     window.location.reload()
@@ -396,10 +602,93 @@ export default function ChatApp() {
     setCancelling(false)
   }
 
+  // ── Inline PIN verification handlers ──
+  const handlePinCodeChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return
+    const newCode = [...pinCode]
+    newCode[index] = value.slice(-1)
+    setPinCode(newCode)
+    setPinError('')
+    if (value && index < 5) {
+      pinInputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  const handlePinKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !pinCode[index] && index > 0) {
+      pinInputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  const handlePinPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (pasted.length === 6) {
+      setPinCode(pasted.split(''))
+      pinInputRefs.current[5]?.focus()
+    }
+  }
+
+  const handlePinVerify = useCallback(async () => {
+    const codeStr = pinCode.join('')
+    if (codeStr.length !== 6) { setPinError('Saisissez les 6 chiffres'); return }
+    if (!pinEmail.trim()) { setPinError('Saisissez votre email ou téléphone'); return }
+
+    setPinVerifying(true)
+    setPinError('')
+    try {
+      const res = await fetch('/api/accompagnement/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pinEmail.trim(), code: codeStr }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setPinError(data.error || 'Code invalide'); setPinVerifying(false); return }
+
+      const ci = data.conseillerInfo || data.conseiller || {}
+      const benefPrenomStored = localStorage.getItem('catchup_user_prenom') || ''
+      const sessionInfo: AccompSessionInfo = {
+        token: data.token,
+        referralId: data.referralId,
+        conseillerId: data.conseillerId || '',
+        conseillerPrenom: ci.prenom || 'Conseiller',
+        structureNom: ci.structureNom || '',
+        beneficiairePrenom: benefPrenomStored || undefined,
+      }
+      localStorage.setItem('catchup_accompagnement', JSON.stringify(sessionInfo))
+      setAccompSession(sessionInfo)
+    } catch {
+      setPinError('Erreur de connexion. Réessayez.')
+    }
+    setPinVerifying(false)
+  }, [pinCode, pinEmail])
+
+  // Auto-submit PIN when all 6 digits entered
+  useEffect(() => {
+    if (pinCode.every(c => c !== '') && pinEmail.trim()) {
+      handlePinVerify()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinCode])
+
+  // Callback when AccompagnementChat receives a new message from conseiller
+  const handleConseillerNewMessage = useCallback(() => {
+    if (chatMode !== 'conseiller') {
+      setConseillerUnread(true)
+    }
+  }, [chatMode])
+
+  // Clear unread when switching to conseiller tab
+  useEffect(() => {
+    if (chatMode === 'conseiller') {
+      setConseillerUnread(false)
+    }
+  }, [chatMode])
+
   const hasMessages = messages.length > 0
 
   return (
-    <div className={`h-[100dvh] flex flex-col overflow-hidden ${rgaaMode ? 'rgaa-mode' : ''}`}>
+    <div className={`h-[100dvh] w-full max-w-[100vw] flex flex-col overflow-hidden ${rgaaMode ? 'rgaa-mode' : ''}`}>
       <ChatHeader
         profile={profile}
         streak={gameState?.streakActuel ?? 0}
@@ -410,7 +699,54 @@ export default function ChatApp() {
         onReset={handleReset}
         rgaaMode={rgaaMode}
         ttsEnabled={ttsEnabled}
+        authPrenom={authUser?.prenom || null}
+        onAuthClick={() => {
+          if (authUser) {
+            setShowAuthProfile(prev => !prev)
+          } else {
+            setAuthPrenom(savedPrenom || profile.name || '')
+            setShowAuthModal(true)
+          }
+        }}
       />
+
+      {/* Toggle IA / Conseiller (uniquement si prise en charge active) */}
+      {referralStatus === 'prise_en_charge' && (
+        <div className="flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-50 border-b border-gray-200">
+          <button
+            onClick={() => setChatMode('ia')}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
+              chatMode === 'ia'
+                ? 'bg-catchup-primary text-white shadow-sm'
+                : 'bg-transparent text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            🤖 IA
+          </button>
+          <button
+            onClick={() => setChatMode('conseiller')}
+            className={`relative px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
+              chatMode === 'conseiller'
+                ? 'bg-green-600 text-white shadow-sm'
+                : 'bg-transparent text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            🤝 {referralConseillerPrenom || 'Conseiller'}
+            {conseillerUnread && chatMode !== 'conseiller' && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-gray-50" />
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Bandeau nom de la structure partenaire */}
+      {structureInfo && chatMode === 'ia' && (
+        <div className="bg-catchup-primary/5 border-b border-catchup-primary/10 px-4 py-1.5 text-center">
+          <p className="text-xs font-medium text-catchup-primary">
+            {structureInfo.nom}
+          </p>
+        </div>
+      )}
 
       {/* Notification badge débloqué */}
       {badgeNotif && (
@@ -426,24 +762,32 @@ export default function ChatApp() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
             <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
-              <span className="text-2xl">🔄</span>
+              <span className="text-2xl">⚠️</span>
             </div>
             <h3 className="text-lg font-bold text-gray-800 mb-2">Nouvelle conversation ?</h3>
             <p className="text-sm text-gray-500 mb-5">
-              Ta conversation actuelle sera effacée. Tes badges et ton streak sont conservés !
+              Ta conversation actuelle sera perdue. Si tu veux la garder, inscris-toi d&apos;abord.
             </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowResetConfirm(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                Annuler
-              </button>
+            <div className="flex flex-col gap-2.5">
+              {!authUser && (
+                <button
+                  onClick={() => { setShowResetConfirm(false); setAuthPrenom(savedPrenom || profile.name || ''); setShowAuthModal(true) }}
+                  className="w-full px-4 py-2.5 rounded-xl bg-catchup-primary text-white text-sm font-semibold hover:bg-catchup-primary/90 transition-colors"
+                >
+                  💾 M&apos;inscrire d&apos;abord
+                </button>
+              )}
               <button
                 onClick={confirmReset}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-catchup-primary text-white text-sm font-semibold hover:bg-catchup-primary/90 transition-colors"
+                className="w-full px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors"
               >
                 Repartir à zéro
+              </button>
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Annuler
               </button>
             </div>
           </div>
@@ -481,230 +825,189 @@ export default function ChatApp() {
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Chat area */}
-        <div className="flex-1 flex flex-col chat-bg">
-          <div className="flex-1 overflow-y-auto chat-scroll px-3 py-4 md:px-6">
-            {!hasMessages && (
-              <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-catchup-primary to-catchup-accent flex items-center justify-center mb-5 shadow-xl">
-                  <span className="text-4xl">🚀</span>
-                </div>
-                <h2 className="text-xl font-bold text-gray-800 mb-2">
-                  Hey ! Moi c&apos;est Catch&apos;Up 👋
-                </h2>
-                <p className="text-gray-500 text-sm mb-6 max-w-[280px] leading-relaxed">
-                  Je suis là pour t&apos;aider à trouver ta voie.
-                  Dis-moi ce qui te passionne !
-                </p>
-                <SuggestionChips onSelect={handleSuggestion} messageCount={0} />
-              </div>
-            )}
-
-            {messages.map((msg) => (
-              <MessageBubble
-                key={msg.id}
-                message={{
-                  ...msg,
-                  content: cleanMessageContent(msg.content),
-                }}
-                isSpeaking={speakingMsgId === msg.id}
-                onSpeak={() => handleSpeak(msg.id, msg.content)}
-                rgaaMode={rgaaMode}
+      <div className="flex-1 flex overflow-hidden relative w-full max-w-full">
+        {/* ── Mode Conseiller : chat accompagnement inline ── */}
+        {chatMode === 'conseiller' && referralStatus === 'prise_en_charge' ? (
+          <div className="flex-1 flex flex-col">
+            {accompSession ? (
+              <AccompagnementChat
+                token={accompSession.token}
+                referralId={accompSession.referralId}
+                conseillerId={accompSession.conseillerId}
+                conseillerPrenom={accompSession.conseillerPrenom}
+                structureNom={accompSession.structureNom}
+                beneficiairePrenom={accompSession.beneficiairePrenom}
+                onNewMessage={handleConseillerNewMessage}
+                embedded
               />
-            ))}
-
-            {isLoading && <TypingIndicator />}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {hasMessages && !isLoading && (
-            <div className="px-3 pb-1 md:px-6">
-              <SuggestionChips onSelect={handleSuggestion} messageCount={userMessageCount} dynamicSuggestions={dynamicSuggestions} compact />
-            </div>
-          )}
-
-          {error && (
-            <div className="mx-3 mb-2 md:mx-6 flex items-center justify-between gap-3 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
-              <span className="text-red-600 text-sm font-medium">
-                Oups, j&apos;ai eu un souci 😅
-              </span>
-              <button
-                onClick={() => reload()}
-                className="shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white active:bg-red-700 transition-colors"
-              >
-                Réessayer
-              </button>
-            </div>
-          )}
-
-          <InstallBanner messageCount={userMessageCount} />
-
-          {/* ── Carte profil bénéficiaire (visible après saisie des infos) ── */}
-          {beneficiaireInfo && referralId && (
-            <div className="mx-3 mb-2 md:mx-6 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-catchup-primary/20 flex items-center justify-center text-sm font-bold text-catchup-primary">
-                    {beneficiaireInfo.prenom[0]?.toUpperCase()}
+            ) : (
+              /* ── Formulaire PIN inline ── */
+              <div className="flex-1 flex flex-col items-center justify-center px-6">
+                <div className="w-full max-w-sm">
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-green-50 flex items-center justify-center mb-3">
+                      <span className="text-3xl">🔑</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-1">Accéder au chat conseiller</h3>
+                    <p className="text-sm text-gray-500">
+                      Saisissez le code reçu par SMS ou email pour discuter avec votre conseiller.
+                    </p>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">{beneficiaireInfo.prenom}</p>
-                    <p className="text-[11px] text-gray-400">
-                      {beneficiaireInfo.age} ans · Dép. {beneficiaireInfo.departement}
+
+                  <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+                    {/* Email / téléphone */}
+                    <div className="mb-4">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Votre email ou téléphone</label>
+                      <input
+                        type="text"
+                        value={pinEmail}
+                        onChange={e => { setPinEmail(e.target.value); setPinError('') }}
+                        placeholder="exemple@email.com ou 0612345678"
+                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition text-sm text-gray-800"
+                      />
+                    </div>
+
+                    {/* Code PIN 6 chiffres */}
+                    <div className="mb-4">
+                      <label className="block text-xs font-medium text-gray-600 mb-2">Code de vérification (6 chiffres)</label>
+                      <div className="flex gap-2 justify-center" onPaste={handlePinPaste}>
+                        {pinCode.map((digit, i) => (
+                          <input
+                            key={i}
+                            ref={el => { pinInputRefs.current[i] = el }}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={e => handlePinCodeChange(i, e.target.value)}
+                            onKeyDown={e => handlePinKeyDown(i, e)}
+                            className="w-10 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition text-gray-800"
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {pinError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg p-2.5 mb-3">
+                        {pinError}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handlePinVerify}
+                      disabled={pinVerifying || pinCode.some(c => c === '') || !pinEmail.trim()}
+                      className="w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {pinVerifying ? 'Vérification...' : 'Accéder au chat'}
+                    </button>
+
+                    <p className="text-center text-[11px] text-gray-400 mt-3">
+                      Vous n&apos;avez pas reçu de code ? Contactez votre structure.
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {referralStatus && <ReferralStatusTag statut={referralStatus} />}
-                  {/* Bouton annuler — seulement si pas encore pris en charge */}
-                  {referralStatus && referralStatus !== 'prise_en_charge' && referralStatus !== 'terminee' && (
-                    <button
-                      onClick={() => setShowCancelConfirm(true)}
-                      className="text-[10px] text-gray-400 hover:text-red-500 transition-colors px-1.5 py-0.5 rounded hover:bg-red-50"
-                      title="Annuler ma demande"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
               </div>
-            </div>
-          )}
-
-          {/* ── Structures suggérées (affichées après la demande) ── */}
-          {showStructures && structuresSuggerees.length > 0 && (
-            <div className="mx-3 mb-2 md:mx-6">
-              <div className="bg-white border border-catchup-primary/20 rounded-xl shadow-sm overflow-hidden">
-                <div className="px-4 py-2.5 bg-catchup-primary/5 border-b border-catchup-primary/10 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-gray-800">
-                    🏢 Structures proches de chez toi
-                  </p>
-                  <button
-                    onClick={() => setShowStructures(false)}
-                    className="text-gray-400 hover:text-gray-600 text-xs"
-                  >
-                    Masquer
-                  </button>
-                </div>
-                <div className="divide-y divide-gray-100">
-                  {structuresSuggerees.map((s, idx) => (
-                    <div key={idx} className="px-4 py-2.5 flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{s.nom}</p>
-                        {s.raisons && s.raisons.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {s.raisons.slice(0, 3).map((r, ri) => (
-                              <span key={ri} className="text-[10px] px-1.5 py-0.5 bg-green-50 text-green-600 rounded">
-                                ✅ {r}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="ml-3 shrink-0">
-                        <span className={`text-sm font-bold ${
-                          s.score >= 80 ? 'text-green-600' : s.score >= 50 ? 'text-amber-600' : 'text-gray-400'
-                        }`}>
-                          {s.score}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
-                  <p className="text-[10px] text-gray-400 text-center">
-                    Un conseiller de la structure la plus adaptée te contactera bientôt
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Bannière de statut referral ── */}
-          {referralStatus === 'prise_en_charge' && (
-            <div className="mx-3 mb-2 md:mx-6">
-              <a
-                href="/accompagnement"
-                className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors"
-              >
-                <span className="text-2xl">🤝</span>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-green-800">
-                    {referralConseillerPrenom ? `${referralConseillerPrenom} t'accompagne !` : 'Un conseiller t\'accompagne !'}
-                  </p>
-                  <p className="text-xs text-green-600">Accède à ta messagerie pour discuter</p>
-                </div>
-                <ReferralStatusTag statut="prise_en_charge" />
-                <span className="text-green-500">→</span>
-              </a>
-            </div>
-          )}
-
-          {referralId && referralStatus && referralStatus !== 'prise_en_charge' && referralStatus !== 'annulee' && !beneficiaireInfo && (
-            <div className="mx-3 mb-2 md:mx-6 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-blue-700">
-                  Ta demande d&apos;accompagnement a été transmise.
-                </p>
-                <div className="flex items-center gap-2">
-                  <ReferralStatusTag statut={referralStatus} />
-                  <button
-                    onClick={() => setShowCancelConfirm(true)}
-                    className="text-[10px] text-blue-400 hover:text-red-500 transition-colors"
-                  >
-                    Annuler
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Bouton permanent de demande de mise en relation ── */}
-          {/* Visible quand : pas de referral, ou referral annulé/terminé (pour permettre une nouvelle demande) */}
-          {hasMessages && (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee') && (
-            <div className="mx-3 mb-2 md:mx-6">
-              <button
-                onClick={() => {
-                  setReferralUrgency('gentle')
-                  setShowReferralModal(true)
-                }}
-                className="w-full flex items-center justify-center gap-2 p-2.5 bg-white border border-catchup-primary/30 rounded-xl text-sm font-medium text-catchup-primary hover:bg-catchup-primary/5 active:bg-catchup-primary/10 transition-colors"
-              >
-                <span>🤝</span>
-                <span>{referralStatus === 'annulee' || referralStatus === 'terminee' ? 'Nouvelle demande de mise en relation' : 'Parler à un conseiller'}</span>
-              </button>
-            </div>
-          )}
-
-          {/* Lien discret vers l'espace conseiller (sous-domaine pro) */}
-          <div className="text-center py-1.5 border-t border-gray-100">
-            <a
-              href="https://pro.catchup.jaeprive.fr"
-              className="text-[11px] text-gray-400 hover:text-catchup-primary transition-colors"
-            >
-              Espace professionnel
-            </a>
+            )}
           </div>
+        ) : (
+          <>
+            {/* ── Mode IA : chat normal ── */}
+            <div className="flex-1 flex flex-col chat-bg min-w-0 w-full">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden chat-scroll px-3 py-4 md:px-6">
+                {!hasMessages && (
+                  <div className="flex flex-col items-center justify-center h-full text-center px-4">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-catchup-primary to-catchup-accent flex items-center justify-center mb-5 shadow-xl">
+                      <span className="text-4xl">🚀</span>
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-800 mb-2">
+                      {structureInfo
+                        ? <>Bienvenue sur Catch&apos;Up — {structureInfo.nom} 👋</>
+                        : <>Hey ! Moi c&apos;est Catch&apos;Up 👋</>
+                      }
+                    </h2>
+                    <p className="text-gray-500 text-sm mb-6 max-w-[280px] leading-relaxed">
+                      Je suis là pour t&apos;aider à trouver ta voie.
+                      Dis-moi ce qui te passionne !
+                    </p>
+                    <SuggestionChips onSelect={handleSuggestion} messageCount={0} />
+                  </div>
+                )}
 
-          <ChatInput
-            input={input}
-            onChange={handleInputChange}
-            onSubmit={handleSubmitWithFragility}
-            isLoading={isLoading}
-            inputRef={inputRef}
-            onAppend={append}
-          />
-        </div>
+                {messages.map((msg) => (
+                  <MessageBubble
+                    key={msg.id}
+                    message={{
+                      ...msg,
+                      content: cleanMessageContent(msg.content),
+                    }}
+                    isSpeaking={speakingMsgId === msg.id}
+                    onSpeak={() => handleSpeak(msg.id, msg.content)}
+                    rgaaMode={rgaaMode}
+                  />
+                ))}
 
-        {/* Profile panel */}
-        {showProfile && (
-          <ProfilePanel
-            profile={profile}
-            messageCount={userMessageCount}
-            gameState={gameState}
-            onClose={() => setShowProfile(false)}
-          />
+                {isLoading && <TypingIndicator />}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* ── Suggestions compactes (1 ligne, scroll horizontal) ── */}
+              {hasMessages && !isLoading && (
+                <div className="px-3 md:px-6 overflow-x-auto scrollbar-hide">
+                  <SuggestionChips onSelect={handleSuggestion} messageCount={userMessageCount} dynamicSuggestions={dynamicSuggestions} compact />
+                </div>
+              )}
+
+              {error && (
+                <div className="mx-3 mb-1 md:mx-6 flex items-center justify-between gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+                  <span className="text-red-600 text-xs">Oups, souci 😅</span>
+                  <button onClick={() => reload()} className="shrink-0 rounded bg-red-600 px-2 py-1 text-[10px] font-semibold text-white">Réessayer</button>
+                </div>
+              )}
+
+              {/* ── Barre compacte : statut referral OU bouton mise en relation ── */}
+              {referralId && referralStatus && referralStatus !== 'prise_en_charge' && referralStatus !== 'annulee' ? (
+                <div className="mx-3 md:mx-6 flex items-center justify-between px-2 py-1 bg-blue-50/80 rounded-full">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-blue-600">📨</span>
+                    <ReferralStatusTag statut={referralStatus} />
+                  </div>
+                  <button onClick={() => setShowCancelConfirm(true)} className="text-[10px] text-gray-400 hover:text-red-500 px-1">✕</button>
+                </div>
+              ) : hasMessages && (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee') ? (
+                <div className="mx-3 md:mx-6">
+                  <button
+                    onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}
+                    className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-catchup-primary/5 border border-catchup-primary/20 rounded-full text-[11px] font-medium text-catchup-primary hover:bg-catchup-primary/10 transition-colors"
+                  >
+                    <span>🤝</span><span>Parler à un conseiller</span>
+                  </button>
+                </div>
+              ) : null}
+
+              {/* Séparateur avant l'input */}
+              <div>
+              </div>
+
+              <ChatInput
+                input={input}
+                onChange={handleInputChange}
+                onSubmit={handleSubmitWithFragility}
+                isLoading={isLoading}
+                inputRef={inputRef}
+                onAppend={append}
+              />
+            </div>
+
+            {/* Profile panel */}
+            {showProfile && (
+              <ProfilePanel
+                profile={profile}
+                messageCount={userMessageCount}
+                gameState={gameState}
+                onClose={() => setShowProfile(false)}
+              />
+            )}
+          </>
         )}
       </div>
 
@@ -715,11 +1018,139 @@ export default function ChatApp() {
         </div>
       )}
 
+      {/* Modale inscription / connexion bénéficiaire */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+            <div className="text-center mb-5">
+              <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-catchup-primary/10 flex items-center justify-center">
+                <span className="text-2xl">{authMode === 'signup' ? '📝' : '🔑'}</span>
+              </div>
+              <h3 className="text-lg font-bold text-gray-800">
+                {authMode === 'signup' ? 'Creer mon compte' : 'Me connecter'}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {authMode === 'signup' ? 'Pour sauvegarder ta conversation et ton profil' : 'Retrouve ta conversation et ton profil'}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {authMode === 'signup' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Prenom</label>
+                  <input
+                    type="text"
+                    value={authPrenom}
+                    onChange={e => { setAuthPrenom(e.target.value); setAuthError('') }}
+                    placeholder="Ton prenom"
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-catchup-primary focus:border-transparent outline-none transition text-sm text-gray-800"
+                    autoFocus
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={authEmail}
+                  onChange={e => { setAuthEmail(e.target.value); setAuthError('') }}
+                  placeholder="ton@email.com"
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-catchup-primary focus:border-transparent outline-none transition text-sm text-gray-800"
+                  autoFocus={authMode === 'login'}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Mot de passe</label>
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={e => { setAuthPassword(e.target.value); setAuthError('') }}
+                  placeholder={authMode === 'signup' ? '6 caracteres minimum' : 'Ton mot de passe'}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-catchup-primary focus:border-transparent outline-none transition text-sm text-gray-800"
+                  onKeyDown={e => { if (e.key === 'Enter') handleAuthSubmit() }}
+                />
+              </div>
+            </div>
+
+            {authError && (
+              <div className="mt-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg p-2.5">
+                {authError}
+              </div>
+            )}
+
+            <button
+              onClick={handleAuthSubmit}
+              disabled={authLoading}
+              className="w-full mt-4 py-2.5 bg-catchup-primary text-white rounded-xl text-sm font-semibold hover:bg-catchup-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {authLoading ? '...' : authMode === 'signup' ? 'Creer mon compte' : 'Me connecter'}
+            </button>
+
+            <div className="mt-3 text-center">
+              <button
+                onClick={() => { setAuthMode(authMode === 'signup' ? 'login' : 'signup'); setAuthError('') }}
+                className="text-xs text-catchup-primary hover:underline"
+              >
+                {authMode === 'signup' ? 'J\u2019ai deja un compte' : 'Creer un compte'}
+              </button>
+            </div>
+
+            <button
+              onClick={() => { setShowAuthModal(false); setAuthError('') }}
+              className="w-full mt-2 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mini profil connecté */}
+      {showAuthProfile && authUser && (
+        <div className="fixed inset-0 z-50 flex items-start justify-end pt-14 pr-3" onClick={() => setShowAuthProfile(false)}>
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-4 w-64" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-catchup-primary/10 flex items-center justify-center">
+                <span className="text-lg font-bold text-catchup-primary">{authUser.prenom.charAt(0).toUpperCase()}</span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-800 truncate">{authUser.prenom}</p>
+                <p className="text-[11px] text-gray-400 truncate">{authUser.email}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 rounded-lg mb-3">
+              <span className="w-2 h-2 rounded-full bg-green-500" />
+              <span className="text-[11px] text-green-700 font-medium">Connecte</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full py-2 text-xs font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              Se deconnecter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Overlay de recherche de fiches métiers */}
+      <FichesSearchOverlay
+        isOpen={showFichesSearch}
+        onClose={() => setShowFichesSearch(false)}
+        onInterested={(nomMetier) => {
+          append({ role: 'user', content: `Le metier "${nomMetier}" m'interesse ! Tu peux m'en dire plus ?` })
+        }}
+      />
+
       {/* Modale de mise en relation avec un conseiller */}
       <ReferralModal
         isOpen={showReferralModal}
         urgency={referralUrgency}
-        prenomSuggested={profile.name || undefined}
+        prenomSuggested={beneficiaireInfo?.prenom || profile.name || undefined}
+        emailSuggested={beneficiaireInfo?.typeContact === 'email' ? beneficiaireInfo.moyenContact : undefined}
+        telephoneSuggested={beneficiaireInfo?.typeContact === 'telephone' ? beneficiaireInfo.moyenContact : undefined}
+        ageSuggested={beneficiaireInfo?.age || undefined}
+        departementSuggested={beneficiaireInfo?.departement || undefined}
+        structureSlug={structureInfo?.slug}
         onClose={() => {
           setShowReferralModal(false)
           // Enregistrer le refus pour ne pas re-proposer pendant 10 messages
@@ -740,6 +1171,7 @@ export default function ChatApp() {
                 age: data.age,
                 genre: null,
                 fragilityLevel: currentFragility,
+                structureSlug: structureInfo?.slug || undefined,
               }),
             })
             if (res.ok) {
@@ -753,6 +1185,8 @@ export default function ChatApp() {
 
               // 2. Injecter le prénom dans le profil → l'IA l'utilisera
               setProfile(prev => ({ ...prev, name: data.prenom }))
+              // Persister le prénom pour les futures conversations (pas effacé au reset)
+              try { localStorage.setItem(LS_USER_PRENOM, data.prenom) } catch { /* ignore */ }
 
               // 3. Sauvegarder les infos du bénéficiaire
               const info: BeneficiaireInfo = {

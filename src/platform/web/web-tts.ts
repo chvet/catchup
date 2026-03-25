@@ -1,103 +1,173 @@
 import { ITTSAdapter } from '../interfaces/tts.interface'
 
-let cachedVoice: SpeechSynthesisVoice | null = null
-let voicesLoaded = false
+// Stratégie : utiliser un <audio> avec l'API Google Translate TTS (gratuit, fiable sur mobile)
+// Fallback sur speechSynthesis si l'audio échoue
 
-function findFrenchMaleVoice(): SpeechSynthesisVoice | null {
-  if (cachedVoice && voicesLoaded) return cachedVoice
+function splitIntoChunks(text: string, maxLen = 190): string[] {
+  // Google TTS limite à ~200 chars par requête
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text]
+  const chunks: string[] = []
+  let current = ''
 
-  const voices = window.speechSynthesis.getVoices()
-  if (voices.length === 0) return null
-
-  voicesLoaded = true
-  const frVoices = voices.filter(v => v.lang.startsWith('fr'))
-  console.log('[TTS] Voix FR:', frVoices.map(v => v.name))
-
-  const maleNames = ['paul', 'thomas', 'claude', 'henri', 'pierre', 'jacques', 'male']
-
-  const priorities = [
-    (v: SpeechSynthesisVoice) => v.lang === 'fr-FR' && maleNames.some(n => v.name.toLowerCase().includes(n)) && v.name.toLowerCase().includes('natural'),
-    (v: SpeechSynthesisVoice) => v.lang === 'fr-FR' && maleNames.some(n => v.name.toLowerCase().includes(n)),
-    (v: SpeechSynthesisVoice) => v.lang === 'fr-FR' && v.name.toLowerCase().includes('paul'),
-    (v: SpeechSynthesisVoice) => v.lang === 'fr-FR' && v.name.toLowerCase().includes('henri'),
-    (v: SpeechSynthesisVoice) => v.lang === 'fr-FR' && !v.localService,
-    (v: SpeechSynthesisVoice) => v.lang === 'fr-FR',
-    (v: SpeechSynthesisVoice) => v.lang.startsWith('fr'),
-  ]
-
-  for (const matcher of priorities) {
-    const found = voices.find(matcher)
-    if (found) {
-      console.log('[TTS] Voix sélectionnée:', found.name)
-      cachedVoice = found
-      return found
+  for (const s of sentences) {
+    const trimmed = s.trim()
+    if (!trimmed) continue
+    if (current.length + trimmed.length + 1 > maxLen) {
+      if (current) chunks.push(current.trim())
+      // Si la phrase seule est trop longue, découper sur les virgules
+      if (trimmed.length > maxLen) {
+        const parts = trimmed.split(/,\s*/)
+        let part = ''
+        for (const p of parts) {
+          if (part.length + p.length + 2 > maxLen) {
+            if (part) chunks.push(part.trim())
+            part = p
+          } else {
+            part = part ? `${part}, ${p}` : p
+          }
+        }
+        if (part) current = part
+      } else {
+        current = trimmed
+      }
+    } else {
+      current = current ? `${current} ${trimmed}` : trimmed
     }
   }
-  return null
-}
-
-function splitIntoSentences(text: string): string[] {
-  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text]
-  return sentences.map(s => s.trim()).filter(s => s.length > 0)
+  if (current.trim()) chunks.push(current.trim())
+  return chunks.length > 0 ? chunks : [text.substring(0, maxLen)]
 }
 
 export class WebTTSAdapter implements ITTSAdapter {
+  private speaking = false
+  private audio: HTMLAudioElement | null = null
+  private chunks: string[] = []
+  private chunkIdx = 0
+  private onEndCb: (() => void) | null = null
+
   async init(): Promise<void> {
-    return new Promise(resolve => {
-      const voices = window.speechSynthesis.getVoices()
-      if (voices.length > 0) {
-        findFrenchMaleVoice()
-        resolve()
-        return
+    // Précharger les voix pour le fallback speechSynthesis
+    window.speechSynthesis?.getVoices()
+  }
+
+  unlock(): void {
+    // Créer et jouer un audio silencieux pour débloquer l'autoplay sur iOS
+    try {
+      if (!this.audio) {
+        this.audio = new Audio()
       }
-      window.speechSynthesis.onvoiceschanged = () => {
-        findFrenchMaleVoice()
-        resolve()
-      }
-    })
+      // Data URI d'un WAV silencieux de 0.1s
+      this.audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='
+      this.audio.volume = 0.01
+      const p = this.audio.play()
+      if (p) p.catch(() => {})
+      console.log('[TTS] Audio unlock mobile')
+    } catch (e) {
+      console.warn('[TTS] Unlock error:', e)
+    }
   }
 
   speak(text: string, onEnd?: () => void): void {
-    window.speechSynthesis.cancel()
+    this.stop()
 
-    const clean = text.replace(/<!--.*?-->/g, '').replace(/[*_~`#]/g, '')
-    const chunks = splitIntoSentences(clean)
-    let idx = 0
+    const clean = text.replace(/<!--.*?-->/g, '').replace(/[*_~`#>]/g, '').trim()
+    if (!clean) { onEnd?.(); return }
 
-    const speakNext = () => {
-      if (idx >= chunks.length) {
-        onEnd?.()
-        return
-      }
-      const utt = new SpeechSynthesisUtterance(chunks[idx])
+    this.chunks = splitIntoChunks(clean)
+    this.chunkIdx = 0
+    this.speaking = true
+    this.onEndCb = onEnd || null
+
+    console.log('[TTS] Lecture:', this.chunks.length, 'chunks')
+    this.playNextChunk()
+  }
+
+  private playNextChunk(): void {
+    if (!this.speaking || this.chunkIdx >= this.chunks.length) {
+      this.finish()
+      return
+    }
+
+    const chunk = this.chunks[this.chunkIdx]
+    const encoded = encodeURIComponent(chunk)
+    // Proxy via notre API pour éviter CORS sur mobile
+    const url = `/api/tts?text=${encoded}`
+
+    if (!this.audio) {
+      this.audio = new Audio()
+    }
+
+    this.audio.src = url
+    this.audio.playbackRate = 1.0
+    this.audio.volume = 1.0
+
+    this.audio.onended = () => {
+      this.chunkIdx++
+      this.playNextChunk()
+    }
+
+    this.audio.onerror = () => {
+      console.warn('[TTS] Audio error on chunk', this.chunkIdx, '- trying speechSynthesis fallback')
+      this.fallbackSpeechSynthesis(chunk, () => {
+        this.chunkIdx++
+        this.playNextChunk()
+      })
+    }
+
+    const playPromise = this.audio.play()
+    if (playPromise) {
+      playPromise.catch(() => {
+        // Autoplay bloqué — fallback speechSynthesis
+        console.warn('[TTS] Autoplay blocked - fallback speechSynthesis')
+        this.fallbackSpeechSynthesis(chunk, () => {
+          this.chunkIdx++
+          this.playNextChunk()
+        })
+      })
+    }
+  }
+
+  private fallbackSpeechSynthesis(text: string, onDone: () => void): void {
+    try {
+      const utt = new SpeechSynthesisUtterance(text)
       utt.lang = 'fr-FR'
       utt.rate = 0.95
       utt.pitch = 0.85
-      utt.volume = 1
-
-      const voice = findFrenchMaleVoice()
-      if (voice) utt.voice = voice
-
-      utt.onend = () => { idx++; speakNext() }
-      utt.onerror = () => { idx++; speakNext() }
-
+      utt.onend = () => onDone()
+      utt.onerror = () => onDone()
       window.speechSynthesis.speak(utt)
+    } catch {
+      onDone()
     }
+  }
 
-    speakNext()
+  private finish(): void {
+    this.speaking = false
+    this.onEndCb?.()
+    this.onEndCb = null
   }
 
   stop(): void {
-    window.speechSynthesis.cancel()
+    this.speaking = false
+    this.chunks = []
+    this.chunkIdx = 0
+    this.onEndCb = null
+    if (this.audio) {
+      this.audio.pause()
+      this.audio.src = ''
+    }
+    try { window.speechSynthesis.cancel() } catch { /* ignore */ }
   }
 
   isSpeaking(): boolean {
-    return window.speechSynthesis.speaking
+    return this.speaking
   }
 
   getAvailableVoices(): string[] {
-    return window.speechSynthesis.getVoices()
-      .filter(v => v.lang.startsWith('fr'))
-      .map(v => v.name)
+    try {
+      return window.speechSynthesis.getVoices()
+        .filter(v => v.lang.startsWith('fr'))
+        .map(v => v.name)
+    } catch { return [] }
   }
 }
