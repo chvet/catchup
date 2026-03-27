@@ -5,12 +5,17 @@
 // Supporte: texte, documents, appels vidéo, rendez-vous
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import VideoCallCard from './VideoCallCard'
 import RdvCard from './RdvCard'
 import PushNotificationManager from './PushNotificationManager'
 import OnlineDot from './OnlineDot'
+import VoiceRecorder from './VoiceRecorder'
+import VoiceMessage from './VoiceMessage'
 import { useHeartbeat } from '@/hooks/useHeartbeat'
 import { useIsOnline } from '@/hooks/useOnlineStatus'
+
+const SatisfactionSurvey = dynamic(() => import('./SatisfactionSurvey'), { ssr: false })
 
 // Parse les dates SQLite ("2024-01-15 14:30:00") qui échouent sur Safari/iOS
 function safeParseDate(dateStr: string): Date {
@@ -43,6 +48,8 @@ interface AccompagnementChatProps {
   conseillerPrenom: string
   structureNom: string
   beneficiairePrenom?: string
+  priseEnChargeId?: string
+  priseEnChargeStatut?: string
   onNewMessage?: () => void // callback pour notifier le parent (badge)
   embedded?: boolean // quand true, pas de header (le parent fournit le header)
 }
@@ -96,7 +103,14 @@ interface SystemContent {
   comportementInaproprie?: boolean
 }
 
-type StructuredContent = DocumentContent | VideoContent | RdvContent | RuptureContent | SystemContent
+interface VoiceContent {
+  type: 'voice'
+  audioUrl: string
+  duration: number
+  transcription?: string
+}
+
+type StructuredContent = DocumentContent | VideoContent | RdvContent | RuptureContent | SystemContent | VoiceContent
 
 function parseMessageContent(contenu: string | null | undefined): StructuredContent | null {
   if (!contenu || typeof contenu !== 'string') return null
@@ -129,7 +143,7 @@ function getFileIcon(mimeType: string): string {
   return '\u{1F4CE}'
 }
 
-export default function AccompagnementChat({ token, referralId, conseillerId, conseillerPrenom, structureNom, beneficiairePrenom, onNewMessage, embedded = false }: AccompagnementChatProps) {
+export default function AccompagnementChat({ token, referralId, conseillerId, conseillerPrenom, structureNom, beneficiairePrenom, priseEnChargeId, priseEnChargeStatut, onNewMessage, embedded = false }: AccompagnementChatProps) {
   // Send heartbeat for the beneficiary
   useHeartbeat('beneficiaire', referralId)
   // Check if the conseiller is online
@@ -149,6 +163,32 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
   const [error, setError] = useState<string | null>(null)
   const [ruptured, setRuptured] = useState(false)
   const [ruptureInfo, setRuptureInfo] = useState<RuptureContent | null>(null)
+
+  // Satisfaction survey state
+  const [showSurvey, setShowSurvey] = useState(false)
+  const [surveyCompleted, setSurveyCompleted] = useState(false)
+  const [surveyChecked, setSurveyChecked] = useState(false)
+
+  // Check if survey should be shown (accompaniment terminee + no survey yet)
+  useEffect(() => {
+    if (priseEnChargeStatut !== 'terminee' || surveyChecked) return
+    fetch('/api/accompagnement/satisfaction', {
+      headers: { 'Authorization': `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && !data.exists) {
+          // Survey not yet completed — show banner
+          setSurveyChecked(true)
+        } else if (data?.completed) {
+          setSurveyCompleted(true)
+          setSurveyChecked(true)
+        } else {
+          setSurveyChecked(true)
+        }
+      })
+      .catch(() => setSurveyChecked(true))
+  }, [priseEnChargeStatut, token, surveyChecked])
 
   // Charger les messages initiaux
   useEffect(() => {
@@ -325,6 +365,69 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
     // Reset pour permettre le re-upload du même fichier
     e.target.value = ''
   }, [handleFileUpload])
+
+  // Enregistrement et envoi d'un message vocal
+  const [voiceTranscribing, setVoiceTranscribing] = useState(false)
+  const handleVoiceRecorded = useCallback(async (blob: Blob, duration: number) => {
+    setVoiceTranscribing(true)
+
+    // 1. Créer une URL locale pour la lecture immédiate
+    const localAudioUrl = URL.createObjectURL(blob)
+
+    // 2. Transcrire en parallèle (ne bloque pas l'envoi)
+    let transcription = ''
+    const transcribePromise = (async () => {
+      try {
+        const formData = new FormData()
+        formData.append('file', blob, `voice.${blob.type.includes('mp4') ? 'm4a' : 'webm'}`)
+        const res = await fetch('/api/voice/transcribe', { method: 'POST', body: formData })
+        if (res.ok) {
+          const data = await res.json()
+          transcription = data.text?.trim() || ''
+        }
+      } catch { /* transcription échouée — on continue sans */ }
+    })()
+
+    // 3. Envoyer le message vocal structuré immédiatement
+    try {
+      // Attendre la transcription (max 15s)
+      await Promise.race([
+        transcribePromise,
+        new Promise(resolve => setTimeout(resolve, 15000)),
+      ])
+
+      const voicePayload = JSON.stringify({
+        type: 'voice',
+        audioUrl: localAudioUrl,
+        duration,
+        transcription,
+      })
+
+      const res = await fetch('/api/accompagnement/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ contenu: voicePayload }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.message) {
+          // Remplacer l'audioUrl du serveur par l'URL locale (le serveur stocke le JSON tel quel)
+          setMessages(prev => {
+            if (prev.some(m => m.id === data.message.id)) return prev
+            return [...prev, data.message]
+          })
+        }
+      }
+    } catch (err) {
+      console.error('Erreur envoi vocal', err)
+    }
+
+    setVoiceTranscribing(false)
+  }, [token])
 
   // Réponse à un appel vidéo
   const handleVideoResponse = useCallback(async (appelVideoId: string, action: 'accepter' | 'refuser') => {
@@ -525,6 +628,23 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
         )
       }
 
+      case 'voice': {
+        const voice = structured as VoiceContent
+        return (
+          <div className={`px-3.5 py-2.5 rounded-2xl text-sm ${
+            isMine
+              ? 'bg-catchup-primary text-white rounded-br-md'
+              : 'bg-gray-100 text-gray-800 rounded-bl-md'
+          }`}>
+            <VoiceMessage
+              audioUrl={voice.audioUrl}
+              duration={voice.duration}
+              transcription={voice.transcription}
+            />
+          </div>
+        )
+      }
+
       case 'system': {
         const sysData = structured as SystemContent
         return (
@@ -568,6 +688,36 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
   return (
     <div className="flex flex-col h-full bg-white overflow-x-hidden">
       <PushNotificationManager type="beneficiaire" />
+
+      {/* Bandeau enquete de satisfaction */}
+      {priseEnChargeStatut === 'terminee' && surveyChecked && !surveyCompleted && !showSurvey && (
+        <button
+          onClick={() => setShowSurvey(true)}
+          className="w-full px-4 py-3 bg-gradient-to-r from-catchup-primary/10 to-purple-50 border-b border-catchup-primary/20 flex items-center gap-2 hover:from-catchup-primary/15 transition-colors"
+        >
+          <span className="text-xl">💬</span>
+          <span className="text-sm font-medium text-gray-700 text-left flex-1">
+            Ton accompagnement est termine. Donne-nous ton avis !
+          </span>
+          <svg className="w-5 h-5 text-catchup-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
+
+      {/* Modal enquete de satisfaction */}
+      {showSurvey && priseEnChargeId && (
+        <SatisfactionSurvey
+          token={token}
+          priseEnChargeId={priseEnChargeId}
+          onClose={() => setShowSurvey(false)}
+          onSubmitted={() => {
+            setShowSurvey(false)
+            setSurveyCompleted(true)
+          }}
+        />
+      )}
+
       {/* En-tête du chat (masqué en mode embedded) */}
       {!embedded && (
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-catchup-primary/5 to-white">
@@ -681,6 +831,14 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
         </div>
       ) : (
         <div className="px-3 py-2 border-t border-gray-100 bg-white safe-area-bottom">
+          {/* Indicateur de transcription vocale */}
+          {voiceTranscribing && (
+            <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
+              <div className="w-3 h-3 border-2 border-catchup-primary border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-gray-500">Transcription en cours...</span>
+            </div>
+          )}
+
           <div className="flex items-end gap-2">
             {/* Bouton upload document */}
             <button
@@ -714,11 +872,15 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
               }}
               placeholder="Message..."
               className="flex-1 px-4 py-2.5 border border-gray-200 rounded-full text-sm focus:ring-2 focus:ring-catchup-primary focus:border-transparent outline-none transition bg-gray-50"
-              disabled={sending}
+              disabled={sending || voiceTranscribing}
             />
+
+            {/* Message vocal */}
+            <VoiceRecorder onRecorded={handleVoiceRecorded} disabled={sending || voiceTranscribing} />
+
             <button
               onClick={handleSend}
-              disabled={!input.trim() || sending}
+              disabled={!input.trim() || sending || voiceTranscribing}
               className="w-10 h-10 flex items-center justify-center bg-catchup-primary text-white rounded-full hover:bg-catchup-primary/90 disabled:opacity-40 transition-all active:scale-95"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

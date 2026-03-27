@@ -247,14 +247,14 @@ function ResultScreen({
   })
 
   const handleShare = async () => {
-    const shareText = `Mon profil Catch'Up : ${result?.title} ${result?.emoji}\nEt toi t'es quoi ? \u{1F440}\ncatchup.jaeprive.fr/quiz`
+    const shareText = `Mon profil Catch'Up : ${result?.title} ${result?.emoji}\nEt toi t'es quoi ? \u{1F440}\nwesh.chat/quiz`
 
     if (navigator.share) {
       try {
         await navigator.share({
           title: "Mon profil Catch'Up",
           text: shareText,
-          url: 'https://catchup.jaeprive.fr/quiz',
+          url: 'https://wesh.chat/quiz',
         })
       } catch {
         // L'utilisateur a annule

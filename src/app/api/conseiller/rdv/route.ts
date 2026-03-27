@@ -4,11 +4,17 @@
 import { getConseillerFromHeaders, jsonError, jsonSuccess } from '@/lib/api-helpers'
 import { logAudit } from '@/lib/auth'
 import { db } from '@/data/db'
-import { rendezVous, priseEnCharge, referral, utilisateur, messageDirect } from '@/data/schema'
+import { rendezVous, priseEnCharge, referral, utilisateur, messageDirect, calendarConnection } from '@/data/schema'
 import { eq, and, gte, lte, asc } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { logJournal } from '@/lib/journal'
 import { createDailyRoom } from '@/lib/jitsi'
+import {
+  ensureValidToken,
+  createGoogleCalendarEvent,
+  createOutlookCalendarEvent,
+  type CalendarEvent,
+} from '@/lib/calendar-oauth'
 
 export async function GET(request: Request) {
   try {
@@ -203,6 +209,81 @@ export async function POST(request: Request) {
 
     // Audit
     await logAudit(ctx.id, 'rdv_cree', 'rendez_vous', rdvId, { titre, dateHeure, priseEnChargeId })
+
+    // ── Auto-sync to connected calendars (non-blocking) ──
+    try {
+      const connections = await db
+        .select()
+        .from(calendarConnection)
+        .where(and(
+          eq(calendarConnection.userId, ctx.id),
+          eq(calendarConnection.type, 'conseiller'),
+        ))
+
+      const endTime = new Date(new Date(dateHeure).getTime() + (dureeMinutes || 30) * 60000).toISOString()
+      const calEvent: CalendarEvent = {
+        title: titre,
+        description: description || "Rendez-vous Catch'Up",
+        startTime: dateHeure,
+        endTime,
+        location: lieu === 'visio' ? (finalLienVisio || 'Visioconference') : (lieu || undefined),
+        videoLink: finalLienVisio || undefined,
+      }
+
+      for (const conn of connections) {
+        try {
+          const refreshed = await ensureValidToken(
+            conn.provider as 'google' | 'outlook',
+            conn.accessToken,
+            conn.refreshToken,
+            conn.expiresAt,
+          )
+
+          if (!refreshed) {
+            console.warn(`[Calendar Sync] Token expired and could not refresh for ${conn.provider}`)
+            continue
+          }
+
+          // Update tokens in DB if refreshed
+          if (refreshed.accessToken !== conn.accessToken) {
+            await db
+              .update(calendarConnection)
+              .set({
+                accessToken: refreshed.accessToken,
+                refreshToken: refreshed.refreshToken || conn.refreshToken,
+                expiresAt: refreshed.expiresAt,
+                misAJourLe: new Date().toISOString(),
+              })
+              .where(eq(calendarConnection.id, conn.id))
+          }
+
+          let externalEventId: string | null = null
+
+          if (conn.provider === 'google') {
+            externalEventId = await createGoogleCalendarEvent(refreshed.accessToken, calEvent)
+            if (externalEventId) {
+              await db.update(rendezVous)
+                .set({ googleEventId: externalEventId, misAJourLe: new Date().toISOString() })
+                .where(eq(rendezVous.id, rdvId))
+            }
+          } else if (conn.provider === 'outlook') {
+            externalEventId = await createOutlookCalendarEvent(refreshed.accessToken, calEvent)
+            if (externalEventId) {
+              await db.update(rendezVous)
+                .set({ outlookEventId: externalEventId, misAJourLe: new Date().toISOString() })
+                .where(eq(rendezVous.id, rdvId))
+            }
+          }
+
+          console.log(`[Calendar Sync] Event created on ${conn.provider}: ${externalEventId}`)
+        } catch (syncErr) {
+          // Don't block RDV creation if calendar sync fails
+          console.error(`[Calendar Sync] Failed for ${conn.provider}:`, syncErr)
+        }
+      }
+    } catch (calErr) {
+      console.error('[Calendar Sync] Global error:', calErr)
+    }
 
     return jsonSuccess({ rdv: newRdv }, 201)
   } catch (error) {

@@ -9,6 +9,7 @@ import { generateText } from 'ai'
 import { recordUsage } from '@/lib/token-guard'
 import { logJournal } from '@/lib/journal'
 import { notifyConseillerNewCase } from '@/lib/push-triggers'
+import { syncBeneficiaireToParcoureo, isParcoureoConfigured } from '@/lib/parcoureo'
 
 export async function POST(request: NextRequest) {
   try {
@@ -244,6 +245,7 @@ export async function POST(request: NextRequest) {
 
     // 8. Create referral
     const referralId = uuidv4()
+    const referralSource = structureSlug ? 'sourcee' : 'generique'
     await db.insert(referral).values({
       id: referralId,
       utilisateurId,
@@ -259,6 +261,7 @@ export async function POST(request: NextRequest) {
       moyenContact: moyenContact ?? null,
       typeContact: typeContact ?? null,
       statut: 'en_attente',
+      source: referralSource,
       structureSuggereId: structureSuggereIdFromSlug ?? bestMatch?.structureId ?? null,
       localisation: departement ?? null,
       genre: genre ?? null,
@@ -271,6 +274,26 @@ export async function POST(request: NextRequest) {
     const targetStructureId = structureSuggereIdFromSlug ?? bestMatch?.structureId
     if (targetStructureId) {
       notifyConseillerNewCase(targetStructureId, { prenom: prenom || undefined, priorite }).catch(() => {})
+    }
+
+    // 8c. Sync vers Parcoureo si configuré (asynchrone, non bloquant)
+    if (isParcoureoConfigured()) {
+      const syncProfile = {
+        prenom: prenom || 'Anonyme',
+        email: (typeContact === 'email' && moyenContact) ? moyenContact : undefined,
+        age: age ?? undefined,
+        riasec: riasecProfile ? {
+          r: riasecProfile.r ?? 0,
+          i: riasecProfile.i ?? 0,
+          a: riasecProfile.a ?? 0,
+          s: riasecProfile.s ?? 0,
+          e: riasecProfile.e ?? 0,
+          c: riasecProfile.c ?? 0,
+        } : undefined,
+        interets: riasecProfile?.interets ? JSON.parse(riasecProfile.interets) : undefined,
+        traits: riasecProfile?.traits ? JSON.parse(riasecProfile.traits) : undefined,
+      }
+      syncBeneficiaireToParcoureo(syncProfile).catch(() => {})
     }
 
     // 9. Return response — inclut les top 3 structures pour affichage au bénéficiaire

@@ -11,28 +11,28 @@ const PRICING = {
 // ─── Limites configurables via variables d'environnement ───
 export const LIMITS = {
   // Nombre max de messages IA par conversation (au-delà, on suggère un conseiller)
-  MAX_MESSAGES_PER_CONVERSATION: parseInt(process.env.MAX_MESSAGES_PER_CONV || '50'),
+  MAX_MESSAGES_PER_CONVERSATION: parseInt(process.env.MAX_MESSAGES_PER_CONV || '999'),
 
-  // Nombre max de tokens en sortie par message (déjà à 500 dans le chat)
-  MAX_OUTPUT_TOKENS: parseInt(process.env.MAX_OUTPUT_TOKENS || '350'),
+  // Nombre max de tokens en sortie par message
+  MAX_OUTPUT_TOKENS: parseInt(process.env.MAX_OUTPUT_TOKENS || '500'),
 
   // Budget quotidien global en dollars (toutes conversations confondues)
-  DAILY_BUDGET_USD: parseFloat(process.env.DAILY_BUDGET_USD || '10.00'),
+  DAILY_BUDGET_USD: parseFloat(process.env.DAILY_BUDGET_USD || '999'),
 
   // Budget max par conversation en dollars
-  MAX_COST_PER_CONVERSATION: parseFloat(process.env.MAX_COST_PER_CONV || '0.50'),
+  MAX_COST_PER_CONVERSATION: parseFloat(process.env.MAX_COST_PER_CONV || '999'),
 
   // Nombre max de conversations par IP par jour (anti-abus)
-  MAX_CONVERSATIONS_PER_IP_PER_DAY: parseInt(process.env.MAX_CONV_PER_IP || '5'),
+  MAX_CONVERSATIONS_PER_IP_PER_DAY: parseInt(process.env.MAX_CONV_PER_IP || '999'),
 
   // Nombre max de tokens dans le contexte envoyé (tronquer si dépassé)
-  MAX_CONTEXT_TOKENS: parseInt(process.env.MAX_CONTEXT_TOKENS || '4000'),
+  MAX_CONTEXT_TOKENS: parseInt(process.env.MAX_CONTEXT_TOKENS || '8000'),
 
   // Limite quotidienne de tokens par utilisateur/IP (input + output combinés)
-  TOKEN_DAILY_LIMIT: parseInt(process.env.TOKEN_DAILY_LIMIT || '50000'),
+  TOKEN_DAILY_LIMIT: parseInt(process.env.TOKEN_DAILY_LIMIT || '9999999'),
 
   // Limite mensuelle de tokens par utilisateur/IP
-  TOKEN_MONTHLY_LIMIT: parseInt(process.env.TOKEN_MONTHLY_LIMIT || '500000'),
+  TOKEN_MONTHLY_LIMIT: parseInt(process.env.TOKEN_MONTHLY_LIMIT || '99999999'),
 }
 
 // ─── Compteurs en mémoire (réinitialisés au restart) ───

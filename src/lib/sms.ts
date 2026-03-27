@@ -319,8 +319,8 @@ export async function sendPinCode(
   const { type, prenom, conseillerPrenom, structureNom } = options
 
   const message = type === 'beneficiaire'
-    ? `${prenom ? prenom + ', votre' : 'Votre'} conseiller${conseillerPrenom ? ' ' + conseillerPrenom : ''}${structureNom ? ' (' + structureNom + ')' : ''} vous accompagne sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur catchup.jaeprive.fr/accompagnement`
-    : `Vous êtes invité(e) à rejoindre un accompagnement sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur catchup.jaeprive.fr/tiers`
+    ? `${prenom ? prenom + ', votre' : 'Votre'} conseiller${conseillerPrenom ? ' ' + conseillerPrenom : ''}${structureNom ? ' (' + structureNom + ')' : ''} vous accompagne sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur wesh.chat/accompagnement`
+    : `Vous êtes invité(e) à rejoindre un accompagnement sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur wesh.chat/tiers`
 
   const subject = type === 'beneficiaire'
     ? `Catch'Up — Votre code d'accès`

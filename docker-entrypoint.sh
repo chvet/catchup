@@ -13,9 +13,14 @@ else
   echo "📦 Base de données existante trouvée"
 fi
 
-# Lancer le serveur WebSocket de visio en arrière-plan
-echo "📹 Démarrage du serveur visio (port 3003)..."
-node src/visio/server.js &
+# Lancer le serveur WebSocket de visio en arrière-plan (optionnel)
+if [ -f "src/visio/server.ts" ]; then
+  echo "📹 Démarrage du serveur visio (port 3003)..."
+  npx tsx src/visio/server.ts &
+  sleep 1
+else
+  echo "⏭️ Serveur visio non trouvé, utilisation de Daily.co"
+fi
 
 # Lancer le serveur Next.js
 echo "🚀 Démarrage de Catch'Up..."

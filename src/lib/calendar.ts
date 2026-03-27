@@ -33,7 +33,7 @@ export function generateICS(params: {
   uid?: string
 }): string {
   const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
-  const uid = params.uid || `catchup-${Date.now()}@catchup.jaeprive.fr`
+  const uid = params.uid || `catchup-${Date.now()}@wesh.chat`
   const now = fmt(new Date())
 
   const lines = [

@@ -113,7 +113,7 @@ export default function StructuresPage() {
   }
 
   const handleCopyStructureLink = async (id: string, slug: string) => {
-    const url = `https://catchup.jaeprive.fr/?s=${slug}`
+    const url = `https://wesh.chat/?s=${slug}`
     try {
       await navigator.clipboard.writeText(url)
       setCopiedId(id)
@@ -405,7 +405,7 @@ export default function StructuresPage() {
                   <div className="mt-3 pt-3 border-t border-gray-100" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-3">
                       <img
-                        src={`/api/qrcode?size=80&data=${encodeURIComponent(`https://catchup.jaeprive.fr/?s=${s.slug}`)}`}
+                        src={`/api/qrcode?size=80&data=${encodeURIComponent(`https://wesh.chat/?s=${s.slug}`)}`}
                         alt="QR Code"
                         className="w-16 h-16 rounded border border-gray-200"
                         loading="lazy"
@@ -413,7 +413,7 @@ export default function StructuresPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] text-gray-400 mb-1">Lien bénéficiaire :</p>
                         <p className="text-xs text-catchup-primary font-mono truncate">
-                          catchup.jaeprive.fr/?s={s.slug}
+                          wesh.chat/?s={s.slug}
                         </p>
                         <div className="flex gap-2 mt-1.5">
                           <button
@@ -427,7 +427,7 @@ export default function StructuresPage() {
                             {copiedId === s.id ? '✅ Copié !' : '📋 Copier'}
                           </button>
                           <a
-                            href={`/api/qrcode?size=300&data=${encodeURIComponent(`https://catchup.jaeprive.fr/?s=${s.slug}`)}`}
+                            href={`/api/qrcode?size=300&data=${encodeURIComponent(`https://wesh.chat/?s=${s.slug}`)}`}
                             download={`qr-${s.slug}.png`}
                             className="text-[10px] px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-catchup-primary/10 hover:text-catchup-primary transition-colors"
                           >

@@ -5,10 +5,13 @@
 // Integre : envoi de documents, appels video (Jitsi), planification de RDV
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import AiAssistantPanel from '@/components/conseiller/AiAssistantPanel'
 import VideoCallCard from '@/components/VideoCallCard'
 import RdvCard from '@/components/RdvCard'
 import PlanifierRdvModal from '@/components/conseiller/PlanifierRdvModal'
 import OnlineDot from '@/components/OnlineDot'
+import VoiceRecorder from '@/components/VoiceRecorder'
+import VoiceMessage from '@/components/VoiceMessage'
 import { useIsOnline } from '@/hooks/useOnlineStatus'
 
 interface DirectMessage {
@@ -74,7 +77,14 @@ interface SystemPayload {
   comportementInaproprie?: boolean
 }
 
-type StructuredPayload = DocumentPayload | VideoPayload | RdvPayload | RupturePayload | SystemPayload
+interface VoicePayload {
+  type: 'voice'
+  audioUrl: string
+  duration: number
+  transcription?: string
+}
+
+type StructuredPayload = DocumentPayload | VideoPayload | RdvPayload | RupturePayload | SystemPayload | VoicePayload
 
 // --- Helpers ---
 
@@ -216,6 +226,13 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   // RDV reminder loading state
   const [rdvReminderLoading, setRdvReminderLoading] = useState(false)
 
+  // Inactivity tracking for reminders
+  const [joursInactif, setJoursInactif] = useState(0)
+  const [sendingRelance, setSendingRelance] = useState(false)
+
+  // AI Assistant panel
+  const [showAiAssistant, setShowAiAssistant] = useState(false)
+
   // Charger les messages initiaux
   useEffect(() => {
     fetch(`/api/conseiller/file-active/${referralId}/direct-messages`)
@@ -264,6 +281,20 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   // Auto-scroll
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  // Calculer l'inactivite du beneficiaire
+  useEffect(() => {
+    const benefMsgs = messages.filter(m => m.expediteurType === 'beneficiaire')
+    if (benefMsgs.length === 0) {
+      setJoursInactif(0)
+      return
+    }
+    const lastMsg = benefMsgs[benefMsgs.length - 1]
+    const lastDate = safeParseDate(lastMsg.horodatage)
+    const elapsed = Date.now() - lastDate.getTime()
+    const jours = Math.floor(elapsed / (24 * 60 * 60 * 1000))
+    setJoursInactif(jours)
   }, [messages])
 
   // Envoyer un message texte
@@ -359,6 +390,62 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
 
     setUploading(false)
     setUploadProgress(0)
+  }, [referralId])
+
+  // Enregistrement et envoi d'un message vocal (côté conseiller)
+  const [voiceTranscribing, setVoiceTranscribing] = useState(false)
+  const handleVoiceRecorded = useCallback(async (blob: Blob, duration: number) => {
+    setVoiceTranscribing(true)
+
+    const localAudioUrl = URL.createObjectURL(blob)
+
+    // Transcrire en parallèle
+    let transcription = ''
+    const transcribePromise = (async () => {
+      try {
+        const formData = new FormData()
+        formData.append('file', blob, `voice.${blob.type.includes('mp4') ? 'm4a' : 'webm'}`)
+        const res = await fetch('/api/voice/transcribe', { method: 'POST', body: formData })
+        if (res.ok) {
+          const data = await res.json()
+          transcription = data.text?.trim() || ''
+        }
+      } catch { /* transcription échouée */ }
+    })()
+
+    try {
+      await Promise.race([
+        transcribePromise,
+        new Promise(resolve => setTimeout(resolve, 15000)),
+      ])
+
+      const voicePayload = JSON.stringify({
+        type: 'voice',
+        audioUrl: localAudioUrl,
+        duration,
+        transcription,
+      })
+
+      const res = await fetch(`/api/conseiller/file-active/${referralId}/direct-messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contenu: voicePayload }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.message) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === data.message.id)) return prev
+            return [...prev, data.message]
+          })
+        }
+      }
+    } catch (err) {
+      console.error('Erreur envoi vocal', err)
+    }
+
+    setVoiceTranscribing(false)
   }, [referralId])
 
   // Renvoyer le code PIN au bénéficiaire
@@ -627,6 +714,23 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
         )
       }
 
+      case 'voice': {
+        const voice = parsed as VoicePayload
+        return (
+          <div className={`px-3.5 py-2.5 rounded-2xl text-sm ${
+            isConseiller
+              ? 'bg-catchup-primary text-white rounded-tr-md'
+              : 'bg-gray-100 text-gray-800 rounded-tl-md'
+          }`}>
+            <VoiceMessage
+              audioUrl={voice.audioUrl}
+              duration={voice.duration}
+              transcription={voice.transcription}
+            />
+          </div>
+        )
+      }
+
       case 'system': {
         const sysData = parsed as SystemPayload
         return (
@@ -659,6 +763,31 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
     )
   }
 
+  // Envoyer une relance au beneficiaire inactif
+  const handleRelance = useCallback(async () => {
+    if (sendingRelance) return
+    setSendingRelance(true)
+    try {
+      const contenu = `Salut ${beneficiairePrenom} ! Ca fait un moment qu'on ne s'est pas parle. J'espere que tu vas bien. N'hesite pas a me donner de tes nouvelles, je suis la pour t'accompagner 😊`
+      const res = await fetch(`/api/conseiller/file-active/${referralId}/direct-messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contenu }),
+      })
+      const data = await res.json()
+      if (res.ok && data.message) {
+        setMessages(prev => {
+          if (prev.some(m => m.id === data.message.id)) return prev
+          return [...prev, data.message]
+        })
+      }
+    } catch (err) {
+      console.error('[DirectChat] Relance error:', err)
+    } finally {
+      setSendingRelance(false)
+    }
+  }, [sendingRelance, beneficiairePrenom, referralId])
+
   if (priseEnChargeStatut !== 'prise_en_charge') {
     return (
       <div className="text-center py-12">
@@ -669,7 +798,8 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   }
 
   return (
-    <div className="flex flex-col" style={{ minHeight: '500px' }}>
+    <div className={`flex ${showAiAssistant ? 'flex-row' : ''}`} style={{ minHeight: '500px' }}>
+    <div className={`flex flex-col ${showAiAssistant ? 'flex-1 min-w-0' : 'w-full'}`}>
       {/* En-tête */}
       <div className="px-6 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -684,6 +814,17 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAiAssistant(prev => !prev)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              showAiAssistant
+                ? 'text-indigo-700 bg-indigo-100 border border-indigo-300'
+                : 'text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100'
+            }`}
+            title="Assistant IA"
+          >
+            &#129302; IA
+          </button>
           {!ruptured && (
             <button
               onClick={() => setRuptureModalOpen(true)}
@@ -698,6 +839,25 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
         </div>
       </div>
 
+      {/* Bandeau inactivite beneficiaire */}
+      {joursInactif >= 3 && !ruptured && (
+        <div className="mx-6 mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚠️</span>
+            <p className="text-sm text-yellow-800 font-medium">
+              Aucun message depuis {joursInactif} jour{joursInactif > 1 ? 's' : ''}
+            </p>
+          </div>
+          <button
+            onClick={handleRelance}
+            disabled={sendingRelance}
+            className="px-3 py-1.5 text-xs font-medium text-yellow-800 bg-yellow-100 border border-yellow-300 rounded-lg hover:bg-yellow-200 transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            {sendingRelance ? 'Envoi...' : 'Envoyer une relance'}
+          </button>
+        </div>
+      )}
+
       {/* Alerte code PIN + bouton renvoyer */}
       {codeInfo && (
         <div className="mx-6 mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -709,7 +869,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
                 <span className="ml-2">→ {codeInfo.moyenContact}</span>
               </p>
               <p className="text-xs text-blue-500 mt-1">
-                Le bénéficiaire saisit ce code sur catchup.jaeprive.fr/accompagnement
+                Le bénéficiaire saisit ce code sur wesh.chat/accompagnement
               </p>
             </div>
             <button
@@ -903,9 +1063,17 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
           <div className="flex-1" />
         </div>
 
+        {/* Indicateur de transcription vocale */}
+        {voiceTranscribing && (
+          <div className="flex items-center gap-2 px-6 py-1.5">
+            <div className="w-3 h-3 border-2 border-catchup-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs text-gray-500">Transcription en cours...</span>
+          </div>
+        )}
+
         {/* Message input */}
         <div className="px-6 pb-3">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-end">
             <input
               type="text"
               value={input}
@@ -913,14 +1081,18 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder="Écrire un message..."
               className="flex-1 px-4 py-2.5 border border-gray-300 rounded-full text-sm focus:ring-2 focus:ring-catchup-primary focus:border-transparent outline-none transition"
-              disabled={sending}
+              disabled={sending || voiceTranscribing}
             />
+
+            {/* Message vocal */}
+            <VoiceRecorder onRecorded={handleVoiceRecorded} disabled={sending || voiceTranscribing} />
+
             <button
               onClick={handleSend}
-              disabled={!input.trim() || sending}
+              disabled={!input.trim() || sending || voiceTranscribing}
               className="px-4 py-2.5 bg-catchup-primary text-white rounded-full text-sm hover:bg-catchup-primary/90 disabled:opacity-50 transition-colors"
             >
-              {sending ? '...' : '➤'}
+              {sending ? '...' : '\u27A4'}
             </button>
           </div>
         </div>
@@ -990,6 +1162,16 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
         onClose={() => setRdvModalOpen(false)}
         onCreated={handleRdvCreated}
       />
+    </div>
+
+    {/* AI Assistant Panel */}
+    <AiAssistantPanel
+      beneficiairePrenom={beneficiairePrenom}
+      beneficiaireAge={beneficiaireAge}
+      conversationResume={null}
+      isOpen={showAiAssistant}
+      onClose={() => setShowAiAssistant(false)}
+    />
     </div>
   )
 }

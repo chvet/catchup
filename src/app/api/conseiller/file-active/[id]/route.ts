@@ -8,6 +8,16 @@ import { referral, utilisateur, profilRiasec, indiceConfiance, conversation, pri
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
+import { DEPARTMENT_COORDS } from '@/lib/geo-departments'
+
+// Calcul distance Haversine en km entre 2 points GPS
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 import { notifyBeneficiaireAccepted } from '@/lib/push-triggers'
 
 export async function GET(
@@ -138,6 +148,33 @@ export async function GET(
         dureeSecondes: conv.dureeSecondes,
       } : null,
       priseEnCharge: pec,
+      // Info structure assignée (avec adresse pour la carte)
+      structureAssignee: pec ? (() => {
+        const s = allStructures.find(s => s.id === pec.structureId)
+        return s ? {
+          id: s.id,
+          nom: s.nom,
+          adresse: s.adresse,
+          codePostal: s.codePostal,
+          ville: s.ville,
+          latitude: s.latitude,
+          longitude: s.longitude,
+        } : null
+      })() : null,
+      // Distance structure ↔ bénéficiaire en km
+      distance: (() => {
+        if (!pec) return null
+        const s = allStructures.find(s => s.id === pec.structureId)
+        const sLat = s?.latitude as number | undefined
+        const sLng = s?.longitude as number | undefined
+        const dept = ref.localisation
+        const bCoord = dept ? DEPARTMENT_COORDS[dept] : null
+        if (sLat && sLng && bCoord) {
+          const km = Math.round(haversineKm(sLat, sLng, bCoord.lat, bCoord.lng))
+          return { km, label: km < 1 ? '< 1 km' : km < 10 ? `${km} km` : `${km} km` }
+        }
+        return null
+      })(),
       matching: matchingResults.slice(0, 5),
       attente: {
         heures: attenteHeures,

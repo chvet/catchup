@@ -142,10 +142,19 @@ export async function PUT(request: Request, { params }: Params) {
       }
     }
 
+    // Validate promptPersonnalise if provided (max 1000 chars)
+    if (body.promptPersonnalise !== undefined && body.promptPersonnalise !== null) {
+      if (typeof body.promptPersonnalise !== 'string' || body.promptPersonnalise.length > 1000) {
+        return jsonError('Le prompt personnalise ne peut pas depasser 1000 caracteres', 400)
+      }
+    }
+
     // Build the update object (only allowed fields)
     const allowedFields = [
       'nom', 'slug', 'type', 'departements', 'regions', 'ageMin', 'ageMax',
       'specialites', 'genrePreference', 'capaciteMax', 'webhookUrl', 'parcoureoId', 'actif',
+      'adresse', 'codePostal', 'ville', 'latitude', 'longitude',
+      'promptPersonnalise',
     ]
 
     const updateData: Record<string, unknown> = { misAJourLe: new Date().toISOString() }
@@ -156,6 +165,30 @@ export async function PUT(request: Request, { params }: Params) {
           updateData[field] = JSON.stringify(body[field])
         } else {
           updateData[field] = body[field]
+        }
+      }
+    }
+
+    // Auto-géocodage si l'adresse a été modifiée
+    const addressChanged = body.adresse !== undefined || body.codePostal !== undefined || body.ville !== undefined
+    if (addressChanged) {
+      const adresse = body.adresse ?? existing[0].adresse ?? ''
+      const cp = body.codePostal ?? existing[0].codePostal ?? ''
+      const ville = body.ville ?? existing[0].ville ?? ''
+      if (adresse && ville) {
+        try {
+          const q = encodeURIComponent(`${adresse} ${cp} ${ville}`)
+          const geoRes = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${q}&limit=1`)
+          if (geoRes.ok) {
+            const geoData = await geoRes.json()
+            if (geoData.features && geoData.features.length > 0) {
+              const [lng, lat] = geoData.features[0].geometry.coordinates
+              updateData.latitude = lat
+              updateData.longitude = lng
+            }
+          }
+        } catch (geoErr) {
+          console.warn('[Geocoding] Erreur:', geoErr)
         }
       }
     }

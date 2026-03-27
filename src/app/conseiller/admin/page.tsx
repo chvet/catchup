@@ -8,7 +8,9 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, Legend,
 } from 'recharts'
-import FranceMap from '@/components/conseiller/FranceMap'
+import CarteDesRessources from '@/components/conseiller/CarteDesRessources'
+
+// MapView déplacé dans CarteDesRessources
 
 // === Types ===
 
@@ -124,6 +126,173 @@ function KpiCard({
   )
 }
 
+// === Export dropdown ===
+
+function ExportDropdown() {
+  const [open, setOpen] = useState(false)
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    return d.toISOString().split('T')[0]
+  })
+  const [dateTo, setDateTo] = useState(() => new Date().toISOString().split('T')[0])
+
+  const doExport = (format: string, type: string) => {
+    const url = `/api/conseiller/export?format=${format}&type=${type}&from=${dateFrom}&to=${dateTo}`
+    window.open(url, '_blank')
+    setOpen(false)
+  }
+
+  const exportOptions = [
+    { label: '\ud83d\udcca Rapport PDF', format: 'pdf', type: 'activite' },
+    { label: '\ud83d\udcca Rapport Excel', format: 'xlsx', type: 'activite' },
+    { label: '\ud83d\udc65 Liste beneficiaires (Excel)', format: 'xlsx', type: 'beneficiaires' },
+    { label: '\ud83c\udfe2 Liste structures (Excel)', format: 'xlsx', type: 'structures' },
+  ]
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="px-4 py-2 bg-catchup-primary text-white rounded-lg text-sm font-medium hover:bg-catchup-primary/90 transition-colors flex items-center gap-2"
+      >
+        Exporter
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={open ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'} />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+          {/* Date picker */}
+          <div className="p-3 border-b border-gray-100 bg-gray-50">
+            <p className="text-xs font-medium text-gray-500 mb-2">Periode du rapport</p>
+            <div className="flex gap-2 items-center">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+              />
+              <span className="text-gray-400 text-sm">au</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+              />
+            </div>
+          </div>
+
+          {/* Options */}
+          {exportOptions.map((opt, i) => (
+            <button
+              key={i}
+              onClick={() => doExport(opt.format, opt.type)}
+              className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Click outside to close */}
+      {open && (
+        <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+      )}
+    </div>
+  )
+}
+
+// === Section Satisfaction ===
+
+interface SatisfactionData {
+  moyennes: {
+    noteGlobale: number | null
+    noteEcoute: number | null
+    noteUtilite: number | null
+    noteConseiller: number | null
+    nps: number | null
+    totalReponses: number
+  }
+  npsScore: number | null
+}
+
+function SatisfactionSection({ data }: { data: SatisfactionData }) {
+  const npsScoreColor = (score: number | null) => {
+    if (score === null) return 'text-gray-400'
+    if (score > 50) return 'text-green-600'
+    if (score > 0) return 'text-orange-500'
+    return 'text-red-500'
+  }
+
+  const npsColor = (score: number | null) => {
+    if (score === null) return 'text-gray-400'
+    if (score > 8) return 'text-green-600'
+    if (score > 6) return 'text-orange-500'
+    return 'text-red-500'
+  }
+
+  const renderStars = (score: number | null) => {
+    if (score === null) return <span className="text-gray-400 text-sm">Pas de donnees</span>
+    const full = Math.floor(score)
+    const hasHalf = score - full >= 0.3
+    return (
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map(i => (
+          <svg key={i} className={`w-5 h-5 ${i <= full ? 'text-yellow-400' : i === full + 1 && hasHalf ? 'text-yellow-300' : 'text-gray-200'}`} fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+          </svg>
+        ))}
+        <span className="ml-1 text-sm font-semibold text-gray-700">{score.toFixed(1)}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Satisfaction des beneficiaires</h3>
+
+      {data.moyennes.totalReponses === 0 ? (
+        <p className="text-gray-400 text-sm">Aucune enquete de satisfaction pour le moment.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="rounded-xl border border-gray-100 p-4 bg-gray-50">
+            <p className="text-sm text-gray-500 mb-1">Score NPS</p>
+            <p className={`text-3xl font-bold ${npsScoreColor(data.npsScore)}`}>
+              {data.npsScore !== null ? data.npsScore : '\u2014'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">{data.moyennes.totalReponses} reponse{data.moyennes.totalReponses > 1 ? 's' : ''}</p>
+          </div>
+          <div className="rounded-xl border border-gray-100 p-4 bg-gray-50">
+            <p className="text-sm text-gray-500 mb-1">Experience globale</p>
+            {renderStars(data.moyennes.noteGlobale)}
+          </div>
+          <div className="rounded-xl border border-gray-100 p-4 bg-gray-50">
+            <p className="text-sm text-gray-500 mb-1">Ecoute</p>
+            {renderStars(data.moyennes.noteEcoute)}
+          </div>
+          <div className="rounded-xl border border-gray-100 p-4 bg-gray-50">
+            <p className="text-sm text-gray-500 mb-1">Utilite de l&apos;IA</p>
+            {renderStars(data.moyennes.noteUtilite)}
+          </div>
+          <div className="rounded-xl border border-gray-100 p-4 bg-gray-50">
+            <p className="text-sm text-gray-500 mb-1">Aide du conseiller</p>
+            {renderStars(data.moyennes.noteConseiller)}
+          </div>
+          <div className="rounded-xl border border-gray-100 p-4 bg-gray-50">
+            <p className="text-sm text-gray-500 mb-1">Recommandation (0-10)</p>
+            <p className={`text-2xl font-bold ${npsColor(data.moyennes.nps)}`}>
+              {data.moyennes.nps !== null ? data.moyennes.nps.toFixed(1) : '\u2014'}
+              <span className="text-sm font-normal text-gray-400">/10</span>
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // === Page principale ===
 
 export default function AdminDashboardPage() {
@@ -133,6 +302,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>('casEnAttente')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [satisfaction, setSatisfaction] = useState<SatisfactionData | null>(null)
 
   // Redirection si pas super_admin
   useEffect(() => {
@@ -156,6 +326,14 @@ export default function AdminDashboardPage() {
         console.error('Erreur admin stats:', err)
         setLoading(false)
       })
+
+    // Charger les donnees de satisfaction
+    fetch('/api/conseiller/satisfaction')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) setSatisfaction(data)
+      })
+      .catch(() => {})
   }, [])
 
   if (conseiller?.role !== 'super_admin') {
@@ -245,9 +423,12 @@ export default function AdminDashboardPage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Administration multi-structures</h1>
-        <p className="text-gray-500 text-sm">Vue d&apos;ensemble de toutes les structures</p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Administration multi-structures</h1>
+          <p className="text-gray-500 text-sm">Vue d&apos;ensemble de toutes les structures</p>
+        </div>
+        <ExportDropdown />
       </div>
 
       {/* === A. KPIs === */}
@@ -335,17 +516,11 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* === Carte de France === */}
-      <FranceMap
-        structures={stats.structures.map(s => ({
-          id: s.id,
-          nom: s.nom,
-          departements: s.departements || [],
-          casEnAttente: s.casEnAttente,
-          casPrisEnCharge: s.casPrisEnCharge,
-          casTermines: s.casTermines,
-        }))}
-      />
+      {/* === E. Satisfaction === */}
+      {satisfaction && <SatisfactionSection data={satisfaction} />}
+
+      {/* === Carte des ressources (Leaflet) === */}
+      <CarteDesRessources structures={stats.structures} />
 
       {/* === B. Tableau comparatif === */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8 overflow-hidden">

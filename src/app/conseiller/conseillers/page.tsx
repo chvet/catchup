@@ -106,7 +106,7 @@ export default function ConseillersPage() {
   // Load structures for dropdown
   useEffect(() => {
     if (!isAdmin) return
-    fetch('/api/conseiller/structures')
+    fetch('/api/conseiller/structures?all=true')
       .then(r => r.json())
       .then(data => setStructures((data.data || []).map((s: StructureOption) => ({ id: s.id, nom: s.nom }))))
       .catch(() => {})
@@ -241,7 +241,7 @@ export default function ConseillersPage() {
         role: formData.role,
         structureId: formData.structureId,
       }
-      if (formData.password) payload.password = formData.password
+      if (formData.password) payload.motDePasse = formData.password
 
       const url = editingId
         ? `/api/conseiller/conseillers/${editingId}`

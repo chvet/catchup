@@ -3,6 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useConseiller } from '@/components/conseiller/ConseillerProvider'
+import dynamic from 'next/dynamic'
+import type { MapMarker } from '@/components/MapView'
+
+const MapView = dynamic(() => import('@/components/MapView'), { ssr: false })
 
 interface StructureDetail {
   id: string
@@ -15,6 +19,12 @@ interface StructureDetail {
   specialites: string
   capaciteMax: number
   actif: number
+  adresse?: string | null
+  codePostal?: string | null
+  ville?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  promptPersonnalise?: string | null
   nbConseillers?: number
   nbCasActifs?: number
 }
@@ -86,6 +96,16 @@ export default function StructureDetailPage() {
   const [slugSaving, setSlugSaving] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
 
+  // État pour l'édition de l'adresse
+  const [adresseEditing, setAdresseEditing] = useState(false)
+  const [adresseForm, setAdresseForm] = useState({ adresse: '', codePostal: '', ville: '' })
+  const [adresseSaving, setAdresseSaving] = useState(false)
+
+  // Prompt IA personnalise
+  const [promptValue, setPromptValue] = useState('')
+  const [promptSaving, setPromptSaving] = useState(false)
+  const [promptSaved, setPromptSaved] = useState(false)
+
   const isAdmin = conseiller?.role === 'admin_structure' || conseiller?.role === 'super_admin'
   const isSuperAdmin = conseiller?.role === 'super_admin'
 
@@ -126,6 +146,12 @@ export default function StructureDetailPage() {
         capaciteMax: structure.capaciteMax,
       })
       setSlugValue(structure.slug || '')
+      setAdresseForm({
+        adresse: structure.adresse || '',
+        codePostal: structure.codePostal || '',
+        ville: structure.ville || '',
+      })
+      setPromptValue(structure.promptPersonnalise || '')
     }
   }, [structure])
 
@@ -204,7 +230,7 @@ export default function StructureDetailPage() {
   }
 
   const structureUrl = structure.slug
-    ? `https://catchup.jaeprive.fr/?s=${structure.slug}`
+    ? `https://wesh.chat/?s=${structure.slug}`
     : null
   const encodedUrl = structureUrl ? encodeURIComponent(structureUrl) : ''
   const qrCodeSrc = structureUrl
@@ -286,6 +312,45 @@ export default function StructureDetailPage() {
       }
     } finally {
       setSlugSaving(false)
+    }
+  }
+
+  const handleAdresseSave = async () => {
+    setAdresseSaving(true)
+    try {
+      const res = await fetch(`/api/conseiller/structures/${structureId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adresse: adresseForm.adresse.trim(),
+          codePostal: adresseForm.codePostal.trim(),
+          ville: adresseForm.ville.trim(),
+        }),
+      })
+      if (res.ok) {
+        await fetchData()
+        setAdresseEditing(false)
+      }
+    } finally {
+      setAdresseSaving(false)
+    }
+  }
+
+  const handlePromptSave = async () => {
+    setPromptSaving(true)
+    try {
+      const res = await fetch(`/api/conseiller/structures/${structureId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promptPersonnalise: promptValue.trim() }),
+      })
+      if (res.ok) {
+        await fetchData()
+        setPromptSaved(true)
+        setTimeout(() => setPromptSaved(false), 2000)
+      }
+    } finally {
+      setPromptSaving(false)
     }
   }
 
@@ -476,6 +541,117 @@ export default function StructureDetailPage() {
         </div>
       )}
 
+      {/* Adresse & Carte */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">Adresse</h3>
+          {isAdmin && !adresseEditing && (
+            <button
+              onClick={() => {
+                setAdresseForm({
+                  adresse: structure.adresse || '',
+                  codePostal: structure.codePostal || '',
+                  ville: structure.ville || '',
+                })
+                setAdresseEditing(true)
+              }}
+              className="px-2 py-1 text-xs text-catchup-primary border border-catchup-primary rounded hover:bg-catchup-primary/10 transition-colors"
+            >
+              Modifier
+            </button>
+          )}
+        </div>
+
+        {adresseEditing ? (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+              <input
+                type="text"
+                value={adresseForm.adresse}
+                onChange={e => setAdresseForm(f => ({ ...f, adresse: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+                placeholder="12 rue de la République"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Code postal</label>
+                <input
+                  type="text"
+                  value={adresseForm.codePostal}
+                  onChange={e => setAdresseForm(f => ({ ...f, codePostal: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+                  placeholder="69008"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+                <input
+                  type="text"
+                  value={adresseForm.ville}
+                  onChange={e => setAdresseForm(f => ({ ...f, ville: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+                  placeholder="Lyon"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setAdresseEditing(false)}
+                className="px-3 py-1.5 text-gray-500 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleAdresseSave}
+                disabled={adresseSaving}
+                className="px-4 py-1.5 bg-catchup-primary text-white rounded-lg text-sm font-medium hover:bg-catchup-primary/90 transition-colors disabled:opacity-50"
+              >
+                {adresseSaving ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            {structure.adresse || structure.ville ? (
+              <div className="space-y-3">
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-400 mt-0.5">📍</span>
+                  <div>
+                    {structure.adresse && <p className="text-sm text-gray-700">{structure.adresse}</p>}
+                    <p className="text-sm text-gray-700">
+                      {structure.codePostal && <span>{structure.codePostal} </span>}
+                      {structure.ville && <span>{structure.ville}</span>}
+                    </p>
+                  </div>
+                </div>
+                {structure.latitude && structure.longitude && (
+                  <div style={{ height: '150px' }} className="rounded-lg overflow-hidden">
+                    <MapView
+                      markers={[
+                        {
+                          lat: structure.latitude,
+                          lng: structure.longitude,
+                          color: 'blue',
+                          label: structure.nom,
+                          popup: `${structure.adresse}, ${structure.codePostal} ${structure.ville}`,
+                        },
+                      ]}
+                      center={[structure.latitude, structure.longitude]}
+                      zoom={15}
+                      height="150px"
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 italic">Aucune adresse renseignée</p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Lien & QR Code */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Lien &amp; QR Code</h3>
@@ -583,6 +759,49 @@ export default function StructureDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Prompt IA personnalise — visible admin_structure + super_admin */}
+      {isAdmin && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">
+            <span className="mr-2">&#x1F916;</span>Prompt IA personnalis&eacute;
+          </h3>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-amber-800">
+              &#x26A0;&#xFE0F; Ce prompt influence le comportement de l&apos;IA pour tous les b&eacute;n&eacute;ficiaires sourc&eacute;s par votre structure. Utilisez-le pour adapter l&apos;accompagnement IA &agrave; votre public cible.
+            </p>
+          </div>
+          <textarea
+            value={promptValue}
+            onChange={e => {
+              if (e.target.value.length <= 1000) {
+                setPromptValue(e.target.value)
+              }
+            }}
+            maxLength={1000}
+            rows={5}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary resize-vertical"
+            placeholder="Ex: Notre structure accompagne principalement des d&eacute;crocheurs scolaires. L'IA doit &ecirc;tre particuli&egrave;rement bienveillante et &eacute;viter les r&eacute;f&eacute;rences au parcours scolaire classique."
+          />
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-xs text-gray-400">
+              {promptValue.length}/1000 caract&egrave;res
+            </span>
+            <div className="flex items-center gap-2">
+              {promptSaved && (
+                <span className="text-sm text-green-600 font-medium">Enregistr&eacute; !</span>
+              )}
+              <button
+                onClick={handlePromptSave}
+                disabled={promptSaving || promptValue === (structure.promptPersonnalise || '')}
+                className="px-4 py-1.5 bg-catchup-primary text-white rounded-lg text-sm font-medium hover:bg-catchup-primary/90 transition-colors disabled:opacity-50"
+              >
+                {promptSaving ? 'Enregistrement...' : 'Enregistrer le prompt'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       {deleteConfirm && (

@@ -29,12 +29,8 @@ function VisioPageContent() {
     setParticipantRole(resolvedRole)
     setReady(true)
 
-    // Auto-join if params are complete (name + role provided)
-    if (room && nameParam && roleParam) {
-      setJoined(true)
-    }
-    // Auto-join for beneficiaries: if role=beneficiaire is set and name is available, skip pre-join
-    else if (room && roleParam === 'beneficiaire' && resolvedName) {
+    // Auto-join dès qu'on a un nom (pas besoin de sélectionner un rôle)
+    if (room && resolvedName) {
       setJoined(true)
     }
   }, [nameParam, roleParam, room])
@@ -122,21 +118,6 @@ function VisioPageContent() {
               onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
               autoFocus
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Votre role
-            </label>
-            <select
-              value={participantRole}
-              onChange={(e) => setParticipantRole(e.target.value as typeof participantRole)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white"
-            >
-              <option value="beneficiaire">Beneficiaire</option>
-              <option value="conseiller">Conseiller</option>
-              <option value="tiers">Tiers (invité)</option>
-            </select>
           </div>
 
           <button

@@ -2,15 +2,34 @@ import { openai } from '@ai-sdk/openai'
 import { streamText } from 'ai'
 import { buildSystemPrompt } from '@/core/system-prompt'
 import { checkBeforeSend, recordUsage, estimateTokens, estimateMessagesTokens, LIMITS } from '@/lib/token-guard'
+import { db } from '@/data/db'
+import { structure } from '@/data/schema'
+import { eq } from 'drizzle-orm'
 
 export const maxDuration = 30
 
 export async function POST(req: Request) {
   try {
-    const { messages, profile, messageCount, fromQuiz, fragilityLevel, conversationId, userName } = await req.json()
+    const { messages, profile, messageCount, fromQuiz, fragilityLevel, conversationId, userName, structureSlug } = await req.json()
+
+    // ── Fetch structure prompt if structureSlug is provided ──
+    let structurePrompt: string | undefined
+    if (structureSlug && typeof structureSlug === 'string') {
+      try {
+        const structs = await db
+          .select({ promptPersonnalise: structure.promptPersonnalise })
+          .from(structure)
+          .where(eq(structure.slug, structureSlug))
+        if (structs.length > 0 && structs[0].promptPersonnalise) {
+          structurePrompt = structs[0].promptPersonnalise
+        }
+      } catch (err) {
+        console.warn('[Chat API] Failed to fetch structure prompt:', err)
+      }
+    }
 
     // ── Construire le system prompt ──
-    const systemPrompt = buildSystemPrompt(profile, messageCount || messages.length, fromQuiz, fragilityLevel, userName)
+    const systemPrompt = buildSystemPrompt(profile, messageCount || messages.length, fromQuiz, fragilityLevel, userName, structurePrompt)
 
     // ── Token Guard : vérifier les quotas AVANT d'appeler l'API ──
     const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0].trim()

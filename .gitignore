@@ -12,3 +12,7 @@ dev-out.log
 local.db
 *.db
 drizzle/
+
+# Capacitor Android
+android/
+ios/

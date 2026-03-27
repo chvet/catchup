@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { ConseillerProvider, type ConseillerInfo } from '@/components/conseiller/ConseillerProvider'
 import PushNotificationManager from '@/components/PushNotificationManager'
+import { useAppBrand } from '@/hooks/useAppBrand'
 import { useHeartbeat } from '@/hooks/useHeartbeat'
 
 interface AlertsData {
@@ -15,6 +16,7 @@ interface AlertsData {
 }
 
 export default function ConseillerLayout({ children }: { children: React.ReactNode }) {
+  const brandConfig = useAppBrand()
   const [conseiller, setConseiller] = useState<ConseillerInfo | null>(null)
   // Sidebar fermée par défaut sur mobile, ouverte sur desktop
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -146,7 +148,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
           <div className="p-4 flex items-center justify-between border-b border-white/10">
             {(sidebarOpen || isMobile) && (
               <div>
-                <h1 className="text-lg font-bold text-catchup-primary">Catch&apos;Up</h1>
+                <h1 className="text-lg font-bold text-catchup-primary">{brandConfig.appName}</h1>
                 <p className="text-xs text-gray-400">Espace Conseiller</p>
               </div>
             )}
@@ -251,7 +253,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
               {/* Alerte file active dans la topbar */}
               {alerts && alerts.enAttente > 0 && (
                 <Link
-                  href="/conseiller/file-active"
+                  href="/conseiller/file-active?tab=mes_demandes"
                   className={`
                     flex items-center gap-1.5 lg:gap-2 px-2 lg:px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-colors
                     ${alerts.urgents > 0

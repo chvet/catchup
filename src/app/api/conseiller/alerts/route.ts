@@ -71,6 +71,17 @@ export async function GET() {
 
     const totalEnRetard = enRetard[0]?.count ?? 0
 
+    // 5. Piggyback : declencher la verification des rappels (non bloquant)
+    // Cela permet de verifier les beneficiaires inactifs a chaque polling des alertes
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000'
+      fetch(`${baseUrl}/api/cron/reminders`).catch(() => {})
+    } catch {
+      // Non bloquant — si le cron echoue, les alertes fonctionnent quand meme
+    }
+
     return jsonSuccess({
       enAttente: totalEnAttente,
       nouveaux: totalNouveaux,

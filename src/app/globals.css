@@ -17,8 +17,11 @@
 
 html, body {
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
   overflow-x: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Online status dot pulse animation */
@@ -100,6 +103,18 @@ html, body {
   outline-offset: 2px;
 }
 
+/* Chat message word wrapping — prevents overflow on mobile */
+.chat-message {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
 /* Safe areas for mobile */
 .safe-area-top { padding-top: env(safe-area-inset-top); }
 .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Leaflet custom markers */
+.marker-red { background: #EF4444; border: 2px solid white; border-radius: 50%; width: 14px; height: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+.marker-blue { background: #3B82F6; border: 2px solid white; border-radius: 50%; width: 14px; height: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+.marker-green { background: #22C55E; border: 2px solid white; border-radius: 50%; width: 14px; height: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }

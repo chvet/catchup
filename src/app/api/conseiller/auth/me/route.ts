@@ -37,6 +37,7 @@ export async function GET() {
       prenom: c.prenom,
       nom: c.nom,
       role: c.role,
+      parcoureoId: c.parcoureoId || null,
       structure: structureData ? {
         id: structureData.id,
         nom: structureData.nom,

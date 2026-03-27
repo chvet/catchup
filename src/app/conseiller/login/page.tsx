@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useAppBrand } from '@/hooks/useAppBrand'
 
 interface StructureInfo {
   nom: string
@@ -22,6 +23,7 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
+  const brandConfig = useAppBrand()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -29,9 +31,12 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [showRecovery, setShowRecovery] = useState(false)
   const [structureInfo, setStructureInfo] = useState<StructureInfo | null>(null)
+  const [parcoureoEnabled, setParcoureoEnabled] = useState(false)
+  const [parcoureoLoading, setParcoureoLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const slug = searchParams.get('s') || ''
+  const ssoError = searchParams.get('error') || ''
 
   // Charger les infos de la structure si slug présent
   useEffect(() => {
@@ -44,6 +49,36 @@ function LoginForm() {
         .catch(() => {})
     }
   }, [slug])
+
+  // Vérifier si Parcoureo SSO est disponible
+  useEffect(() => {
+    fetch('/api/conseiller/auth/parcoureo/status')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.configured) setParcoureoEnabled(true)
+      })
+      .catch(() => {})
+  }, [])
+
+  // Afficher les erreurs SSO provenant du callback
+  useEffect(() => {
+    if (ssoError) {
+      const messages: Record<string, string> = {
+        parcoureo_not_configured: 'L\'integration Parcoureo n\'est pas configuree.',
+        missing_token: 'Token Parcoureo manquant.',
+        invalid_token: 'Token Parcoureo invalide ou expire.',
+        account_disabled: 'Votre compte est desactive.',
+        server_error: 'Erreur serveur lors de la connexion Parcoureo.',
+      }
+      setError(messages[ssoError] || 'Erreur de connexion Parcoureo.')
+    }
+  }, [ssoError])
+
+  const handleParcoureoLogin = () => {
+    setParcoureoLoading(true)
+    // Rediriger vers le endpoint GET qui redirige vers Parcoureo
+    window.location.href = '/api/conseiller/auth/parcoureo'
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -84,7 +119,7 @@ function LoginForm() {
         {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">
-            Catch&apos;Up
+            {brandConfig.appName}
           </h1>
           <p className="text-catchup-primary text-lg">Espace Conseiller</p>
           {structureInfo ? (
@@ -187,6 +222,30 @@ function LoginForm() {
               : 'Accès réservé aux conseillers habilités'
             }
           </p>
+
+          {/* Séparateur + bouton Parcoureo SSO */}
+          {parcoureoEnabled && (
+            <>
+              <div className="flex items-center gap-3 mt-6 mb-4">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-sm text-gray-400">ou</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleParcoureoLogin}
+                disabled={parcoureoLoading}
+                className="w-full py-3 bg-[#2D5F8A] text-white rounded-lg font-medium hover:bg-[#2D5F8A]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+                {parcoureoLoading ? 'Redirection...' : 'Se connecter avec Parcoureo'}
+              </button>
+            </>
+          )}
         </form>
 
         {/* Procédure de récupération d'accès */}

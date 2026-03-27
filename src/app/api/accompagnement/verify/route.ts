@@ -32,7 +32,13 @@ export async function POST(request: Request) {
       )
     }
 
-    const ref = refs[0]
+    // Prendre le referral le plus récent avec statut prise_en_charge (priorité) ou en_attente
+    const ref = refs.sort((a, b) => {
+      const statusOrder = (s: string | null) => s === 'prise_en_charge' ? 2 : s === 'en_attente' ? 1 : 0
+      const diff = statusOrder(b.statut) - statusOrder(a.statut)
+      if (diff !== 0) return diff
+      return new Date(b.creeLe).getTime() - new Date(a.creeLe).getTime()
+    })[0]
 
     // 2. Trouver le code de vérification non expiré, non vérifié
     const now = new Date().toISOString()
@@ -49,17 +55,21 @@ export async function POST(request: Request) {
 
     if (codes.length === 0) {
       return NextResponse.json(
-        { error: 'Code expiré ou déjà utilisé. Demandez un nouveau code.' },
+        { error: 'Code expiré ou déjà utilisé. Demandez un nouveau code à votre conseiller.' },
         { status: 410 }
       )
     }
 
-    const codeRecord = codes[0]
+    // Prendre le code le plus récent (dernier créé)
+    const codeRecord = codes.sort((a, b) =>
+      new Date(b.creeLe).getTime() - new Date(a.creeLe).getTime()
+    )[0]
 
-    // 3. Vérifier le nombre de tentatives
-    if ((codeRecord.tentatives ?? 0) >= 5) {
+    // 3. Vérifier le nombre de tentatives (max 20)
+    const MAX_ATTEMPTS = 20
+    if ((codeRecord.tentatives ?? 0) >= MAX_ATTEMPTS) {
       return NextResponse.json(
-        { error: 'Nombre maximum de tentatives atteint. Demandez un nouveau code.' },
+        { error: 'Nombre maximum de tentatives atteint. Demandez un nouveau code à votre conseiller.' },
         { status: 429 }
       )
     }
@@ -67,12 +77,13 @@ export async function POST(request: Request) {
     // 4. Vérifier le code
     if (codeRecord.code !== code.trim()) {
       // Incrémenter les tentatives
+      const newTentatives = (codeRecord.tentatives ?? 0) + 1
       await db
         .update(codeVerification)
-        .set({ tentatives: (codeRecord.tentatives ?? 0) + 1 })
+        .set({ tentatives: newTentatives })
         .where(eq(codeVerification.id, codeRecord.id))
 
-      const remaining = 4 - (codeRecord.tentatives ?? 0)
+      const remaining = MAX_ATTEMPTS - newTentatives
       return NextResponse.json(
         { error: `Code incorrect. ${remaining} tentative(s) restante(s).` },
         { status: 401 }

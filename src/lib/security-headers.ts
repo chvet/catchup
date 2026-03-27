@@ -22,13 +22,13 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
     // Scripts : self + inline (React/Next.js en ont besoin) + eval pour les chunks dynamiques
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
     // Styles : self + inline (Tailwind génère des styles inline)
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://unpkg.com",
     // Images : self + data URIs (avatars, icônes) + blob (previews)
-    "img-src 'self' data: blob: https://api.qrserver.com",
+    "img-src 'self' data: blob: https://api.qrserver.com https://*.tile.openstreetmap.org",
     // Fonts : self
     "font-src 'self' data:",
     // Connexions API : self + visio WebSocket + OpenAI (chat IA)
-    "connect-src 'self' https://api.openai.com wss://visio.catchup.jaeprive.fr ws://localhost:3003 https://geo.api.gouv.fr https://api-adresse.data.gouv.fr",
+    "connect-src 'self' https://api.openai.com wss://visio.wesh.chat ws://localhost:3003 https://geo.api.gouv.fr https://api-adresse.data.gouv.fr",
     // Frames : self uniquement (visio intégrée en composant React)
     "frame-src 'self'",
     // Media : self + blob (visio audio/video playback)

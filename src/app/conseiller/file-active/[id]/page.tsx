@@ -12,6 +12,11 @@ import JournalEvenements from '@/components/conseiller/JournalEvenements'
 import BrisDeGlaceModal from '@/components/conseiller/BrisDeGlaceModal'
 import OnlineDot from '@/components/OnlineDot'
 import { useIsOnline } from '@/hooks/useOnlineStatus'
+import dynamic from 'next/dynamic'
+import { getDepartmentCoords } from '@/lib/geo-departments'
+import type { MapMarker } from '@/components/MapView'
+
+const MapView = dynamic(() => import('@/components/MapView'), { ssr: false })
 
 interface CaseDetail {
   referral: {
@@ -56,6 +61,15 @@ interface CaseDetail {
     conseillerId: string
     notes: string | null
   } | null
+  structureAssignee: {
+    id: string
+    nom: string
+    adresse: string | null
+    codePostal: string | null
+    ville: string | null
+    latitude: number | null
+    longitude: number | null
+  } | null
   matching: {
     structureId: string
     structureNom: string
@@ -64,6 +78,7 @@ interface CaseDetail {
     tauxRemplissage: number
   }[]
   attente: { heures: number; label: string }
+  distance: { km: number; label: string } | null
 }
 
 interface ConversationMessage {
@@ -245,7 +260,7 @@ export default function CaseDetailPage() {
     )
   }
 
-  const { referral: ref, beneficiaire, profil, confiance, conversation: conv, priseEnCharge: pec, matching, attente } = data
+  const { referral: ref, beneficiaire, profil, confiance, conversation: conv, priseEnCharge: pec, matching, attente, distance } = data
 
   const riasecData = profil ? [
     { dim: 'R', label: 'Réaliste', score: profil.r },
@@ -289,6 +304,11 @@ export default function CaseDetailPage() {
                 {ref.priorite === 'critique' ? '🔴 Critique' : ref.priorite === 'haute' ? '🟠 Haute' : '🟢 Normale'}
               </span>
               <span className="text-sm text-gray-400">Attente : {attente.label}</span>
+              {distance && (
+                <span className={`text-sm font-medium ${distance.km <= 30 ? 'text-green-600' : distance.km <= 80 ? 'text-orange-500' : 'text-red-500'}`}>
+                  📏 {distance.label}
+                </span>
+              )}
               {ref.localisation && <span className="text-sm text-gray-400">📍 {ref.localisation}</span>}
             </div>
           </div>
@@ -390,6 +410,51 @@ export default function CaseDetailPage() {
                     💬 Consulter l&apos;historique complet de la conversation
                   </button>
                 )}
+
+                {/* Carte de localisation */}
+                {ref.localisation && getDepartmentCoords(ref.localisation) && (() => {
+                  const benefCoords = getDepartmentCoords(ref.localisation!)!
+                  const benefPrenom = data.beneficiaire?.prenom || 'Bénéficiaire'
+                  const structAssignee = data.structureAssignee
+                  const mapMarkers: MapMarker[] = [
+                    {
+                      lat: benefCoords.lat,
+                      lng: benefCoords.lng,
+                      color: 'red',
+                      label: `Bénéficiaire : ${benefPrenom}`,
+                      popup: `${benefPrenom} - ${benefCoords.name} (${ref.localisation})`,
+                    },
+                  ]
+                  // Ajouter la structure assignée avec coordonnées précises si disponibles
+                  if (structAssignee && structAssignee.latitude && structAssignee.longitude) {
+                    const adresseLabel = [structAssignee.adresse, structAssignee.ville].filter(Boolean).join(', ')
+                    mapMarkers.push({
+                      lat: structAssignee.latitude,
+                      lng: structAssignee.longitude,
+                      color: 'blue',
+                      label: `Structure : ${structAssignee.nom}`,
+                      popup: `${structAssignee.nom} - ${adresseLabel}`,
+                    })
+                  }
+                  return (
+                    <div className="pt-4 border-t border-gray-100">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                        🗺️ Localisation
+                      </h4>
+                      <MapView markers={mapMarkers} height="200px" />
+                      <div className="flex flex-col gap-0.5 mt-1">
+                        <p className="text-xs text-gray-400">
+                          📍 {benefPrenom} — {benefCoords.name} ({ref.localisation})
+                        </p>
+                        {structAssignee && structAssignee.adresse && (
+                          <p className="text-xs text-gray-400">
+                            🏢 {structAssignee.nom} — {structAssignee.adresse}, {structAssignee.codePostal} {structAssignee.ville}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             )}
 

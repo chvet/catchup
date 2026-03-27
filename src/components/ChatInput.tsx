@@ -1,21 +1,24 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import EmojiPickerBtn from './EmojiPicker'
 import VoiceRecorder from './VoiceRecorder'
 import FileAttachment from './FileAttachment'
 
 interface Props {
   input: string
-  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onChange: (e: any) => void
   onSubmit: (e: React.FormEvent) => void
   isLoading: boolean
   inputRef: React.RefObject<HTMLTextAreaElement | null>
   onAppend: (msg: { role: 'user'; content: string }) => void
+  onVoiceMessage?: (blob: Blob, duration: number, transcription: string) => void
 }
 
-export default function ChatInput({ input, onChange, onSubmit, isLoading, inputRef, onAppend }: Props) {
+export default function ChatInput({ input, onChange, onSubmit, isLoading, inputRef, onAppend, onVoiceMessage }: Props) {
   const formRef = useRef<HTMLFormElement>(null)
+  const [transcribing, setTranscribing] = useState(false)
 
   // Auto-resize textarea
   useEffect(() => {
@@ -51,10 +54,55 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
     }, 10)
   }
 
-  const handleVoiceResult = (text: string) => {
-    if (text.trim()) {
-      onAppend({ role: 'user', content: text.trim() })
+  const handleVoiceRecorded = async (blob: Blob, duration: number) => {
+    setTranscribing(true)
+
+    try {
+      // Transcrire via l'API Whisper
+      const formData = new FormData()
+      formData.append('file', blob, `voice.${blob.type.includes('mp4') ? 'm4a' : 'webm'}`)
+
+      const res = await fetch('/api/voice/transcribe', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        const text = data.text?.trim() || ''
+
+        if (text) {
+          // Si un handler de message vocal est fourni, l'utiliser
+          if (onVoiceMessage) {
+            onVoiceMessage(blob, duration, text)
+          } else {
+            // Sinon, envoyer comme message texte classique
+            onAppend({ role: 'user', content: `🎤 ${text}` })
+          }
+        } else {
+          // Transcription vide — envoyer quand même comme message vocal si handler disponible
+          if (onVoiceMessage) {
+            onVoiceMessage(blob, duration, '')
+          }
+        }
+      } else {
+        // Erreur de transcription — envoyer quand même l'audio si possible
+        if (onVoiceMessage) {
+          onVoiceMessage(blob, duration, '')
+        } else {
+          onAppend({ role: 'user', content: '🎤 [Message vocal]' })
+        }
+      }
+    } catch {
+      // Erreur réseau — envoyer quand même
+      if (onVoiceMessage) {
+        onVoiceMessage(blob, duration, '')
+      } else {
+        onAppend({ role: 'user', content: '🎤 [Message vocal]' })
+      }
     }
+
+    setTranscribing(false)
   }
 
   const handleFile = (file: File, preview: string) => {
@@ -65,17 +113,30 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
   }
 
   return (
-    <div className="bg-white border-t border-gray-200 px-2 py-1.5 safe-area-bottom">
+    <div className="bg-white border-t border-gray-200 px-2 py-1 safe-area-bottom">
+      {/* Indicateur de transcription */}
+      {transcribing && (
+        <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
+          <div className="w-3 h-3 border-2 border-catchup-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs text-gray-500">Transcription en cours...</span>
+        </div>
+      )}
+
       <form
         ref={formRef}
         onSubmit={onSubmit}
         className="flex items-end gap-1 max-w-3xl mx-auto"
       >
-        {/* Pièce jointe à gauche */}
+        {/* Pièce jointe à gauche (hors input) */}
         <FileAttachment onFile={handleFile} />
 
-        {/* Zone de saisie avec emoji intégré */}
-        <div className="flex-1 relative">
+        {/* Zone de saisie : [emoji | texte | micro] */}
+        <div className="flex-1 flex items-end gap-0 bg-gray-50 border border-gray-200 rounded-2xl focus-within:border-catchup-primary focus-within:ring-1 focus-within:ring-catchup-primary/30 transition-all min-w-0 overflow-hidden">
+          {/* Emoji button inside input, left side */}
+          <div className="flex items-center pl-1 pb-1.5 shrink-0">
+            <EmojiPickerBtn onSelect={handleEmoji} />
+          </div>
+
           <textarea
             ref={inputRef as React.LegacyRef<HTMLTextAreaElement>}
             value={input}
@@ -83,22 +144,22 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
             onKeyDown={handleKeyDown}
             placeholder="Message..."
             rows={1}
-            disabled={isLoading}
-            className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 pl-3 pr-16 py-2 text-[15px] text-gray-800 placeholder-gray-400 focus:outline-none focus:border-catchup-primary focus:ring-1 focus:ring-catchup-primary/30 transition-all disabled:opacity-50"
+            disabled={isLoading || transcribing}
+            className="flex-1 min-w-0 resize-none bg-transparent py-2 pr-1 text-[15px] text-gray-800 placeholder-gray-400 focus:outline-none disabled:opacity-50"
             style={{ maxHeight: '100px' }}
             autoFocus
           />
-          {/* Emoji + Micro à l'intérieur de la zone de saisie, côté droit */}
-          <div className="absolute right-2 bottom-1.5 flex items-center gap-0.5">
-            <EmojiPickerBtn onSelect={handleEmoji} />
-            <VoiceRecorder onResult={handleVoiceResult} />
+
+          {/* Micro inside input, right side */}
+          <div className="flex items-center pr-1 pb-1.5 shrink-0">
+            <VoiceRecorder onRecorded={handleVoiceRecorded} disabled={isLoading || transcribing} />
           </div>
         </div>
 
         {/* Bouton envoyer */}
         <button
           type="submit"
-          disabled={!input.trim() || isLoading}
+          disabled={!input.trim() || isLoading || transcribing}
           className="p-2 rounded-full bg-catchup-primary text-white disabled:opacity-30 hover:bg-indigo-600 active:scale-95 transition-all shadow-sm disabled:shadow-none shrink-0"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

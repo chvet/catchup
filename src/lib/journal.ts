@@ -23,6 +23,8 @@ export type JournalEventType =
   | 'tiers_revoque'
   | 'rupture_conseiller'
   | 'rupture_beneficiaire'
+  | 'transfert_generique'
+  | 'transfert_structure'
 
 export type ActeurType = 'conseiller' | 'beneficiaire' | 'tiers' | 'systeme'
 

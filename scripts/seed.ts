@@ -526,7 +526,8 @@ async function seed() {
     conversation_id TEXT NOT NULL REFERENCES conversation(id),
     priorite TEXT NOT NULL, niveau_detection INTEGER NOT NULL,
     motif TEXT, resume_conversation TEXT, moyen_contact TEXT, type_contact TEXT,
-    statut TEXT DEFAULT 'en_attente', webhook_envoye INTEGER DEFAULT 0,
+    statut TEXT DEFAULT 'en_attente', source TEXT DEFAULT 'generique',
+    webhook_envoye INTEGER DEFAULT 0,
     webhook_reponse TEXT, relance_envoyee INTEGER DEFAULT 0,
     structure_suggeree_id TEXT, localisation TEXT, genre TEXT, age_beneficiaire INTEGER,
     cree_le TEXT NOT NULL, mis_a_jour_le TEXT NOT NULL, recontacte_le TEXT
@@ -788,13 +789,17 @@ async function seed() {
         b.messages.length, Math.floor(b.messages.length / 3), now],
     })
 
-    // Referral
+    // Referral — source: ~60% sourcee (indices 0,1,2,3,5,6,8,9,11,13,16,17), ~40% generique (reste)
     const niveauDetection = b.priorite === 'critique' ? 3 : b.priorite === 'haute' ? 2 : 1
+    const sourceeIndices = [0, 1, 2, 3, 5, 6, 8, 9, 11, 13, 16, 17]
+    const referralSource = sourceeIndices.includes(idx) ? 'sourcee' : 'generique'
+    // Pour les sourcee, on attribue la structure du conseiller associé
+    const structSuggereId = referralSource === 'sourcee' ? structureIds[CONSEILLERS_DATA[b.consIdx].structIdx] : null
     await client.execute({
-      sql: `INSERT INTO referral (id, utilisateur_id, conversation_id, priorite, niveau_detection, motif, resume_conversation, moyen_contact, type_contact, statut, localisation, genre, age_beneficiaire, cree_le, mis_a_jour_le)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO referral (id, utilisateur_id, conversation_id, priorite, niveau_detection, motif, resume_conversation, moyen_contact, type_contact, statut, source, structure_suggeree_id, localisation, genre, age_beneficiaire, cree_le, mis_a_jour_le)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [refId, userId, convId, b.priorite, niveauDetection, b.motif, b.resume,
-        contact, contactType, statut, b.dep, b.genre, b.age, creeLe, now],
+        contact, contactType, statut, referralSource, structSuggereId, b.dep, b.genre, b.age, creeLe, now],
     })
 
     // Prise en charge + messages directs for prise_en_charge and terminee

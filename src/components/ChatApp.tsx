@@ -112,6 +112,9 @@ export default function ChatApp() {
   const [structureInfo, setStructureInfo] = useState<StructureInfo | null>(null)
   const [showFichesSearch, setShowFichesSearch] = useState(false)
 
+  // ── Données vocales par message (audioUrl + durée + transcription) ──
+  const voiceDataMap = useRef<Map<string, { audioUrl: string; duration: number; transcription?: string }>>(new Map())
+
   // ── Authentification bénéficiaire ──
   const LS_USER_TOKEN = 'catchup_user_token'
   interface AuthUser { prenom: string; email: string; utilisateurId: string; token: string }
@@ -296,6 +299,28 @@ export default function ChatApp() {
     }
     handleSubmit(e)
   }, [input, handleSubmit, persistMessage])
+
+  // Handler pour les messages vocaux (audio + transcription → AI)
+  const handleVoiceMessage = useCallback((blob: Blob, duration: number, transcription: string) => {
+    const audioUrl = URL.createObjectURL(blob)
+    const text = transcription || '[Message vocal]'
+    const msgContent = transcription ? `🎤 ${transcription}` : '🎤 [Message vocal]'
+
+    // Stocker les données audio associées au contenu du message
+    voiceDataMap.current.set(msgContent, { audioUrl, duration, transcription })
+
+    // Persister en DB
+    persistMessage({ role: 'user', contenu: text })
+
+    // Détecter la fragilité
+    if (transcription) {
+      const frag = getFragilityLevel(transcription)
+      if (frag !== 'none') setCurrentFragility(frag)
+    }
+
+    // Envoyer au chat AI comme message texte
+    append({ role: 'user', content: msgContent })
+  }, [append, persistMessage])
 
   // Persist messages in localStorage whenever they change
   useEffect(() => {
@@ -688,7 +713,7 @@ export default function ChatApp() {
   const hasMessages = messages.length > 0
 
   return (
-    <div className={`h-[100dvh] w-full max-w-[100vw] flex flex-col overflow-hidden ${rgaaMode ? 'rgaa-mode' : ''}`}>
+    <div className={`h-[100dvh] w-full max-w-[100vw] flex flex-col overflow-hidden overflow-x-hidden ${rgaaMode ? 'rgaa-mode' : ''}`}>
       <ChatHeader
         profile={profile}
         streak={gameState?.streakActuel ?? 0}
@@ -710,9 +735,9 @@ export default function ChatApp() {
         }}
       />
 
-      {/* Toggle IA / Conseiller (uniquement si prise en charge active) */}
+      {/* Bandeau statut accompagnement */}
       {referralStatus === 'prise_en_charge' && (
-        <div className="flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-50 border-b border-gray-200">
+        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-50 border-b border-gray-200">
           <button
             onClick={() => setChatMode('ia')}
             className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
@@ -721,7 +746,7 @@ export default function ChatApp() {
                 : 'bg-transparent text-gray-500 hover:bg-gray-100'
             }`}
           >
-            🤖 IA
+            🤖 Wesh IA
           </button>
           <button
             onClick={() => setChatMode('conseiller')}
@@ -731,18 +756,26 @@ export default function ChatApp() {
                 : 'bg-transparent text-gray-500 hover:bg-gray-100'
             }`}
           >
-            🤝 {referralConseillerPrenom || 'Conseiller'}
+            🤝 Mon conseiller : {referralConseillerPrenom || 'Conseiller'}
             {conseillerUnread && chatMode !== 'conseiller' && (
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-gray-50" />
             )}
           </button>
         </div>
       )}
+      {referralStatus === 'en_attente' && (
+        <div className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-200">
+          <span className="text-amber-600 text-sm">⏳</span>
+          <p className="text-xs text-amber-800 font-medium">
+            Ta demande est en cours de traitement. Un conseiller te contactera bientôt.
+          </p>
+        </div>
+      )}
 
       {/* Bandeau nom de la structure partenaire */}
       {structureInfo && chatMode === 'ia' && (
-        <div className="bg-catchup-primary/5 border-b border-catchup-primary/10 px-4 py-1.5 text-center">
-          <p className="text-xs font-medium text-catchup-primary">
+        <div className="bg-catchup-primary/5 border-b border-catchup-primary/10 px-3 py-1 text-center">
+          <p className="text-[11px] md:text-xs font-medium text-catchup-primary truncate">
             {structureInfo.nom}
           </p>
         </div>
@@ -825,7 +858,7 @@ export default function ChatApp() {
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden relative w-full max-w-full">
+      <div className="flex-1 flex overflow-hidden overflow-x-hidden relative w-full max-w-full min-w-0">
         {/* ── Mode Conseiller : chat accompagnement inline ── */}
         {chatMode === 'conseiller' && referralStatus === 'prise_en_charge' ? (
           <div className="flex-1 flex flex-col">
@@ -912,8 +945,8 @@ export default function ChatApp() {
         ) : (
           <>
             {/* ── Mode IA : chat normal ── */}
-            <div className="flex-1 flex flex-col chat-bg min-w-0 w-full">
-              <div className="flex-1 overflow-y-auto overflow-x-hidden chat-scroll px-3 py-4 md:px-6">
+            <div className="flex-1 flex flex-col chat-bg min-w-0 w-full max-w-full" style={{ overflowX: 'clip', overflowY: 'hidden' }}>
+              <div className="flex-1 overflow-y-auto chat-scroll px-2 py-3 md:px-6 w-full max-w-full" style={{ overflowX: 'clip' }}>
                 {!hasMessages && (
                   <div className="flex flex-col items-center justify-center h-full text-center px-4">
                     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-catchup-primary to-catchup-accent flex items-center justify-center mb-5 shadow-xl">
@@ -929,7 +962,9 @@ export default function ChatApp() {
                       Je suis là pour t&apos;aider à trouver ta voie.
                       Dis-moi ce qui te passionne !
                     </p>
-                    <SuggestionChips onSelect={handleSuggestion} messageCount={0} />
+                    <div className="w-full flex justify-center px-4">
+                      <SuggestionChips onSelect={handleSuggestion} messageCount={0} />
+                    </div>
                   </div>
                 )}
 
@@ -943,6 +978,7 @@ export default function ChatApp() {
                     isSpeaking={speakingMsgId === msg.id}
                     onSpeak={() => handleSpeak(msg.id, msg.content)}
                     rgaaMode={rgaaMode}
+                    voiceData={voiceDataMap.current.get(msg.content)}
                   />
                 ))}
 
@@ -952,7 +988,7 @@ export default function ChatApp() {
 
               {/* ── Suggestions compactes (1 ligne, scroll horizontal) ── */}
               {hasMessages && !isLoading && (
-                <div className="px-3 md:px-6 overflow-x-auto scrollbar-hide">
+                <div className="px-2 md:px-6 max-h-[48px] shrink-0" style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch' }}>
                   <SuggestionChips onSelect={handleSuggestion} messageCount={userMessageCount} dynamicSuggestions={dynamicSuggestions} compact />
                 </div>
               )}
@@ -966,27 +1002,32 @@ export default function ChatApp() {
 
               {/* ── Barre compacte : statut referral OU bouton mise en relation ── */}
               {referralId && referralStatus && referralStatus !== 'prise_en_charge' && referralStatus !== 'annulee' ? (
-                <div className="mx-3 md:mx-6 flex items-center justify-between px-2 py-1 bg-blue-50/80 rounded-full">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-blue-600">📨</span>
+                <div className="mx-2 md:mx-6 flex items-center justify-between px-2 py-0.5 bg-blue-50/80 rounded-full shrink-0">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="text-[10px] text-blue-600 shrink-0">📨</span>
                     <ReferralStatusTag statut={referralStatus} />
                   </div>
-                  <button onClick={() => setShowCancelConfirm(true)} className="text-[10px] text-gray-400 hover:text-red-500 px-1">✕</button>
+                  <button onClick={() => setShowCancelConfirm(true)} className="text-[10px] text-gray-400 hover:text-red-500 px-1 shrink-0">✕</button>
+                </div>
+              ) : hasMessages && referralStatus === 'prise_en_charge' ? (
+                <div className="mx-2 md:mx-6 shrink-0">
+                  <button
+                    onClick={() => setChatMode('conseiller')}
+                    className="w-full flex items-center justify-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded-full text-[11px] font-medium text-green-700 hover:bg-green-100 transition-colors"
+                  >
+                    <span>🤝</span><span>Ton conseiller {referralConseillerPrenom} est disponible — clique ici pour discuter</span>
+                  </button>
                 </div>
               ) : hasMessages && (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee') ? (
-                <div className="mx-3 md:mx-6">
+                <div className="mx-2 md:mx-6 shrink-0">
                   <button
                     onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}
-                    className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-catchup-primary/5 border border-catchup-primary/20 rounded-full text-[11px] font-medium text-catchup-primary hover:bg-catchup-primary/10 transition-colors"
+                    className="w-full flex items-center justify-center gap-1 px-2 py-1 bg-catchup-primary/5 border border-catchup-primary/20 rounded-full text-[11px] font-medium text-catchup-primary hover:bg-catchup-primary/10 transition-colors"
                   >
-                    <span>🤝</span><span>Parler à un conseiller</span>
+                    <span>🤝</span><span>À tout moment, parler à un conseiller</span>
                   </button>
                 </div>
               ) : null}
-
-              {/* Séparateur avant l'input */}
-              <div>
-              </div>
 
               <ChatInput
                 input={input}
@@ -995,6 +1036,7 @@ export default function ChatApp() {
                 isLoading={isLoading}
                 inputRef={inputRef}
                 onAppend={append}
+                onVoiceMessage={handleVoiceMessage}
               />
             </div>
 

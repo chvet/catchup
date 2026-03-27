@@ -4,11 +4,16 @@
 // - Mes propres prises en charge → toujours visibles
 // - Cas de ma structure → visibles avec filtre ?scope=structure
 // - Super admin → tout visible
+// Filtre source :
+// - source=sourcee → cas envoyés à ma structure (structureSuggereId = ma structure)
+// - source=generique → cas génériques (source = 'generique')
+// - source=tous → pas de filtre source (défaut)
 
 import { getConseillerFromHeaders, hasRole, jsonError } from '@/lib/api-helpers'
 import { db } from '@/data/db'
-import { referral, utilisateur, profilRiasec, priseEnCharge } from '@/data/schema'
+import { referral, utilisateur, profilRiasec, priseEnCharge, structure } from '@/data/schema'
 import { eq, and, or, desc, sql, inArray } from 'drizzle-orm'
+import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
 
 export async function GET(request: Request) {
   try {
@@ -19,6 +24,7 @@ export async function GET(request: Request) {
     const statut = url.searchParams.get('statut')
     const urgence = url.searchParams.get('urgence')
     const scope = url.searchParams.get('scope') || 'default' // default | structure | all
+    const sourceFilter = url.searchParams.get('source') || 'tous' // sourcee | generique | tous
     const page = parseInt(url.searchParams.get('page') || '1')
     const limit = parseInt(url.searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
@@ -65,6 +71,15 @@ export async function GET(request: Request) {
       }
     }
 
+    // Filtre source (double file active)
+    if (sourceFilter === 'sourcee' && ctx.structureId) {
+      conditions.push(eq(referral.source, 'sourcee'))
+      conditions.push(eq(referral.structureSuggereId, ctx.structureId))
+    } else if (sourceFilter === 'generique') {
+      conditions.push(eq(referral.source, 'generique'))
+    }
+    // source=tous → pas de filtre supplémentaire
+
     // Exclure les annulés sauf si filtre explicite
     if (!statut || statut !== 'annulee') {
       conditions.push(sql`${referral.statut} != 'annulee'`)
@@ -95,6 +110,7 @@ export async function GET(request: Request) {
         priorite: referral.priorite,
         niveauDetection: referral.niveauDetection,
         statut: referral.statut,
+        source: referral.source,
         motif: referral.motif,
         moyenContact: referral.moyenContact,
         creeLe: referral.creeLe,
@@ -130,7 +146,45 @@ export async function GET(request: Request) {
 
     const total = countResult[0]?.count || 0
 
-    // Ajouter les infos de prise en charge
+    // ── Charger la structure du conseiller pour le matching ──
+    let conseillerStructureData: StructureData | null = null
+    if (ctx.structureId) {
+      const structRows = await db
+        .select()
+        .from(structure)
+        .where(eq(structure.id, ctx.structureId))
+        .limit(1)
+
+      if (structRows.length > 0) {
+        const s = structRows[0]
+        // Compter les cas actifs de la structure
+        const casActifsResult = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(priseEnCharge)
+          .where(
+            and(
+              eq(priseEnCharge.structureId, s.id),
+              sql`${priseEnCharge.statut} NOT IN ('terminee', 'annulee')`
+            )
+          )
+
+        conseillerStructureData = {
+          id: s.id,
+          nom: s.nom,
+          departements: JSON.parse(s.departements || '[]'),
+          regions: JSON.parse(s.regions || '[]'),
+          ageMin: s.ageMin ?? 16,
+          ageMax: s.ageMax ?? 25,
+          specialites: JSON.parse(s.specialites || '[]'),
+          genrePreference: s.genrePreference ?? null,
+          capaciteMax: s.capaciteMax ?? 50,
+          casActifs: casActifsResult[0]?.count ?? 0,
+          actif: true,
+        }
+      }
+    }
+
+    // Ajouter les infos de prise en charge + matching
     const enriched = await Promise.all(
       referrals.map(async (r) => {
         const pecs = await db
@@ -154,6 +208,53 @@ export async function GET(request: Request) {
             ? `${attenteHeures}h`
             : `${Math.round(attenteHeures / 24)}j`
 
+        // ── Matching avec la structure du conseiller ──
+        let matchScore = 0
+        let horsChamp = false
+        let raisonsHorsChamp: string[] = []
+        let raisonsMatch: string[] = []
+
+        if (conseillerStructureData) {
+          const riasecDominant: string[] = r.dimensionsDominantes
+            ? JSON.parse(r.dimensionsDominantes)
+            : []
+
+          const matchingCriteria: MatchingCriteria = {
+            age: r.age ?? null,
+            genre: r.genre ?? null,
+            departement: r.localisation ?? null,
+            situation: null,
+            riasecDominant,
+            urgence: r.priorite === 'critique' ? 'critique' : r.priorite === 'haute' ? 'haute' : 'normale',
+            fragilite: r.niveauDetection >= 3 ? 'high' : r.niveauDetection >= 2 ? 'medium' : r.niveauDetection >= 1 ? 'low' : 'none',
+          }
+
+          const matchResults = matcherStructures(matchingCriteria, [conseillerStructureData])
+
+          if (matchResults.length > 0) {
+            matchScore = matchResults[0].score
+            raisonsMatch = matchResults[0].raisons
+          } else {
+            // Structure eliminated by filters
+            horsChamp = true
+            // Determine why
+            if (r.localisation && !conseillerStructureData.departements.includes(r.localisation)) {
+              raisonsHorsChamp.push('hors zone géographique')
+            }
+            if (r.age !== null) {
+              if (r.age < conseillerStructureData.ageMin - 2 || r.age > conseillerStructureData.ageMax + 2) {
+                raisonsHorsChamp.push('hors tranche d\'âge')
+              }
+            }
+            if (matchingCriteria.urgence !== 'critique' && conseillerStructureData.casActifs >= conseillerStructureData.capaciteMax) {
+              raisonsHorsChamp.push('capacité maximale atteinte')
+            }
+            if (raisonsHorsChamp.length === 0) {
+              raisonsHorsChamp.push('critères éliminatoires non remplis')
+            }
+          }
+        }
+
         return {
           ...r,
           priseEnCharge: pec,
@@ -162,6 +263,10 @@ export async function GET(request: Request) {
             heures: attenteHeures,
             label: attenteLabel,
           },
+          matchScore,
+          horsChamp,
+          raisonsHorsChamp,
+          raisonsMatch,
         }
       })
     )

@@ -37,14 +37,14 @@ export default function EmojiPickerBtn({ onSelect }: Props) {
       </button>
 
       {open && (
-        <div className="absolute bottom-12 left-0 z-50 shadow-xl rounded-xl overflow-hidden">
+        <div className="fixed bottom-16 left-2 right-2 sm:absolute sm:bottom-12 sm:left-0 sm:right-auto z-50 shadow-xl rounded-xl overflow-hidden">
           <Picker
             onEmojiClick={(emojiData) => {
               onSelect(emojiData.emoji)
               setOpen(false)
             }}
-            width={300}
-            height={350}
+            width={typeof window !== 'undefined' && window.innerWidth < 400 ? window.innerWidth - 16 : 300}
+            height={300}
             searchPlaceholder="Rechercher..."
             previewConfig={{ showPreview: false }}
           />

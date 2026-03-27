@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useConseiller } from '@/components/conseiller/ConseillerProvider'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import OnlineDot from '@/components/OnlineDot'
@@ -36,6 +37,12 @@ interface ReferralItem {
     label: string
   }
   derniereActivite?: string | null
+  // Double file active fields
+  matchScore?: number | null
+  horsChamp?: boolean | null
+  raisonsHorsChamp?: string[] | null
+  raisonsMatch?: string[] | null
+  source?: string | null
 }
 
 interface Pagination {
@@ -45,7 +52,13 @@ interface Pagination {
   pages: number
 }
 
-type SortColumn = 'urgence' | 'prenom' | 'age' | 'dateDemande' | 'attente' | 'statut' | 'localisation' | 'derniereActivite'
+interface StructureOption {
+  id: string
+  nom: string
+  type: string
+}
+
+type SortColumn = 'urgence' | 'prenom' | 'age' | 'dateDemande' | 'attente' | 'statut' | 'localisation' | 'derniereActivite' | 'matchScore'
 type SortDirection = 'asc' | 'desc'
 
 interface SortState {
@@ -53,7 +66,7 @@ interface SortState {
   direction: SortDirection
 }
 
-type TabId = 'en_attente' | 'mes_accompagnements' | 'tous'
+type TabId = 'mes_demandes' | 'generique' | 'mes_accompagnements'
 
 const URGENCE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   normale: { bg: 'bg-green-100', text: 'text-green-800', label: 'Normale' },
@@ -69,7 +82,7 @@ const STATUT_STYLES: Record<string, { bg: string; text: string; label: string }>
   recontacte: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Recontacte' },
   abandonnee: { bg: 'bg-red-50', text: 'text-red-600', label: 'Abandonnee' },
   echoue: { bg: 'bg-red-50', text: 'text-red-600', label: 'Echouee' },
-  rupture: { bg: 'bg-red-100', text: 'text-red-700', label: '\u26A0\uFE0F Rupture' },
+  rupture: { bg: 'bg-red-100', text: 'text-red-700', label: 'Rupture' },
 }
 
 const URGENCE_ORDER: Record<string, number> = {
@@ -126,12 +139,205 @@ function formatRelativeTime(dateStr: string): string {
   }
 }
 
+// --- Toast notification ---
+function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 4000)
+    return () => clearTimeout(t)
+  }, [onClose])
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-slide-up">
+      <span>\u2705</span>
+      <span className="text-sm font-medium">{message}</span>
+      <button onClick={onClose} className="ml-2 text-white/80 hover:text-white">\u2715</button>
+    </div>
+  )
+}
+
+// --- Transfer modal ---
+function TransferModal({
+  referral,
+  onClose,
+  onConfirm,
+}: {
+  referral: ReferralItem
+  onClose: () => void
+  onConfirm: (structureId: string, motif: string) => void
+}) {
+  const [structures, setStructures] = useState<StructureOption[]>([])
+  const [loadingStructures, setLoadingStructures] = useState(true)
+  const [selectedStructureId, setSelectedStructureId] = useState('')
+  const [motif, setMotif] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    async function fetchStructures() {
+      try {
+        const res = await fetch(`/api/conseiller/file-active/${referral.id}/transfer`)
+        const data = await res.json()
+        setStructures(data.structures || data || [])
+      } catch (err) {
+        console.error('Erreur chargement structures:', err)
+      }
+      setLoadingStructures(false)
+    }
+    fetchStructures()
+  }, [referral.id])
+
+  const handleSubmit = async () => {
+    if (!selectedStructureId || !motif.trim()) return
+    setSubmitting(true)
+    onConfirm(selectedStructureId, motif.trim())
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6"
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 className="text-lg font-bold text-gray-800 mb-4">
+          Transferer {referral.prenom || 'Anonyme'}
+        </h3>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Transferer vers :</label>
+            {loadingStructures ? (
+              <div className="text-sm text-gray-400">Chargement des structures...</div>
+            ) : (
+              <select
+                value={selectedStructureId}
+                onChange={e => setSelectedStructureId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+              >
+                <option value="">Selectionnez une structure</option>
+                {structures.map(s => (
+                  <option key={s.id} value={s.id}>{s.nom}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Motif :</label>
+            <input
+              type="text"
+              value={motif}
+              onChange={e => setMotif(e.target.value)}
+              placeholder="Raison du transfert..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!selectedStructureId || !motif.trim() || submitting}
+            className="px-4 py-2 text-sm text-white bg-catchup-primary rounded-lg hover:bg-catchup-primary/90 transition-colors disabled:opacity-50"
+          >
+            {submitting ? 'Transfert...' : 'Transferer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// --- Compatibility badge for "Ma structure" sub-tab ---
+function CompatibilityBadge({ item }: { item: ReferralItem }) {
+  const [showTooltip, setShowTooltip] = useState(false)
+
+  if (item.horsChamp) {
+    return (
+      <span
+        className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 cursor-help"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        {'⚠️'} Hors champ
+        {showTooltip && item.raisonsHorsChamp && item.raisonsHorsChamp.length > 0 && (
+          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-gray-800 text-white text-xs rounded-lg shadow-lg z-50">
+            <span className="font-semibold block mb-1">Raisons :</span>
+            <ul className="list-disc pl-3 space-y-0.5">
+              {item.raisonsHorsChamp.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+            <span className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800" />
+          </span>
+        )}
+      </span>
+    )
+  }
+
+  if (item.matchScore != null && item.matchScore >= 70) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+        {'✅'} Compatible
+      </span>
+    )
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+      \u2014
+    </span>
+  )
+}
+
+// --- Compatibility score for "File generique" sub-tab ---
+function CompatibilityScore({ item }: { item: ReferralItem }) {
+  if (item.horsChamp || (item.matchScore != null && item.matchScore < 30)) {
+    return (
+      <span className="text-sm font-medium text-red-600">
+        {'❌'} Hors champ
+      </span>
+    )
+  }
+
+  if (item.matchScore == null) {
+    return <span className="text-sm text-gray-400">\u2014</span>
+  }
+
+  if (item.matchScore >= 70) {
+    return (
+      <span className="text-sm font-medium text-green-600">
+        {'✅'} {item.matchScore}%
+      </span>
+    )
+  }
+
+  return (
+    <span className="text-sm font-medium text-orange-600">
+      {'⚠️'} {item.matchScore}%
+    </span>
+  )
+}
+
 export default function FileActivePage() {
   const conseiller = useConseiller()
+  const searchParams = useSearchParams()
   const [allReferrals, setAllReferrals] = useState<ReferralItem[]>([])
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 200, total: 0, pages: 0 })
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<TabId>('en_attente')
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('tab') === 'attente' || params.get('tab') === 'mes_demandes') return 'mes_demandes'
+      if (params.get('tab') === 'generique') return 'generique'
+      if (params.get('tab') === 'accompagnements') return 'mes_accompagnements'
+    }
+    return 'mes_demandes'
+  })
   const [filters, setFilters] = useState({
     statut: '',
     urgence: '',
@@ -147,9 +353,21 @@ export default function FileActivePage() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [sort, setSort] = useState<SortState>({ column: 'urgence', direction: 'desc' })
 
+  // Double file active state
+  const [sourceData, setSourceData] = useState<ReferralItem[]>([])
+  const [generiqueData, setGeneriqueData] = useState<ReferralItem[]>([])
+  const [sourceLoading, setSourceLoading] = useState(false)
+  const [generiqueLoading, setGeneriqueLoading] = useState(false)
+  const [sourceFetched, setSourceFetched] = useState(false)
+  const [generiqueFetched, setGeneriqueFetched] = useState(false)
+
+  // Transfer state
+  const [transferModal, setTransferModal] = useState<ReferralItem | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
   const isAdmin = conseiller?.role === 'admin_structure' || conseiller?.role === 'super_admin'
 
-  // Fetch all data once (no server-side statut/urgence filter — client-side filtering)
+  // Fetch main data (for mes_accompagnements and tous tabs)
   const fetchData = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams({ page: '1', limit: '500' })
@@ -165,42 +383,84 @@ export default function FileActivePage() {
     setLoading(false)
   }, [])
 
+  // Fetch source (structure) data — lazy
+  const fetchSourceData = useCallback(async () => {
+    if (sourceFetched) return
+    setSourceLoading(true)
+    try {
+      const params = new URLSearchParams({ source: 'sourcee', statut: 'en_attente', page: '1', limit: '500' })
+      const res = await fetch(`/api/conseiller/file-active?${params}`)
+      const data = await res.json()
+      setSourceData(data.data || [])
+      setSourceFetched(true)
+    } catch (err) {
+      console.error('Erreur file structure:', err)
+    }
+    setSourceLoading(false)
+  }, [sourceFetched])
+
+  // Fetch generique data — lazy
+  const fetchGeneriqueData = useCallback(async () => {
+    if (generiqueFetched) return
+    setGeneriqueLoading(true)
+    try {
+      const params = new URLSearchParams({ source: 'generique', statut: 'en_attente', page: '1', limit: '500' })
+      const res = await fetch(`/api/conseiller/file-active?${params}`)
+      const data = await res.json()
+      setGeneriqueData(data.data || [])
+      setGeneriqueFetched(true)
+    } catch (err) {
+      console.error('Erreur file generique:', err)
+    }
+    setGeneriqueLoading(false)
+  }, [generiqueFetched])
+
   useEffect(() => {
     fetchData()
   }, [fetchData])
 
+  // Charger les deux files au démarrage (pour les compteurs des onglets)
+  useEffect(() => {
+    fetchSourceData()
+    fetchGeneriqueData()
+  }, [fetchSourceData, fetchGeneriqueData])
+
   // Auto-refresh every 30s
   useEffect(() => {
-    const interval = setInterval(() => fetchData(), 30000)
+    const interval = setInterval(() => {
+      fetchData()
+      setSourceFetched(false)
+      setGeneriqueFetched(false)
+    }, 30000)
     return () => clearInterval(interval)
-  }, [fetchData])
+  }, [fetchData, activeTab])
 
   // Tab-level filtering
   const tabFilteredReferrals = useMemo(() => {
     switch (activeTab) {
-      case 'en_attente':
-        return allReferrals.filter(r => r.statut === 'en_attente' || r.statut === 'nouvelle')
+      case 'mes_demandes':
+        return sourceData
+      case 'generique':
+        return generiqueData
       case 'mes_accompagnements':
         if (!conseiller?.id) return []
         return allReferrals.filter(
           r => r.priseEnCharge?.statut === 'prise_en_charge' && r.priseEnCharge?.conseillerId === conseiller.id
         )
-      case 'tous':
-        return allReferrals
       default:
         return allReferrals
     }
-  }, [allReferrals, activeTab, conseiller?.id])
+  }, [allReferrals, activeTab, conseiller?.id, sourceData, generiqueData])
 
   // Counts for badges
   const tabCounts = useMemo(() => {
-    const enAttente = allReferrals.filter(r => r.statut === 'en_attente' || r.statut === 'nouvelle').length
+    const enAttente = sourceData.length + generiqueData.length
     const mesAccompagnements = conseiller?.id
       ? allReferrals.filter(r => r.priseEnCharge?.statut === 'prise_en_charge' && r.priseEnCharge?.conseillerId === conseiller.id).length
       : 0
     const tous = allReferrals.length
     return { enAttente, mesAccompagnements, tous }
-  }, [allReferrals, conseiller?.id])
+  }, [allReferrals, conseiller?.id, sourceData, generiqueData])
 
   const handleSort = (column: SortColumn) => {
     setSort(prev => ({
@@ -219,7 +479,7 @@ export default function FileActivePage() {
     let filtered = [...tabFilteredReferrals]
 
     // Apply statut filter only on "tous" tab
-    if (activeTab === 'tous' && filters.statut) {
+    if (false /* onglet tous supprimé */ && filters.statut) {
       filtered = filtered.filter(r => r.statut === filters.statut)
     }
 
@@ -292,13 +552,12 @@ export default function FileActivePage() {
           const bDate = b.derniereActivite ? new Date(b.derniereActivite).getTime() : 0
           return mult * (aDate - bDate)
         }
+        case 'matchScore':
+          return mult * ((a.matchScore || 0) - (b.matchScore || 0))
         default:
           return 0
       }
     })
-
-    // Default sort for "en_attente" tab: urgence desc then date asc (oldest first)
-    // This is already handled by the default sort state
 
     return filtered
   }, [tabFilteredReferrals, filters, advancedFilters, sort, activeTab])
@@ -307,7 +566,7 @@ export default function FileActivePage() {
   const PAGE_SIZE = 20
   const [currentPage, setCurrentPage] = useState(1)
 
-  // Reset page when tab or filters change
+  // Reset page when tab, sub-tab, or filters change
   useEffect(() => {
     setCurrentPage(1)
   }, [activeTab, filters, advancedFilters])
@@ -331,20 +590,20 @@ export default function FileActivePage() {
 
   const thClass = 'px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700 transition-colors'
 
-  const tabs: { id: TabId; label: string; count: number; adminOnly?: boolean }[] = [
-    { id: 'en_attente', label: '\uD83D\uDD14 En attente', count: tabCounts.enAttente },
-    { id: 'mes_accompagnements', label: '\uD83E\uDD1D Mes accompagnements', count: tabCounts.mesAccompagnements },
-    { id: 'tous', label: '\uD83D\uDCCB Tous les cas', count: tabCounts.tous, adminOnly: true },
+  const structureNom = conseiller?.structure?.nom || 'Ma structure'
+  const tabs: { id: TabId; label: string; count: number }[] = [
+    { id: 'generique', label: '🌐 Demandes toutes structures', count: generiqueData.length },
+    { id: 'mes_demandes', label: `📥 Demandes ${structureNom}`, count: sourceData.length },
+    { id: 'mes_accompagnements', label: '🤝 Mes accompagnements', count: tabCounts.mesAccompagnements },
   ]
 
-  const visibleTabs = tabs.filter(t => !t.adminOnly || isAdmin)
+  const visibleTabs = tabs
 
   // When switching tabs, reset statut filter
   const handleTabChange = (tabId: TabId) => {
     setActiveTab(tabId)
     setFilters(f => ({ ...f, statut: '' }))
-    // Set default sort per tab
-    if (tabId === 'en_attente') {
+    if (tabId === 'mes_demandes' || tabId === 'generique') {
       setSort({ column: 'urgence', direction: 'desc' })
     } else if (tabId === 'mes_accompagnements') {
       setSort({ column: 'derniereActivite', direction: 'desc' })
@@ -353,11 +612,96 @@ export default function FileActivePage() {
     }
   }
 
-  const showStatutFilter = activeTab === 'tous'
+  const showStatutFilter = false /* onglet tous supprimé */
   const showDerniereActiviteColumn = activeTab === 'mes_accompagnements'
+  const showCompatibilityColumn = activeTab === 'generique'
+  const showCompatibilityBadge = activeTab === 'mes_demandes'
+  const showTransferActions = activeTab === 'mes_demandes' || activeTab === 'generique'
+
+  // --- Transfer handlers ---
+  const handleTransferGenerique = async (item: ReferralItem) => {
+    const confirmed = window.confirm(`Transferer ${item.prenom || 'Anonyme'} vers la file generique ?`)
+    if (!confirmed) return
+
+    try {
+      const res = await fetch(`/api/conseiller/file-active/${item.id}/transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destination: 'generique', motif: 'Hors criteres de la structure' }),
+      })
+      if (res.ok) {
+        setSourceData(prev => prev.filter(r => r.id !== item.id))
+        setToast(`${item.prenom || 'Anonyme'} transfere(e) vers la file generique`)
+      } else {
+        setToast('Erreur lors du transfert')
+      }
+    } catch {
+      setToast('Erreur lors du transfert')
+    }
+  }
+
+  const handleTransferStructure = (item: ReferralItem) => {
+    setTransferModal(item)
+  }
+
+  const handleTransferStructureConfirm = async (structureId: string, motif: string) => {
+    if (!transferModal) return
+
+    try {
+      const res = await fetch(`/api/conseiller/file-active/${transferModal.id}/transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destination: 'structure', structureId, motif }),
+      })
+      if (res.ok) {
+        // Remove from whichever list it's in
+        setSourceData(prev => prev.filter(r => r.id !== transferModal.id))
+        setGeneriqueData(prev => prev.filter(r => r.id !== transferModal.id))
+        setToast(`${transferModal.prenom || 'Anonyme'} transfere(e) vers la structure`)
+      } else {
+        setToast('Erreur lors du transfert')
+      }
+    } catch {
+      setToast('Erreur lors du transfert')
+    }
+    setTransferModal(null)
+  }
+
+  const handlePrendreEnCharge = async (item: ReferralItem) => {
+    try {
+      const res = await fetch(`/api/conseiller/file-active/${item.id}/prendre-en-charge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.ok) {
+        setGeneriqueData(prev => prev.filter(r => r.id !== item.id))
+        setToast(`${item.prenom || 'Anonyme'} pris(e) en charge`)
+        fetchData() // Refresh main data so "Mes accompagnements" updates
+      } else {
+        setToast('Erreur lors de la prise en charge')
+      }
+    } catch {
+      setToast('Erreur lors de la prise en charge')
+    }
+  }
+
+  const isTabDataLoading = (activeTab === 'mes_demandes' && sourceLoading) || (activeTab === 'generique' && generiqueLoading)
+  const isPageLoading = (activeTab === 'mes_demandes' || activeTab === 'generique') ? isTabDataLoading : loading
 
   return (
     <div>
+      {/* Toast */}
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+
+      {/* Transfer modal */}
+      {transferModal && (
+        <TransferModal
+          referral={transferModal}
+          onClose={() => setTransferModal(null)}
+          onConfirm={handleTransferStructureConfirm}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
@@ -372,7 +716,7 @@ export default function FileActivePage() {
       </div>
 
       {/* Sticky tab bar */}
-      <div className="sticky top-0 z-20 bg-gray-50 -mx-3 px-3 md:-mx-6 md:px-6 border-b border-gray-200 mb-4">
+      <div className="sticky top-0 z-20 bg-gray-50 -mx-3 px-3 md:-mx-6 md:px-6 border-b border-gray-200">
         <div className="flex gap-0 overflow-x-auto whitespace-nowrap scrollbar-hide">
           {visibleTabs.map(tab => {
             const isActive = activeTab === tab.id
@@ -404,6 +748,9 @@ export default function FileActivePage() {
         </div>
       </div>
 
+      <div className="mb-4" />
+      {!(activeTab === 'mes_demandes' || activeTab === 'generique') && <div className="mb-4" />}
+
       {/* Filters */}
       <div className="flex items-center justify-between mb-4 overflow-x-auto">
         <div className="flex gap-2 md:gap-3 items-center">
@@ -417,6 +764,19 @@ export default function FileActivePage() {
             <option value="haute">Haute</option>
             <option value="critique">Critique</option>
           </select>
+
+          {isAdmin && (
+            <button
+              onClick={() => {
+                const from = advancedFilters.dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                const to = advancedFilters.dateTo || new Date().toISOString().split('T')[0]
+                window.open(`/api/conseiller/export?format=xlsx&type=beneficiaires&from=${from}&to=${to}`, '_blank')
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+            >
+              <span>{'\ud83d\udce5'}</span> Exporter
+            </button>
+          )}
 
           {showStatutFilter && (
             <select
@@ -528,7 +888,7 @@ export default function FileActivePage() {
       )}
 
       {/* Table */}
-      {loading ? (
+      {isPageLoading ? (
         <div className="flex items-center justify-center h-64">
           <div className="w-10 h-10 border-4 border-catchup-primary border-t-transparent rounded-full animate-spin" />
         </div>
@@ -536,9 +896,10 @@ export default function FileActivePage() {
         <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
           <p className="text-4xl mb-4">{activeTab === 'mes_accompagnements' ? '\uD83D\uDCCB' : '\uD83D\uDCED'}</p>
           <p className="text-gray-500 text-lg">
-            {activeTab === 'en_attente' && 'Aucune demande en attente'}
+            {activeTab === 'mes_demandes' && 'Aucune demande pour votre structure'}
+            {activeTab === 'generique' && 'Aucune demande dans la file générique'}
             {activeTab === 'mes_accompagnements' && 'Aucun accompagnement en cours'}
-            {activeTab === 'tous' && 'Aucune demande dans la file active'}
+            {false /* onglet tous supprimé */ && 'Aucune demande dans la file active'}
           </p>
           <p className="text-gray-400 text-sm mt-1">Les nouvelles demandes apparaitront ici automatiquement</p>
         </div>
@@ -588,6 +949,16 @@ export default function FileActivePage() {
                       Derniere activite{sortArrow('derniereActivite')}
                     </th>
                   )}
+                  {showCompatibilityBadge && (
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                      Compatibilite
+                    </th>
+                  )}
+                  {showCompatibilityColumn && (
+                    <th className={thClass} onClick={() => handleSort('matchScore')}>
+                      Compatibilite{sortArrow('matchScore')}
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
                     Action
                   </th>
@@ -597,6 +968,7 @@ export default function FileActivePage() {
                 {paginatedReferrals.map(r => {
                   const urgStyle = URGENCE_STYLES[r.priorite] || URGENCE_STYLES.normale
                   const statStyle = STATUT_STYLES[r.statut] || STATUT_STYLES.en_attente
+                  const isCompatible = !r.horsChamp && (r.matchScore != null && r.matchScore >= 30)
 
                   return (
                     <tr
@@ -650,13 +1022,55 @@ export default function FileActivePage() {
                           {r.derniereActivite ? formatRelativeTime(r.derniereActivite) : formatRelativeTime(r.creeLe)}
                         </td>
                       )}
+                      {/* Compatibility badge for "Ma structure" */}
+                      {showCompatibilityBadge && (
+                        <td className="px-4 py-3">
+                          <CompatibilityBadge item={r} />
+                        </td>
+                      )}
+                      {/* Compatibility score for "File generique" */}
+                      {showCompatibilityColumn && (
+                        <td className="px-4 py-3">
+                          <CompatibilityScore item={r} />
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/conseiller/file-active/${r.id}`}
-                          className="inline-flex items-center px-3 py-1.5 bg-catchup-primary text-white text-sm rounded-lg hover:bg-catchup-primary/90 transition-colors"
-                        >
-                          Voir
-                        </Link>
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {/* Transfer buttons for "Ma structure" sub-tab */}
+                          {showTransferActions && activeTab === 'mes_demandes' && (
+                            <>
+                              <button
+                                onClick={() => handleTransferGenerique(r)}
+                                className="inline-flex items-center px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+                                title="Transferer vers la file generique"
+                              >
+                                {'→'} Générique
+                              </button>
+                              <button
+                                onClick={() => handleTransferStructure(r)}
+                                className="inline-flex items-center px-2 py-1 text-xs text-white bg-catchup-primary rounded hover:bg-catchup-primary/90 transition-colors"
+                                title="Transferer vers une autre structure"
+                              >
+                                {'→'} Structure
+                              </button>
+                            </>
+                          )}
+                          {/* "Prendre en charge" button for "File generique" sub-tab */}
+                          {showTransferActions && activeTab === 'generique' && isCompatible && (
+                            <button
+                              onClick={() => handlePrendreEnCharge(r)}
+                              className="inline-flex items-center px-2.5 py-1 text-xs text-white bg-green-600 rounded hover:bg-green-700 transition-colors"
+                            >
+                              Prendre en charge
+                            </button>
+                          )}
+                          <Link
+                            href={`/conseiller/file-active/${r.id}`}
+                            className="inline-flex items-center px-3 py-1.5 bg-catchup-primary text-white text-sm rounded-lg hover:bg-catchup-primary/90 transition-colors"
+                          >
+                            Voir
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   )

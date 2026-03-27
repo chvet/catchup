@@ -1,6 +1,6 @@
 // Middleware Next.js — Routage par sous-domaine + protection JWT + sécurité
-// - pro.catchup.jaeprive.fr → Espace Conseiller (sécurisé JWT)
-// - catchup.jaeprive.fr     → App bénéficiaire
+// - pro.wesh.chat → Espace Conseiller (sécurisé JWT)
+// - wesh.chat     → App bénéficiaire
 // En dev (localhost) : les deux espaces sont accessibles sans restriction de hostname
 
 import { NextResponse } from 'next/server'
@@ -18,11 +18,12 @@ const COOKIE_NAME = 'catchup_conseiller_session'
 const PUBLIC_ROUTES = [
   '/conseiller/login',
   '/api/conseiller/auth/login',
+  '/api/conseiller/auth/parcoureo',
 ]
 
 // Domaines configurables via env (fallback sur les valeurs prod)
-const PRO_HOST = process.env.PRO_HOST || 'pro.catchup.jaeprive.fr'
-const PUBLIC_HOST = process.env.PUBLIC_HOST || 'catchup.jaeprive.fr'
+const PRO_HOST = process.env.PRO_HOST || 'pro.wesh.chat'
+const PUBLIC_HOST = process.env.PUBLIC_HOST || 'wesh.chat'
 
 // Routes bénéficiaire (ne doivent pas être servies sur pro.*)
 const BENEFICIAIRE_ROUTES = ['/', '/quiz', '/offline']
@@ -85,6 +86,14 @@ function isLocalDev(hostname: string): boolean {
   return hostname.includes('localhost') || hostname.includes('127.0.0.1')
 }
 
+// Helper : ajoute le header de branding à la réponse
+function withBrand(response: NextResponse, brand: string): NextResponse {
+  response.headers.set('x-app-brand', brand)
+  // Passer le brand au client via un cookie (accessible côté React)
+  response.cookies.set('app_brand', brand, { path: '/', httpOnly: false, sameSite: 'lax' })
+  return response
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const hostname = getHostname(request)
@@ -94,9 +103,9 @@ export async function middleware(request: NextRequest) {
   // 1) RATE LIMITING — Protection brute force AVANT tout traitement
   // ══════════════════════════════════════════════════════════
 
-  // Login conseiller : 5 tentatives / 15 min par IP (anti brute force)
+  // Login conseiller : 50 tentatives / 15 min par IP
   if (pathname === '/api/conseiller/auth/login' && request.method === 'POST') {
-    const rl = checkRateLimit(`login:${clientIP}`, 5, 15 * 60 * 1000)
+    const rl = checkRateLimit(`login:${clientIP}`, 50, 15 * 60 * 1000)
     if (!rl.allowed) {
       return new NextResponse(
         JSON.stringify({ error: 'Trop de tentatives de connexion. Réessayez dans quelques minutes.' }),
@@ -145,11 +154,20 @@ export async function middleware(request: NextRequest) {
   }
 
   // ══════════════════════════════════════════════════════════
-  // 2) ROUTAGE PAR SOUS-DOMAINE
+  // 2) DÉTECTION DE L'APP (wesh.chat vs catchup.jaeprive.fr)
+  // ══════════════════════════════════════════════════════════
+
+  // Détecter quelle app est utilisée selon le domaine
+  const isWeshApp = hostname.includes('wesh.chat')
+  const isCatchupApp = hostname.includes('catchup.jaeprive.fr') || hostname.includes('jaeprive')
+  const appBrand = isWeshApp ? 'wesh' : isCatchupApp ? 'catchup' : 'wesh'
+
+  // ══════════════════════════════════════════════════════════
+  // 3) ROUTAGE PAR SOUS-DOMAINE
   // ══════════════════════════════════════════════════════════
 
   if (!isLocalDev(hostname)) {
-    // ── Sur pro.catchup.jaeprive.fr ──
+    // ── Sur pro.wesh.chat ──
     if (isProDomain(hostname)) {
       if (pathname === '/') {
         return applySecurityHeaders(NextResponse.redirect(new URL('/conseiller', request.url)))
@@ -159,20 +177,45 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // ── Sur catchup.jaeprive.fr ──
+    // ── Sur wesh.chat ──
     if (isPublicDomain(hostname)) {
       const proEnabled = process.env.PRO_SUBDOMAIN_ENABLED === 'true'
       if (proEnabled && (pathname.startsWith('/conseiller') || pathname.startsWith('/api/conseiller'))) {
         return applySecurityHeaders(NextResponse.redirect(new URL(`https://${PRO_HOST}${pathname}`)))
       }
-      return applySecurityHeaders(NextResponse.next())
+      return withBrand(applySecurityHeaders(NextResponse.next()), appBrand)
     }
   }
 
   // ── Routes accompagnement + tiers → auth par token PIN, pas JWT ──
   if (pathname.startsWith('/accompagnement') || pathname.startsWith('/api/accompagnement')
     || pathname.startsWith('/tiers') || pathname.startsWith('/api/tiers')) {
-    return applySecurityHeaders(NextResponse.next())
+    return withBrand(applySecurityHeaders(NextResponse.next()), appBrand)
+  }
+
+  // ── Calendar OAuth callbacks → pas de JWT (retour depuis Google/Microsoft) ──
+  if (pathname.startsWith('/api/calendar/google/callback') || pathname.startsWith('/api/calendar/outlook/callback')) {
+    return withBrand(applySecurityHeaders(NextResponse.next()), appBrand)
+  }
+
+  // ── Calendar API routes (non-callback) → JWT obligatoire pour injecter x-conseiller-id ──
+  if (pathname.startsWith('/api/calendar/')) {
+    const calToken = request.cookies.get(COOKIE_NAME)?.value
+      || request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!calToken) {
+      return applySecurityHeaders(NextResponse.json({ error: 'Non authentifie' }, { status: 401 }))
+    }
+    try {
+      const { payload } = await jwtVerify(calToken, JWT_SECRET)
+      const response = NextResponse.next()
+      response.headers.set('x-conseiller-id', payload.sub as string)
+      response.headers.set('x-conseiller-email', payload.email as string)
+      response.headers.set('x-conseiller-role', payload.role as string)
+      response.headers.set('x-conseiller-structure', (payload.structureId as string) || '')
+      return withBrand(applySecurityHeaders(response), appBrand)
+    } catch {
+      return applySecurityHeaders(NextResponse.json({ error: 'Session expiree' }, { status: 401 }))
+    }
   }
 
   // ══════════════════════════════════════════════════════════
@@ -180,12 +223,12 @@ export async function middleware(request: NextRequest) {
   // ══════════════════════════════════════════════════════════
 
   if (!pathname.startsWith('/conseiller') && !pathname.startsWith('/api/conseiller')) {
-    return applySecurityHeaders(NextResponse.next())
+    return withBrand(applySecurityHeaders(NextResponse.next()), appBrand)
   }
 
   // Routes publiques → laisser passer
   if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
-    return applySecurityHeaders(NextResponse.next())
+    return withBrand(applySecurityHeaders(NextResponse.next()), appBrand)
   }
 
   // Vérifier le JWT
@@ -213,7 +256,7 @@ export async function middleware(request: NextRequest) {
     response.headers.set('x-conseiller-role', payload.role as string)
     response.headers.set('x-conseiller-structure', (payload.structureId as string) || '')
 
-    return applySecurityHeaders(response)
+    return withBrand(applySecurityHeaders(response), appBrand)
   } catch {
     if (pathname.startsWith('/api/')) {
       return applySecurityHeaders(
@@ -231,6 +274,7 @@ export const config = {
   matcher: [
     '/conseiller/:path*',
     '/api/conseiller/:path*',
+    '/api/calendar/:path*',
     '/accompagnement/:path*',
     '/api/accompagnement/:path*',
     '/tiers/:path*',

@@ -8,6 +8,7 @@ export interface ConseillerInfo {
   prenom: string
   nom: string
   role: string
+  parcoureoId?: string | null
   structure: { id: string; nom: string; type: string } | null
 }
 

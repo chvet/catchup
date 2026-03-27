@@ -27,20 +27,20 @@ export default function SuggestionChips({ onSelect, messageCount = 0, compact = 
   if (suggestions.length === 0) return null
 
   return (
-    <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-nowrap pb-1 px-1">
+    <div className={`flex gap-2 overflow-x-auto scrollbar-hide flex-nowrap px-1 ${compact ? 'max-h-[44px] py-1' : 'pb-2 justify-center'}`}>
       {suggestions.map((s, i) => (
         <button
           key={`${s.text}-${i}`}
           onClick={() => onSelect(`${s.emoji} ${s.text}`)}
           className={`
-            chip-hover inline-flex items-center gap-1
+            chip-hover inline-flex items-center gap-1.5
             bg-white border border-catchup-primary/20
             text-catchup-primary rounded-full shadow-sm
             transition-all active:scale-95 shrink-0 whitespace-nowrap
-            ${compact ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs'}
+            ${compact ? 'px-3 py-1.5 text-[13px]' : 'px-4 py-2 text-sm'}
           `}
         >
-          <span>{s.emoji}</span>
+          <span className={compact ? 'text-[13px]' : 'text-sm'}>{s.emoji}</span>
           <span className="font-medium">{s.text}</span>
         </button>
       ))}

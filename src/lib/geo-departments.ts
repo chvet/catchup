@@ -1,0 +1,125 @@
+/**
+ * Coordonnées approximatives des centres des 101 départements français
+ * (métropole + DOM-TOM)
+ */
+
+export interface DepartmentCoord {
+  lat: number
+  lng: number
+  name: string
+}
+
+export const DEPARTMENT_COORDS: Record<string, DepartmentCoord> = {
+  // Métropole
+  '01': { lat: 46.21, lng: 5.23, name: 'Ain' },
+  '02': { lat: 49.56, lng: 3.62, name: 'Aisne' },
+  '03': { lat: 46.34, lng: 3.18, name: 'Allier' },
+  '04': { lat: 44.09, lng: 6.24, name: 'Alpes-de-Haute-Provence' },
+  '05': { lat: 44.66, lng: 6.26, name: 'Hautes-Alpes' },
+  '06': { lat: 43.94, lng: 7.12, name: 'Alpes-Maritimes' },
+  '07': { lat: 44.75, lng: 4.60, name: 'Ardèche' },
+  '08': { lat: 49.62, lng: 4.63, name: 'Ardennes' },
+  '09': { lat: 42.93, lng: 1.50, name: 'Ariège' },
+  '10': { lat: 48.30, lng: 4.08, name: 'Aube' },
+  '11': { lat: 43.10, lng: 2.40, name: 'Aude' },
+  '12': { lat: 44.28, lng: 2.68, name: 'Aveyron' },
+  '13': { lat: 43.49, lng: 5.07, name: 'Bouches-du-Rhône' },
+  '14': { lat: 49.09, lng: -0.37, name: 'Calvados' },
+  '15': { lat: 45.03, lng: 2.67, name: 'Cantal' },
+  '16': { lat: 45.72, lng: 0.16, name: 'Charente' },
+  '17': { lat: 45.87, lng: -0.75, name: 'Charente-Maritime' },
+  '18': { lat: 47.02, lng: 2.50, name: 'Cher' },
+  '19': { lat: 45.34, lng: 1.87, name: 'Corrèze' },
+  '2A': { lat: 41.87, lng: 8.98, name: 'Corse-du-Sud' },
+  '2B': { lat: 42.40, lng: 9.17, name: 'Haute-Corse' },
+  '21': { lat: 47.42, lng: 4.66, name: "Côte-d'Or" },
+  '22': { lat: 48.44, lng: -3.00, name: "Côtes-d'Armor" },
+  '23': { lat: 46.08, lng: 2.07, name: 'Creuse' },
+  '24': { lat: 45.14, lng: 0.72, name: 'Dordogne' },
+  '25': { lat: 47.17, lng: 6.36, name: 'Doubs' },
+  '26': { lat: 44.68, lng: 5.17, name: 'Drôme' },
+  '27': { lat: 49.09, lng: 1.15, name: 'Eure' },
+  '28': { lat: 48.31, lng: 1.33, name: 'Eure-et-Loir' },
+  '29': { lat: 48.27, lng: -4.22, name: 'Finistère' },
+  '30': { lat: 44.03, lng: 4.18, name: 'Gard' },
+  '31': { lat: 43.35, lng: 1.18, name: 'Haute-Garonne' },
+  '32': { lat: 43.65, lng: 0.45, name: 'Gers' },
+  '33': { lat: 44.84, lng: -0.68, name: 'Gironde' },
+  '34': { lat: 43.59, lng: 3.46, name: 'Hérault' },
+  '35': { lat: 48.15, lng: -1.64, name: 'Ille-et-Vilaine' },
+  '36': { lat: 46.78, lng: 1.58, name: 'Indre' },
+  '37': { lat: 47.26, lng: 0.88, name: 'Indre-et-Loire' },
+  '38': { lat: 45.26, lng: 5.58, name: 'Isère' },
+  '39': { lat: 46.73, lng: 5.67, name: 'Jura' },
+  '40': { lat: 43.98, lng: -0.77, name: 'Landes' },
+  '41': { lat: 47.62, lng: 1.33, name: 'Loir-et-Cher' },
+  '42': { lat: 45.73, lng: 4.16, name: 'Loire' },
+  '43': { lat: 45.13, lng: 3.75, name: 'Haute-Loire' },
+  '44': { lat: 47.36, lng: -1.76, name: 'Loire-Atlantique' },
+  '45': { lat: 47.91, lng: 2.15, name: 'Loiret' },
+  '46': { lat: 44.62, lng: 1.62, name: 'Lot' },
+  '47': { lat: 44.35, lng: 0.46, name: 'Lot-et-Garonne' },
+  '48': { lat: 44.52, lng: 3.50, name: 'Lozère' },
+  '49': { lat: 47.39, lng: -0.68, name: 'Maine-et-Loire' },
+  '50': { lat: 48.88, lng: -1.34, name: 'Manche' },
+  '51': { lat: 48.95, lng: 3.95, name: 'Marne' },
+  '52': { lat: 48.11, lng: 5.26, name: 'Haute-Marne' },
+  '53': { lat: 48.13, lng: -0.76, name: 'Mayenne' },
+  '54': { lat: 48.78, lng: 6.17, name: 'Meurthe-et-Moselle' },
+  '55': { lat: 49.00, lng: 5.38, name: 'Meuse' },
+  '56': { lat: 47.83, lng: -2.82, name: 'Morbihan' },
+  '57': { lat: 49.04, lng: 6.67, name: 'Moselle' },
+  '58': { lat: 47.11, lng: 3.50, name: 'Nièvre' },
+  '59': { lat: 50.45, lng: 3.22, name: 'Nord' },
+  '60': { lat: 49.41, lng: 2.42, name: 'Oise' },
+  '61': { lat: 48.57, lng: 0.10, name: 'Orne' },
+  '62': { lat: 50.49, lng: 2.29, name: 'Pas-de-Calais' },
+  '63': { lat: 45.72, lng: 3.14, name: 'Puy-de-Dôme' },
+  '64': { lat: 43.27, lng: -0.77, name: 'Pyrénées-Atlantiques' },
+  '65': { lat: 43.05, lng: 0.15, name: 'Hautes-Pyrénées' },
+  '66': { lat: 42.60, lng: 2.53, name: 'Pyrénées-Orientales' },
+  '67': { lat: 48.67, lng: 7.55, name: 'Bas-Rhin' },
+  '68': { lat: 47.89, lng: 7.17, name: 'Haut-Rhin' },
+  '69': { lat: 45.87, lng: 4.64, name: 'Rhône' },
+  '70': { lat: 47.62, lng: 6.15, name: 'Haute-Saône' },
+  '71': { lat: 46.64, lng: 4.42, name: 'Saône-et-Loire' },
+  '72': { lat: 47.93, lng: 0.20, name: 'Sarthe' },
+  '73': { lat: 45.49, lng: 6.39, name: 'Savoie' },
+  '74': { lat: 46.04, lng: 6.33, name: 'Haute-Savoie' },
+  '75': { lat: 48.86, lng: 2.35, name: 'Paris' },
+  '76': { lat: 49.66, lng: 1.10, name: 'Seine-Maritime' },
+  '77': { lat: 48.62, lng: 2.99, name: 'Seine-et-Marne' },
+  '78': { lat: 48.81, lng: 1.85, name: 'Yvelines' },
+  '79': { lat: 46.52, lng: -0.26, name: 'Deux-Sèvres' },
+  '80': { lat: 49.91, lng: 2.26, name: 'Somme' },
+  '81': { lat: 43.78, lng: 2.15, name: 'Tarn' },
+  '82': { lat: 44.02, lng: 1.29, name: 'Tarn-et-Garonne' },
+  '83': { lat: 43.46, lng: 6.22, name: 'Var' },
+  '84': { lat: 44.05, lng: 5.19, name: 'Vaucluse' },
+  '85': { lat: 46.67, lng: -1.33, name: 'Vendée' },
+  '86': { lat: 46.57, lng: 0.45, name: 'Vienne' },
+  '87': { lat: 45.88, lng: 1.26, name: 'Haute-Vienne' },
+  '88': { lat: 48.17, lng: 6.45, name: 'Vosges' },
+  '89': { lat: 47.80, lng: 3.57, name: 'Yonne' },
+  '90': { lat: 47.63, lng: 6.93, name: 'Territoire de Belfort' },
+  '91': { lat: 48.52, lng: 2.23, name: 'Essonne' },
+  '92': { lat: 48.84, lng: 2.25, name: 'Hauts-de-Seine' },
+  '93': { lat: 48.91, lng: 2.48, name: 'Seine-Saint-Denis' },
+  '94': { lat: 48.78, lng: 2.47, name: 'Val-de-Marne' },
+  '95': { lat: 49.08, lng: 2.17, name: "Val-d'Oise" },
+
+  // DOM-TOM
+  '971': { lat: 16.25, lng: -61.55, name: 'Guadeloupe' },
+  '972': { lat: 14.64, lng: -61.02, name: 'Martinique' },
+  '973': { lat: 3.93, lng: -53.13, name: 'Guyane' },
+  '974': { lat: -21.11, lng: 55.53, name: 'La Réunion' },
+  '976': { lat: -12.82, lng: 45.17, name: 'Mayotte' },
+}
+
+/**
+ * Retourne les coordonnées d'un département à partir de son code.
+ * Accepte les formats "75", "2A", "971", etc.
+ */
+export function getDepartmentCoords(code: string): DepartmentCoord | null {
+  return DEPARTMENT_COORDS[code] || null
+}

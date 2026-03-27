@@ -113,6 +113,7 @@ export const referral = sqliteTable('referral', {
   moyenContact: text('moyen_contact'),
   typeContact: text('type_contact'),
   statut: text('statut').default('en_attente'),
+  source: text('source').default('generique'), // 'sourcee' | 'generique'
   webhookEnvoye: integer('webhook_envoye').default(0),
   webhookReponse: text('webhook_reponse'),
   relanceEnvoyee: integer('relance_envoyee').default(0),
@@ -177,8 +178,14 @@ export const structure = sqliteTable('structure', {
   specialites: text('specialites'),
   genrePreference: text('genre_preference'),
   capaciteMax: integer('capacite_max').default(50),
+  adresse: text('adresse'),
+  codePostal: text('code_postal'),
+  ville: text('ville'),
+  latitude: real('latitude'),
+  longitude: real('longitude'),
   webhookUrl: text('webhook_url'),
   parcoureoId: text('parcoureo_id'),
+  promptPersonnalise: text('prompt_personnalise'), // Custom AI behavior prompt set by admin_structure
   actif: integer('actif').default(1),
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),
@@ -192,6 +199,7 @@ export const conseiller = sqliteTable('conseiller', {
   nom: text('nom').notNull(),
   role: text('role').default('conseiller'),
   structureId: text('structure_id').references(() => structure.id),
+  parcoureoId: text('parcoureo_id'),
   actif: integer('actif').default(1),
   derniereConnexion: text('derniere_connexion'),
   creeLe: text('cree_le').notNull(),
@@ -320,6 +328,8 @@ export const rendezVous = sqliteTable('rendez_vous', {
   // Participants invités (JSON array of { type, id, nom, statut })
   participants: text('participants'), // JSON
   rappelEnvoye: integer('rappel_envoye').default(0),
+  googleEventId: text('google_event_id'),
+  outlookEventId: text('outlook_event_id'),
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
@@ -345,6 +355,56 @@ export const pushSubscription = sqliteTable('push_subscription', {
   keysP256dh: text('keys_p256dh').notNull(),
   keysAuth: text('keys_auth').notNull(),
   creeLe: text('cree_le').notNull(),
+})
+
+// === VÉRIFICATION / AUTHENTIFICATION ===
+
+// === ENQUÊTE DE SATISFACTION ===
+
+export const enqueteSatisfaction = sqliteTable('enquete_satisfaction', {
+  id: text('id').primaryKey(),
+  priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
+  utilisateurId: text('utilisateur_id').notNull(),
+  // Scores 1-5
+  noteGlobale: integer('note_globale'),
+  noteEcoute: integer('note_ecoute'),
+  noteUtilite: integer('note_utilite'),
+  noteConseiller: integer('note_conseiller'),
+  noteRecommandation: integer('note_recommandation'), // NPS 0-10
+  // Open text
+  commentaire: text('commentaire'),
+  pointsForts: text('points_forts'),
+  ameliorations: text('ameliorations'),
+  // Meta
+  completee: integer('completee').default(0),
+  creeLe: text('cree_le').notNull(),
+})
+
+// === RAPPELS AUTOMATIQUES ===
+
+export const rappel = sqliteTable('rappel', {
+  id: text('id').primaryKey(),
+  priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
+  type: text('type').notNull(), // 'beneficiaire_inactif' | 'conseiller_alerte'
+  statut: text('statut').default('en_attente'), // en_attente | envoye | annule
+  dateEnvoi: text('date_envoi').notNull(),
+  contenu: text('contenu'),
+  creeLe: text('cree_le').notNull(),
+})
+
+// === CONNEXIONS CALENDRIER (Google / Outlook OAuth2) ===
+
+export const calendarConnection = sqliteTable('calendar_connection', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(), // 'conseiller' | 'beneficiaire'
+  userId: text('user_id').notNull(),
+  provider: text('provider').notNull(), // 'google' | 'outlook'
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token'),
+  expiresAt: text('expires_at'),
+  email: text('email'), // calendar account email
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
 // === VÉRIFICATION / AUTHENTIFICATION ===

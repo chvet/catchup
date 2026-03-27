@@ -1,28 +1,35 @@
 'use client'
 
-import { Message } from 'ai'
+import VoiceMessage from './VoiceMessage'
+
+interface VoiceData {
+  audioUrl: string
+  duration: number
+  transcription?: string
+}
 
 interface Props {
-  message: Message
+  message: { id: string; role: string; content: string; [key: string]: unknown }
   isSpeaking: boolean
   onSpeak: () => void
   rgaaMode: boolean
+  voiceData?: VoiceData
 }
 
-export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode }: Props) {
+export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, voiceData }: Props) {
   const isUser = message.role === 'user'
-  const msgDate = message.createdAt ? new Date(message.createdAt) : new Date()
+  const msgDate = message.createdAt ? new Date(message.createdAt as string | number | Date) : new Date()
   const time = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div className={`flex mb-2.5 msg-appear ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex mb-2.5 msg-appear w-full max-w-full overflow-hidden ${isUser ? 'justify-end' : 'justify-start'}`}>
       {!isUser && (
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-catchup-primary to-catchup-accent flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5 shadow-sm">
           <span className="text-sm">🚀</span>
         </div>
       )}
 
-      <div className="max-w-[82%] md:max-w-[65%] group relative">
+      <div className="max-w-[85%] md:max-w-[65%] group relative min-w-0">
         <div
           className={`msg-bubble rounded-2xl px-3.5 py-2.5 shadow-sm ${
             isUser
@@ -30,9 +37,17 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode }
               : 'bg-white text-gray-800 rounded-bl-sm'
           } ${rgaaMode ? 'border-2 border-gray-700 !text-base !leading-relaxed' : ''}`}
         >
-          <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
-            {message.content}
-          </p>
+          {voiceData ? (
+            <VoiceMessage
+              audioUrl={voiceData.audioUrl}
+              duration={voiceData.duration}
+              transcription={voiceData.transcription}
+            />
+          ) : (
+            <p className="text-[15px] leading-relaxed whitespace-pre-wrap chat-message">
+              {message.content}
+            </p>
+          )}
           <div className={`flex items-center mt-0.5 ${isUser ? 'justify-end' : 'justify-start'}`}>
             <span className={`text-[10px] ${isUser ? 'text-white/50' : 'text-gray-400'}`}>
               {time}

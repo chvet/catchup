@@ -3,10 +3,29 @@
 import { useState, useEffect } from 'react'
 import { useConseiller } from '@/components/conseiller/ConseillerProvider'
 
+interface ParcoureoStatus {
+  configured: boolean
+  linked: boolean
+  parcoureoId?: string
+}
+
+interface CalendarStatus {
+  google: { connected: boolean; email?: string; since?: string }
+  outlook: { connected: boolean; email?: string; since?: string }
+}
+
 export default function ParametresPage() {
   const conseiller = useConseiller()
   const [slug, setSlug] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [parcoureo, setParcoureo] = useState<ParcoureoStatus>({ configured: false, linked: false })
+  const [parcoureoLoading, setParcoureoLoading] = useState(false)
+  const [calendar, setCalendar] = useState<CalendarStatus>({
+    google: { connected: false },
+    outlook: { connected: false },
+  })
+  const [calendarLoading, setCalendarLoading] = useState<string | null>(null)
+  const [calendarMessage, setCalendarMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
     if (conseiller?.structure?.id) {
@@ -21,8 +40,91 @@ export default function ParametresPage() {
     }
   }, [conseiller?.structure?.id])
 
-  const beneficiaireUrl = slug ? `https://catchup.jaeprive.fr/?s=${slug}` : null
-  const conseillerUrl = slug ? `https://catchup.jaeprive.fr/conseiller/login?s=${slug}` : null
+  // Vérifier le statut Parcoureo
+  useEffect(() => {
+    fetch('/api/conseiller/auth/parcoureo/status')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.configured) {
+          const linked = !!conseiller?.parcoureoId
+          setParcoureo({
+            configured: true,
+            linked,
+            parcoureoId: linked ? String(conseiller.parcoureoId) : undefined,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [conseiller])
+
+  // Charger le statut des calendriers connectes
+  useEffect(() => {
+    fetch('/api/calendar/status')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) setCalendar(data)
+      })
+      .catch(() => {})
+  }, [])
+
+  // Detecter les parametres de retour apres OAuth
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const calParam = params.get('calendar')
+    const providerParam = params.get('provider')
+    if (calParam === 'connected' && providerParam) {
+      setCalendarMessage({ type: 'success', text: `${providerParam === 'google' ? 'Google Calendar' : 'Outlook'} connecte avec succes !` })
+      // Refresh status
+      fetch('/api/calendar/status')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setCalendar(data) })
+        .catch(() => {})
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname)
+      setTimeout(() => setCalendarMessage(null), 5000)
+    } else if (calParam === 'error') {
+      setCalendarMessage({ type: 'error', text: `Erreur de connexion ${providerParam === 'google' ? 'Google Calendar' : 'Outlook'}. Veuillez reessayer.` })
+      window.history.replaceState({}, '', window.location.pathname)
+      setTimeout(() => setCalendarMessage(null), 5000)
+    }
+  }, [])
+
+  const handleConnectCalendar = (provider: 'google' | 'outlook') => {
+    setCalendarLoading(provider)
+    window.location.href = `/api/calendar/${provider}?returnUrl=/conseiller/parametres`
+  }
+
+  const handleDisconnectCalendar = async (provider: 'google' | 'outlook') => {
+    setCalendarLoading(provider)
+    try {
+      const res = await fetch('/api/calendar/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider }),
+      })
+      if (res.ok) {
+        setCalendar(prev => ({
+          ...prev,
+          [provider]: { connected: false },
+        }))
+        setCalendarMessage({ type: 'success', text: `${provider === 'google' ? 'Google Calendar' : 'Outlook'} deconnecte.` })
+        setTimeout(() => setCalendarMessage(null), 3000)
+      }
+    } catch {
+      setCalendarMessage({ type: 'error', text: 'Erreur lors de la deconnexion.' })
+      setTimeout(() => setCalendarMessage(null), 3000)
+    } finally {
+      setCalendarLoading(null)
+    }
+  }
+
+  const handleLinkParcoureo = () => {
+    setParcoureoLoading(true)
+    window.location.href = '/api/conseiller/auth/parcoureo'
+  }
+
+  const beneficiaireUrl = slug ? `https://wesh.chat/?s=${slug}` : null
+  const conseillerUrl = slug ? `https://wesh.chat/conseiller/login?s=${slug}` : null
   const qrCodeUrl = beneficiaireUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(beneficiaireUrl)}`
     : null
@@ -247,6 +349,155 @@ export default function ParametresPage() {
             </div>
           </div>
         )}
+
+        {/* Parcoureo */}
+        {parcoureo.configured && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Parcoureo</h2>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${parcoureo.linked ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className="text-sm text-gray-700">
+                  {parcoureo.linked ? 'Compte Parcoureo lie' : 'Compte non lie'}
+                </span>
+              </div>
+
+              {parcoureo.linked ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-800">
+                    Votre compte est lie a Parcoureo.
+                  </p>
+                  {parcoureo.parcoureoId && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Identifiant : <span className="font-mono">{parcoureo.parcoureoId}</span>
+                    </p>
+                  )}
+                  <p className="text-xs text-green-600 mt-1">
+                    Email : {conseiller?.email}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm text-gray-500 mb-3">
+                    Liez votre compte Parcoureo pour vous connecter en un clic et synchroniser les profils.
+                  </p>
+                  <button
+                    onClick={handleLinkParcoureo}
+                    disabled={parcoureoLoading}
+                    className="px-4 py-2.5 bg-[#2D5F8A] text-white text-sm font-medium rounded-lg hover:bg-[#2D5F8A]/90 disabled:opacity-50 transition-colors flex items-center gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
+                    {parcoureoLoading ? 'Redirection...' : 'Lier mon compte Parcoureo'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Mes agendas */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Mes agendas</h2>
+
+          {calendarMessage && (
+            <div className={`mb-4 p-3 rounded-lg text-sm ${
+              calendarMessage.type === 'success'
+                ? 'bg-green-50 border border-green-200 text-green-800'
+                : 'bg-red-50 border border-red-200 text-red-800'
+            }`}>
+              {calendarMessage.text}
+            </div>
+          )}
+
+          <p className="text-sm text-gray-500 mb-4">
+            Connectez vos agendas pour synchroniser automatiquement les rendez-vous.
+          </p>
+
+          <div className="space-y-3">
+            {/* Google Calendar */}
+            <div className={`flex items-center justify-between p-3 rounded-lg border ${
+              calendar.google.connected ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
+            }`}>
+              <div className="flex items-center gap-3">
+                <svg viewBox="0 0 24 24" className="w-6 h-6">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">Google Calendar</p>
+                  {calendar.google.connected && calendar.google.email && (
+                    <p className="text-xs text-green-600">{calendar.google.email}</p>
+                  )}
+                </div>
+                {calendar.google.connected && (
+                  <span className="ml-2 w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                )}
+              </div>
+              {calendar.google.connected ? (
+                <button
+                  onClick={() => handleDisconnectCalendar('google')}
+                  disabled={calendarLoading === 'google'}
+                  className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
+                >
+                  {calendarLoading === 'google' ? '...' : 'Deconnecter'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleConnectCalendar('google')}
+                  disabled={calendarLoading === 'google'}
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-catchup-primary rounded-lg hover:bg-catchup-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  {calendarLoading === 'google' ? 'Redirection...' : 'Connecter'}
+                </button>
+              )}
+            </div>
+
+            {/* Outlook Calendar */}
+            <div className={`flex items-center justify-between p-3 rounded-lg border ${
+              calendar.outlook.connected ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
+            }`}>
+              <div className="flex items-center gap-3">
+                <svg viewBox="0 0 24 24" className="w-6 h-6">
+                  <path fill="#0078D4" d="M24 7.387v10.478c0 .23-.08.424-.238.583a.793.793 0 01-.583.238h-8.196v-12.5h8.196c.234 0 .43.08.588.238.158.16.233.354.233.583v.38zM7.5 5.5v13h-6c-.23 0-.424-.08-.583-.238A.793.793 0 01.68 17.68V6.32c0-.23.08-.424.238-.583A.793.793 0 011.5 5.5h6z"/>
+                  <path fill="#0364B8" d="M24 7.387H14.983V6.186h8.196c.234 0 .43.08.588.238.158.16.233.354.233.583v.38zM14.983 18.686h8.196c.23 0 .424-.08.583-.238a.793.793 0 00.238-.583v-.38H14.983v1.2z"/>
+                  <path fill="#0078D4" d="M14.5 6.186L7.5 5.5v13l7-1.186V6.186z"/>
+                  <path fill="white" d="M10.25 9.5c.688 0 1.247.234 1.68.703.43.47.648 1.07.648 1.797s-.218 1.328-.648 1.797c-.433.469-.992.703-1.68.703s-1.247-.234-1.68-.703c-.43-.469-.648-1.07-.648-1.797s.218-1.328.648-1.797c.433-.469.992-.703 1.68-.703zm0 .937c-.375 0-.68.148-.914.445-.234.297-.352.68-.352 1.148 0 .469.118.852.352 1.148.234.297.539.445.914.445s.68-.148.914-.445c.234-.297.352-.68.352-1.148 0-.469-.118-.852-.352-1.148-.234-.297-.539-.445-.914-.445z"/>
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">Outlook</p>
+                  {calendar.outlook.connected && calendar.outlook.email && (
+                    <p className="text-xs text-green-600">{calendar.outlook.email}</p>
+                  )}
+                </div>
+                {calendar.outlook.connected && (
+                  <span className="ml-2 w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                )}
+              </div>
+              {calendar.outlook.connected ? (
+                <button
+                  onClick={() => handleDisconnectCalendar('outlook')}
+                  disabled={calendarLoading === 'outlook'}
+                  className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
+                >
+                  {calendarLoading === 'outlook' ? '...' : 'Deconnecter'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleConnectCalendar('outlook')}
+                  disabled={calendarLoading === 'outlook'}
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-[#0078D4] rounded-lg hover:bg-[#0078D4]/90 disabled:opacity-50 transition-colors"
+                >
+                  {calendarLoading === 'outlook' ? 'Redirection...' : 'Connecter'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Infos */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-2">
