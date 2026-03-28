@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: "Catch'Up — Ton guide orientation",
-  description: "Catch'Up t'aide à trouver ta voie professionnelle grâce à l'IA. Découvre ton profil, explore des métiers, construis ton avenir.",
+  title: "Wesh — Ton guide orientation",
+  description: "Wesh t'aide a trouver ta voie professionnelle. Decouvre ton profil, explore des metiers, construis ton avenir.",
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,

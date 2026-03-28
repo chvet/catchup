@@ -17,6 +17,7 @@ import { calculerIndiceConfiance } from '@/core/confidence'
 import { getFragilityLevel, type FragilityLevel } from '@/core/fragility-detector'
 import ReferralStatusTag from './ReferralStatusTag'
 import AccompagnementChat from './AccompagnementChat'
+import { useAppBrand } from '@/hooks/useAppBrand'
 
 // Lazy-load heavy modal components (only shown on user action)
 const ReferralModal = dynamic(() => import('./ReferralModal'), { ssr: false })
@@ -82,6 +83,7 @@ function saveToLS(key: string, value: unknown) {
 }
 
 export default function ChatApp() {
+  const brandConfig = useAppBrand()
   const [sessionId] = useState(() => loadFromLS<string>(LS_SESSION_KEY, '') || uuidv4())
   const [savedPrenom] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
@@ -949,13 +951,14 @@ export default function ChatApp() {
               <div className="flex-1 overflow-y-auto chat-scroll px-2 py-3 md:px-6 w-full max-w-full" style={{ overflowX: 'clip' }}>
                 {!hasMessages && (
                   <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-catchup-primary to-catchup-accent flex items-center justify-center mb-5 shadow-xl">
-                      <span className="text-4xl">🚀</span>
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-catchup-primary to-catchup-accent flex items-center justify-center mb-5 shadow-xl overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/favicon.svg" alt="Wesh" className="w-14 h-14" />
                     </div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2">
                       {structureInfo
-                        ? <>Bienvenue sur Catch&apos;Up — {structureInfo.nom} 👋</>
-                        : <>Hey ! Moi c&apos;est Catch&apos;Up 👋</>
+                        ? <>Bienvenue sur {brandConfig.appName} — {structureInfo.nom} 👋</>
+                        : <>Hey ! Moi c&apos;est {brandConfig.appName} 👋</>
                       }
                     </h2>
                     <p className="text-gray-500 text-sm mb-6 max-w-[280px] leading-relaxed">

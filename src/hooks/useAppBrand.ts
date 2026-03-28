@@ -23,7 +23,7 @@ const BRANDS: Record<AppBrand, BrandConfig> = {
     proHost: 'pro.wesh.chat',
     publicHost: 'wesh.chat',
     primaryColor: '#6C63FF',
-    logo: '🚀',
+    logo: '/favicon.svg',
   },
   catchup: {
     brand: 'catchup',
@@ -32,7 +32,7 @@ const BRANDS: Record<AppBrand, BrandConfig> = {
     proHost: 'pro.catchup.jaeprive.fr',
     publicHost: 'catchup.jaeprive.fr',
     primaryColor: '#6C63FF',
-    logo: '🚀',
+    logo: '/favicon.svg',
   },
 }
 
