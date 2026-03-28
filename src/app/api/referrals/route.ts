@@ -36,23 +36,53 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString()
 
-    // 1. Update user info (sans écraser l'email si conflit UNIQUE)
-    const updateData: Record<string, unknown> = { misAJourLe: now }
-    if (prenom) updateData.prenom = prenom
-    if (age) updateData.age = age
-    if (departement) updateData.situation = departement
-    if (departement) updateData.source = departement // localisation
-    if (typeContact === 'telephone' && moyenContact) updateData.telephone = moyenContact
-    if (typeContact === 'email' && moyenContact) {
-      // Vérifier que l'email n'est pas déjà utilisé par un autre utilisateur
-      const existingEmail = await db.select({ id: utilisateur.id }).from(utilisateur)
-        .where(and(eq(utilisateur.email, moyenContact), sql`${utilisateur.id} != ${utilisateurId}`))
-      if (existingEmail.length === 0) {
-        updateData.email = moyenContact
+    // 1. S'assurer que l'utilisateur existe (upsert)
+    const existingUser = await db.select({ id: utilisateur.id }).from(utilisateur).where(eq(utilisateur.id, utilisateurId))
+    if (existingUser.length === 0) {
+      await db.insert(utilisateur).values({
+        id: utilisateurId,
+        prenom: prenom || null,
+        age: age || null,
+        email: typeContact === 'email' ? moyenContact : null,
+        telephone: typeContact === 'telephone' ? moyenContact : null,
+        situation: departement || null,
+        source: departement || null,
+        creeLe: now,
+        misAJourLe: now,
+      })
+    } else {
+      // Update user info (sans écraser l'email si conflit UNIQUE)
+      const updateData: Record<string, unknown> = { misAJourLe: now }
+      if (prenom) updateData.prenom = prenom
+      if (age) updateData.age = age
+      if (departement) updateData.situation = departement
+      if (departement) updateData.source = departement
+      if (typeContact === 'telephone' && moyenContact) updateData.telephone = moyenContact
+      if (typeContact === 'email' && moyenContact) {
+        const existingEmail = await db.select({ id: utilisateur.id }).from(utilisateur)
+          .where(and(eq(utilisateur.email, moyenContact), sql`${utilisateur.id} != ${utilisateurId}`))
+        if (existingEmail.length === 0) {
+          updateData.email = moyenContact
+        }
       }
+      await db.update(utilisateur).set(updateData).where(eq(utilisateur.id, utilisateurId))
     }
 
-    await db.update(utilisateur).set(updateData).where(eq(utilisateur.id, utilisateurId))
+    // 1b. S'assurer que la conversation existe
+    const existingConv = await db.select({ id: conversation.id }).from(conversation).where(eq(conversation.id, conversationId))
+    if (existingConv.length === 0) {
+      await db.insert(conversation).values({
+        id: conversationId,
+        utilisateurId,
+        titre: 'Conversation ' + (prenom || 'Bénéficiaire'),
+        statut: 'active',
+        nbMessages: 0,
+        phase: 'accroche',
+        dureeSecondes: 0,
+        creeLe: now,
+        misAJourLe: now,
+      })
+    }
 
     // 2. Calculate priority
     const prioriteMap: Record<string, string> = {

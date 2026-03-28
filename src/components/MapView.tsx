@@ -86,7 +86,7 @@ export default function MapView({
             <Popup>
               <div className="text-sm">
                 <strong>{marker.label}</strong>
-                {marker.popup && <p className="mt-1 text-gray-600">{marker.popup}</p>}
+                {marker.popup && <div className="mt-1 text-gray-600" dangerouslySetInnerHTML={{ __html: marker.popup }} />}
               </div>
             </Popup>
           )}

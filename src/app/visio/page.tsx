@@ -17,32 +17,24 @@ function VisioPageContent() {
   const [joined, setJoined] = useState(false)
   const [ready, setReady] = useState(false)
 
-  // Load from URL params or localStorage
+  // Auto-join immediately — no pre-join screen
   useEffect(() => {
     const storedName = typeof localStorage !== 'undefined' ? localStorage.getItem('visio_name') || '' : ''
     const storedRole = typeof localStorage !== 'undefined' ? localStorage.getItem('visio_role') as typeof participantRole || '' : ''
 
-    const resolvedName = nameParam || storedName || ''
+    const resolvedName = nameParam || storedName || 'Participant'
     const resolvedRole = roleParam || (storedRole as typeof participantRole) || 'beneficiaire'
 
     setParticipantName(resolvedName)
     setParticipantRole(resolvedRole)
     setReady(true)
 
-    // Auto-join dès qu'on a un nom (pas besoin de sélectionner un rôle)
-    if (room && resolvedName) {
+    // Always auto-join when we have a room
+    if (room) {
+      if (resolvedName) localStorage.setItem('visio_name', resolvedName)
       setJoined(true)
     }
   }, [nameParam, roleParam, room])
-
-  const handleJoin = () => {
-    if (!participantName.trim()) return
-
-    // Save for next time
-    localStorage.setItem('visio_name', participantName)
-    localStorage.setItem('visio_role', participantRole)
-    setJoined(true)
-  }
 
   const handleClose = () => {
     // Try to go back, or go to home
@@ -90,44 +82,12 @@ function VisioPageContent() {
     )
   }
 
-  // Pre-join screen
+  // Loading while auto-joining
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="bg-white rounded-2xl shadow-lg p-6 max-w-sm w-full">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 mx-auto mb-3 bg-emerald-100 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h1 className="text-lg font-semibold text-gray-900">Rejoindre la visio</h1>
-          <p className="text-sm text-gray-500 mt-1">Entrez votre nom pour participer</p>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Votre nom
-            </label>
-            <input
-              type="text"
-              value={participantName}
-              onChange={(e) => setParticipantName(e.target.value)}
-              placeholder="Prenom Nom"
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-              autoFocus
-            />
-          </div>
-
-          <button
-            onClick={handleJoin}
-            disabled={!participantName.trim()}
-            className="w-full px-4 py-3 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 active:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Rejoindre
-          </button>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="text-center">
+        <div className="w-10 h-10 border-3 border-white/30 border-t-emerald-400 rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-white/70 text-sm">Connexion a la visio...</p>
       </div>
     </div>
   )

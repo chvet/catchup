@@ -11,7 +11,10 @@ dev-out.log
 .claude/
 local.db
 *.db
+*.db-shm
+*.db-wal
 drizzle/
+uploads/
 
 # Capacitor Android
 android/

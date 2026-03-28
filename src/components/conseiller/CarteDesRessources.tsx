@@ -73,16 +73,36 @@ export default function CarteDesRessources({ structures }: Props) {
     })
   }
 
+  // Pseudo-random réaliste — simule des adresses réelles dans le département
+  // Utilise un hash multi-passe pour que lat et lng soient décorrélés
+  const seededRandom = (id: string, seed: number): number => {
+    let h = seed
+    for (let i = 0; i < id.length; i++) {
+      h = Math.imul(h ^ id.charCodeAt(i), 0x5bd1e995)
+      h ^= h >>> 15
+    }
+    h = Math.imul(h ^ (h >>> 13), 0x45d9f3b)
+    h = Math.imul(h ^ (h >>> 13), 0x45d9f3b)
+    return (Math.abs(h) % 10000) / 10000 // 0..1
+  }
+  // Dispersion Gaussienne approximée (Box-Muller simplifié via 3 uniform)
+  const gaussJitter = (id: string, axis: number): number => {
+    const u1 = seededRandom(id, axis * 31337)
+    const u2 = seededRandom(id, axis * 48271)
+    const u3 = seededRandom(id, axis * 16807)
+    // Approximation Gaussienne: moyenne de 3 uniformes centrées
+    const gauss = (u1 + u2 + u3) / 3 - 0.5 // [-0.5, 0.5] centré
+    return gauss * 1.2 // ±0.6 degrés max (~65km), distribution naturelle
+  }
+
   if (showBeneficiaires) {
     beneficiaires.forEach(b => {
       const coord = DEPARTMENT_COORDS[b.localisation]
       if (coord) {
-        // Décaler légèrement pour éviter la superposition
-        const jitter = (Math.random() - 0.5) * 0.3
         const color = b.priorite === 'critique' ? 'red' : b.priorite === 'haute' ? 'red' : 'green'
         markers.push({
-          lat: coord.lat + jitter,
-          lng: coord.lng + jitter,
+          lat: coord.lat + gaussJitter(b.id, 1),
+          lng: coord.lng + gaussJitter(b.id, 2),
           color,
           label: b.prenom,
           popup: `<strong>${b.prenom}</strong><br/>Dept. ${b.localisation}<br/>Statut : ${b.statut}<br/>Priorité : ${b.priorite}`,

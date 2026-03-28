@@ -765,7 +765,7 @@ export default function ChatApp() {
       )}
       {referralStatus === 'en_attente' && (
         <div className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-200">
-          <span className="text-amber-600 text-sm">⏳</span>
+          <span className="text-amber-600 text-sm inline-block animate-spin" style={{ animationDuration: '2s' }}>⏳</span>
           <p className="text-xs text-amber-800 font-medium">
             Ta demande est en cours de traitement. Un conseiller te contactera bientôt.
           </p>
@@ -1001,15 +1001,7 @@ export default function ChatApp() {
               )}
 
               {/* ── Barre compacte : statut referral OU bouton mise en relation ── */}
-              {referralId && referralStatus && referralStatus !== 'prise_en_charge' && referralStatus !== 'annulee' ? (
-                <div className="mx-2 md:mx-6 flex items-center justify-between px-2 py-0.5 bg-blue-50/80 rounded-full shrink-0">
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="text-[10px] text-blue-600 shrink-0">📨</span>
-                    <ReferralStatusTag statut={referralStatus} />
-                  </div>
-                  <button onClick={() => setShowCancelConfirm(true)} className="text-[10px] text-gray-400 hover:text-red-500 px-1 shrink-0">✕</button>
-                </div>
-              ) : hasMessages && referralStatus === 'prise_en_charge' ? (
+              {hasMessages && referralStatus === 'prise_en_charge' ? (
                 <div className="mx-2 md:mx-6 shrink-0">
                   <button
                     onClick={() => setChatMode('conseiller')}

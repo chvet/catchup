@@ -113,6 +113,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
     { href: '/conseiller/file-active', label: 'File active', icon: '📋', alert: true },
     ...(conseiller?.role === 'admin_structure' || conseiller?.role === 'super_admin'
       ? [
+          { href: '/conseiller/campagnes', label: 'Campagnes', icon: '🎯' },
           { href: '/conseiller/structures', label: 'Structures', icon: '🏢' },
           { href: '/conseiller/conseillers', label: 'Conseillers', icon: '👥' },
         ]

@@ -222,6 +222,15 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
 
   // Video call loading state
   const [videoLoading, setVideoLoading] = useState(false)
+  const [conseillerPrenom, setConseillerPrenom] = useState('')
+
+  // Fetch conseiller prenom for video calls
+  useEffect(() => {
+    fetch('/api/conseiller/auth/me')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.prenom) setConseillerPrenom(data.prenom) })
+      .catch(() => {})
+  }, [])
 
   // RDV reminder loading state
   const [rdvReminderLoading, setRdvReminderLoading] = useState(false)
@@ -640,6 +649,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
             }}
             viewerType="conseiller"
             viewerId={msg.expediteurId}
+            viewerName={conseillerPrenom}
           />
         )
 

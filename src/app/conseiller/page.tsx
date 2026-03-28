@@ -301,6 +301,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* === Mes Campagnes (jauges) === */}
+      <CampagnesWidget />
+
       {/* === Charts === */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
 
@@ -485,6 +488,72 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// === Campagnes Widget (jauges sur le dashboard) ===
+
+function CampagnesWidget() {
+  const [campagnes, setCampagnes] = useState<{
+    id: string; designation: string; quantiteObjectif: number; uniteOeuvre: string
+    dateDebut: string; dateFin: string; avancement: number; pourcentage: number
+  }[]>([])
+
+  useEffect(() => {
+    fetch('/api/conseiller/campagnes')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.campagnes) setCampagnes(data.campagnes.filter((c: { statut: string }) => c.statut === 'active'))
+      })
+      .catch(() => {})
+  }, [])
+
+  if (campagnes.length === 0) return null
+
+  const progressColor = (pct: number, dateFin: string) => {
+    const daysLeft = (new Date(dateFin).getTime() - Date.now()) / 86400000
+    if (pct >= 100) return 'bg-green-500'
+    if (daysLeft < 7 && pct < 50) return 'bg-red-500'
+    if (pct < 30) return 'bg-red-400'
+    if (pct < 70) return 'bg-amber-400'
+    return 'bg-green-500'
+  }
+
+  const daysLabel = (dateFin: string) => {
+    const days = Math.ceil((new Date(dateFin).getTime() - Date.now()) / 86400000)
+    if (days < 0) return 'Terminee'
+    if (days === 0) return "Aujourd'hui"
+    return `${days}j`
+  }
+
+  return (
+    <div className="mb-8">
+      <h2 className="text-lg font-semibold text-gray-800 mb-3">Mes campagnes</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {campagnes.map(c => (
+          <Link
+            key={c.id}
+            href="/conseiller/campagnes"
+            className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-semibold text-gray-800 truncate">{c.designation}</h4>
+              <span className="text-xs text-gray-400 shrink-0 ml-2">{daysLabel(c.dateFin)}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+              <span>{c.avancement}/{c.quantiteObjectif} {c.uniteOeuvre}</span>
+              <span className="font-bold text-base text-gray-800">{c.pourcentage}%</span>
+            </div>
+            <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${progressColor(c.pourcentage, c.dateFin)}`}
+                style={{ width: `${c.pourcentage}%` }}
+              />
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   )
 }

@@ -16,7 +16,7 @@ fi
 # Lancer le serveur WebSocket de visio en arrière-plan (optionnel)
 if [ -f "src/visio/server.ts" ]; then
   echo "📹 Démarrage du serveur visio (port 3003)..."
-  npx tsx src/visio/server.ts &
+  node src/visio/server.js &
   sleep 1
 else
   echo "⏭️ Serveur visio non trouvé, utilisation de Daily.co"

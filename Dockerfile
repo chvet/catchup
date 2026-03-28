@@ -13,7 +13,8 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN chmod +x node_modules/.bin/* && npm run build
+RUN mkdir -p /app/data && touch /app/data/local.db
+RUN chmod +x node_modules/.bin/* && npx esbuild src/visio/server.ts --bundle --platform=node --target=node20 --outfile=src/visio/server.js --external:ws && npm run build
 
 # --- Runner ---
 FROM base AS runner
@@ -26,6 +27,7 @@ RUN adduser --system --uid 1001 nextjs
 
 # Créer le dossier data pour la BDD SQLite (volume monté en prod)
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
+RUN mkdir -p /home/nextjs/.npm && chown nextjs:nodejs /home/nextjs/.npm
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

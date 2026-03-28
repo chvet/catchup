@@ -336,7 +336,7 @@ export default function FileActivePage() {
       if (params.get('tab') === 'generique') return 'generique'
       if (params.get('tab') === 'accompagnements') return 'mes_accompagnements'
     }
-    return 'mes_demandes'
+    return 'mes_accompagnements'
   })
   const [filters, setFilters] = useState({
     statut: '',
@@ -351,7 +351,14 @@ export default function FileActivePage() {
     dateTo: '',
   })
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [sort, setSort] = useState<SortState>({ column: 'urgence', direction: 'desc' })
+  const [sort, setSort] = useState<SortState>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('tab') === 'generique') return { column: 'matchScore' as SortColumn, direction: 'desc' as const }
+      if (params.get('tab') === 'mes_demandes' || params.get('tab') === 'attente') return { column: 'urgence' as SortColumn, direction: 'desc' as const }
+    }
+    return { column: 'derniereActivite' as SortColumn, direction: 'desc' as const }
+  })
 
   // Double file active state
   const [sourceData, setSourceData] = useState<ReferralItem[]>([])
@@ -425,15 +432,31 @@ export default function FileActivePage() {
     fetchGeneriqueData()
   }, [fetchSourceData, fetchGeneriqueData])
 
-  // Auto-refresh every 30s
+  // Auto-refresh every 30s (silent — no loading spinner)
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchData()
-      setSourceFetched(false)
-      setGeneriqueFetched(false)
+    const interval = setInterval(async () => {
+      // Silently refresh main data
+      try {
+        const params = new URLSearchParams({ page: '1', limit: '500' })
+        const res = await fetch(`/api/conseiller/file-active?${params}`)
+        const data = await res.json()
+        setAllReferrals(data.data || [])
+        setPagination(data.pagination || { page: 1, limit: 500, total: 0, pages: 0 })
+      } catch { /* silent */ }
+      // Silently refresh source + generique
+      try {
+        const res = await fetch(`/api/conseiller/file-active?source=sourcee&statut=en_attente&page=1&limit=500`)
+        const data = await res.json()
+        setSourceData(data.data || [])
+      } catch { /* silent */ }
+      try {
+        const res = await fetch(`/api/conseiller/file-active?source=generique&statut=en_attente&page=1&limit=500`)
+        const data = await res.json()
+        setGeneriqueData(data.data || [])
+      } catch { /* silent */ }
     }, 30000)
     return () => clearInterval(interval)
-  }, [fetchData, activeTab])
+  }, [])
 
   // Tab-level filtering
   const tabFilteredReferrals = useMemo(() => {
@@ -493,7 +516,15 @@ export default function FileActivePage() {
 
     if (search.trim()) {
       const q = search.trim().toLowerCase()
-      filtered = filtered.filter(r => (r.prenom || '').toLowerCase().includes(q))
+      filtered = filtered.filter(r =>
+        (r.prenom || '').toLowerCase().includes(q) ||
+        (r.motif || '').toLowerCase().includes(q) ||
+        (r.localisation || '').toLowerCase().includes(q) ||
+        (r.moyenContact || '').toLowerCase().includes(q) ||
+        (r.genre || '').toLowerCase().includes(q) ||
+        (r.statut || '').toLowerCase().includes(q) ||
+        String(r.age || '').includes(q)
+      )
     }
 
     if (localisation.trim()) {
@@ -592,9 +623,9 @@ export default function FileActivePage() {
 
   const structureNom = conseiller?.structure?.nom || 'Ma structure'
   const tabs: { id: TabId; label: string; count: number }[] = [
-    { id: 'generique', label: '🌐 Demandes toutes structures', count: generiqueData.length },
-    { id: 'mes_demandes', label: `📥 Demandes ${structureNom}`, count: sourceData.length },
-    { id: 'mes_accompagnements', label: '🤝 Mes accompagnements', count: tabCounts.mesAccompagnements },
+    { id: 'mes_accompagnements', label: 'Mes accompagnements', count: tabCounts.mesAccompagnements },
+    { id: 'mes_demandes', label: `Demandes ${structureNom}`, count: sourceData.length },
+    { id: 'generique', label: 'Toutes structures', count: generiqueData.length },
   ]
 
   const visibleTabs = tabs
@@ -603,7 +634,9 @@ export default function FileActivePage() {
   const handleTabChange = (tabId: TabId) => {
     setActiveTab(tabId)
     setFilters(f => ({ ...f, statut: '' }))
-    if (tabId === 'mes_demandes' || tabId === 'generique') {
+    if (tabId === 'generique') {
+      setSort({ column: 'matchScore', direction: 'desc' })
+    } else if (tabId === 'mes_demandes') {
       setSort({ column: 'urgence', direction: 'desc' })
     } else if (tabId === 'mes_accompagnements') {
       setSort({ column: 'derniereActivite', direction: 'desc' })
@@ -748,8 +781,31 @@ export default function FileActivePage() {
         </div>
       </div>
 
-      <div className="mb-4" />
-      {!(activeTab === 'mes_demandes' || activeTab === 'generique') && <div className="mb-4" />}
+      {/* Search bar — full text, always visible */}
+      <div className="mt-3 mb-3">
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Rechercher par prenom, motif, departement, contact..."
+            value={advancedFilters.search}
+            onChange={e => setAdvancedFilters(f => ({ ...f, search: e.target.value }))}
+            className="w-full pl-10 pr-8 py-2.5 border border-gray-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-catchup-primary focus:border-transparent bg-white"
+          />
+          {advancedFilters.search && (
+            <button
+              onClick={() => setAdvancedFilters(f => ({ ...f, search: '' }))}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="flex items-center justify-between mb-4 overflow-x-auto">

@@ -392,6 +392,28 @@ export const rappel = sqliteTable('rappel', {
   creeLe: text('cree_le').notNull(),
 })
 
+// === CAMPAGNES (objectifs par structure) ===
+
+export const campagne = sqliteTable('campagne', {
+  id: text('id').primaryKey(),
+  structureId: text('structure_id').notNull().references(() => structure.id),
+  designation: text('designation').notNull(),
+  quantiteObjectif: integer('quantite_objectif').notNull(),
+  uniteOeuvre: text('unite_oeuvre').notNull(), // 'Bénéficiaire(s)', 'Lead(s)', 'CA', custom...
+  dateDebut: text('date_debut').notNull(),
+  dateFin: text('date_fin').notNull(),
+  statut: text('statut').default('active'), // active | terminee | archivee
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const campagneAssignation = sqliteTable('campagne_assignation', {
+  id: text('id').primaryKey(),
+  campagneId: text('campagne_id').notNull().references(() => campagne.id),
+  conseillerId: text('conseiller_id').notNull().references(() => conseiller.id),
+  creeLe: text('cree_le').notNull(),
+})
+
 // === CONNEXIONS CALENDRIER (Google / Outlook OAuth2) ===
 
 export const calendarConnection = sqliteTable('calendar_connection', {

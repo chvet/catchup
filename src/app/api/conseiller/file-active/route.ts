@@ -128,6 +128,12 @@ export async function GET(request: Request) {
       .leftJoin(profilRiasec, eq(referral.utilisateurId, profilRiasec.utilisateurId))
       .where(whereClause)
       .orderBy(
+        // Mes propres PEC en premier (pour que "Mes accompagnements" les trouve toujours)
+        sql`CASE WHEN ${referral.id} IN (
+          SELECT ${priseEnCharge.referralId} FROM ${priseEnCharge}
+          WHERE ${priseEnCharge.conseillerId} = ${ctx.id}
+          AND ${priseEnCharge.statut} = 'prise_en_charge'
+        ) THEN 0 ELSE 1 END`,
         sql`CASE ${referral.priorite}
           WHEN 'critique' THEN 0
           WHEN 'haute' THEN 1

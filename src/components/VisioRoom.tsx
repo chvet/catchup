@@ -81,6 +81,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
   const [useWebCodecs, setUseWebCodecs] = useState(false)
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false)
   const [useFallbackImg, setUseFallbackImg] = useState(false)
+  const [mediaError, setMediaError] = useState<string | null>(null)
 
   // ── Call duration timer ──
 
@@ -229,7 +230,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
   // ── Handle audio chunk ──
 
   const handleAudioChunk = useCallback((payload: Uint8Array) => {
-    // Try MediaSource approach
+    // Try MediaSource approach (not supported on iOS Safari)
     if (mediaSourceRef.current && sourceBufferRef.current && !sourceBufferRef.current.updating) {
       try {
         const abuf = new ArrayBuffer(payload.byteLength)
@@ -247,7 +248,17 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     audioQueueRef.current.push(audioCopy)
 
     if (audioQueueRef.current.length >= 5) {
-      const blob = new Blob(audioQueueRef.current, { type: 'audio/webm;codecs=opus' })
+      // Try multiple mime types (iOS Safari doesn't support webm)
+      const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+      let mimeType = 'audio/webm;codecs=opus'
+      for (const t of types) {
+        try {
+          const testBlob = new Blob([], { type: t })
+          if (testBlob.type === t) { mimeType = t; break }
+        } catch { /* try next */ }
+      }
+
+      const blob = new Blob(audioQueueRef.current, { type: mimeType })
       audioQueueRef.current = []
 
       const url = URL.createObjectURL(blob)
@@ -359,19 +370,22 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
   const startCanvasFallback = useCallback((videoTrack: MediaStreamTrack) => {
     const canvas = document.createElement('canvas')
-    canvas.width = 640
-    canvas.height = 480
+    canvas.width = 320
+    canvas.height = 240
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
     const video = document.createElement('video')
     video.srcObject = new MediaStream([videoTrack])
     video.muted = true
+    video.playsInline = true
+    video.setAttribute('playsinline', '')
+    video.setAttribute('webkit-playsinline', '')
     video.play().catch(() => {})
 
     canvasIntervalRef.current = setInterval(() => {
       if (video.readyState >= 2) {
-        ctx.drawImage(video, 0, 0, 640, 480)
+        ctx.drawImage(video, 0, 0, 320, 240)
         canvas.toBlob(
           (blob) => {
             if (blob) {
@@ -393,10 +407,24 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
     try {
       const audioStream = new MediaStream([audioTrack])
-      const recorder = new MediaRecorder(audioStream, {
-        mimeType: 'audio/webm;codecs=opus',
-        audioBitsPerSecond: 128_000,
-      })
+
+      // Detect supported mimeType (iOS Safari doesn't support webm)
+      let mimeType = 'audio/webm;codecs=opus'
+      if (typeof MediaRecorder !== 'undefined') {
+        if (!MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            mimeType = 'audio/mp4'
+          } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+            mimeType = 'audio/webm'
+          } else {
+            mimeType = '' // let browser choose
+          }
+        }
+      }
+
+      const options: MediaRecorderOptions = { audioBitsPerSecond: 128_000 }
+      if (mimeType) options.mimeType = mimeType
+      const recorder = new MediaRecorder(audioStream, options)
       mediaRecorderRef.current = recorder
 
       recorder.ondataavailable = (e) => {
@@ -506,8 +534,8 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     const init = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480, facingMode },
-          audio: true,
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode },
+          audio: { echoCancellation: true, noiseSuppression: true },
         })
 
         if (cancelled) {
@@ -531,8 +559,31 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
         // Connect WebSocket
         connectWs()
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('[Visio] Failed to get media:', err)
+        const errMsg = err instanceof Error ? err.message : 'Erreur inconnue'
+
+        // Try audio-only fallback
+        try {
+          const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
+          if (cancelled) { audioOnlyStream.getTracks().forEach(t => t.stop()); return }
+          localStreamRef.current = audioOnlyStream
+          setIsVideoOff(true)
+          startAudioEncoding(audioOnlyStream)
+          setupAudioPlayback()
+          connectWs()
+          return
+        } catch {
+          // Complete failure
+        }
+
+        setMediaError(
+          errMsg.includes('NotAllowed') || errMsg.includes('Permission')
+            ? 'Autorise l\'acces a la camera et au micro dans les reglages de ton navigateur.'
+            : errMsg.includes('NotFound')
+            ? 'Aucune camera ou micro detecte sur cet appareil.'
+            : `Impossible d'acceder a la camera : ${errMsg}`
+        )
         setConnectionStatus('disconnected')
       }
     }
@@ -656,7 +707,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: newFacing },
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: newFacing },
         audio: false,
       })
 
@@ -763,13 +814,27 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
               </>
             ) : (
               <>
-                <p className="text-sm">Connexion perdue</p>
-                <button
-                  onClick={connectWs}
-                  className="mt-3 px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600 transition-colors"
-                >
-                  Reconnecter
-                </button>
+                {mediaError ? (
+                  <>
+                    <p className="text-sm text-red-400 text-center px-6">{mediaError}</p>
+                    <button
+                      onClick={onClose}
+                      className="mt-3 px-4 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-500 transition-colors"
+                    >
+                      Fermer
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm">Connexion perdue</p>
+                    <button
+                      onClick={connectWs}
+                      className="mt-3 px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600 transition-colors"
+                    >
+                      Reconnecter
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>

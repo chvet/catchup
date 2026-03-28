@@ -69,9 +69,15 @@ export default function VideoCallCard({ proposal, viewerType, viewerId, viewerNa
       setShowIOSWarning(true)
       return
     }
-    // Ouvrir Daily.co dans un nouvel onglet
     if (videoUrl) {
-      window.open(videoUrl, '_blank', 'noopener')
+      try {
+        const url = new URL(videoUrl, window.location.origin)
+        if (viewerName) url.searchParams.set('name', viewerName)
+        url.searchParams.set('role', viewerType)
+        window.open(url.toString(), '_blank', 'noopener')
+      } catch {
+        window.open(videoUrl, '_blank', 'noopener')
+      }
     }
   }
 

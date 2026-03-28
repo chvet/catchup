@@ -564,13 +564,14 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
         return (
           <VideoCallCard
             proposal={{
-              id: msg.id, // ID du message (pas du payload) pour l'API de réponse
+              id: msg.id,
               statut: video.statut,
               jitsiUrl: video.jitsiUrl,
               proposePar: video.proposePar,
             }}
             viewerType="beneficiaire"
             viewerId={msg.expediteurType === 'beneficiaire' ? msg.expediteurId : ''}
+            viewerName={beneficiairePrenom}
             onAccept={(id) => handleVideoResponse(id, 'accepter')}
             onDecline={(id) => handleVideoResponse(id, 'refuser')}
           />
