@@ -126,10 +126,10 @@ export default function ParametresPage() {
   const beneficiaireUrl = slug ? `https://wesh.chat/?s=${slug}` : null
   const conseillerUrl = slug ? `https://wesh.chat/conseiller/login?s=${slug}` : null
   const qrCodeUrl = beneficiaireUrl
-    ? `/api/qrcode?data=${encodeURIComponent(beneficiaireUrl)}&size=200&format=svg`
+    ? `/api/qrcode?data=${encodeURIComponent(beneficiaireUrl)}&size=200&v=2`
     : null
   const qrCodeUrlLarge = beneficiaireUrl
-    ? `/api/qrcode?data=${encodeURIComponent(beneficiaireUrl)}&size=400&format=svg`
+    ? `/api/qrcode?data=${encodeURIComponent(beneficiaireUrl)}&size=400&v=2`
     : null
 
   const handleCopy = (url: string) => {
@@ -220,7 +220,10 @@ export default function ParametresPage() {
               {/* QR Code */}
               {qrCodeUrl && (
                 <div className="p-3 bg-white border-2 border-gray-200 rounded-xl">
-                  <img src={qrCodeUrl} alt="QR Code" width={180} height={180} />
+                  <object data={qrCodeUrl} type="image/svg+xml" width={180} height={180}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={qrCodeUrl} alt="QR Code" width={180} height={180} />
+                  </object>
                 </div>
               )}
 
