@@ -126,10 +126,10 @@ export default function ParametresPage() {
   const beneficiaireUrl = slug ? `https://wesh.chat/?s=${slug}` : null
   const conseillerUrl = slug ? `https://wesh.chat/conseiller/login?s=${slug}` : null
   const qrCodeUrl = beneficiaireUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(beneficiaireUrl)}`
+    ? `/api/qrcode?data=${encodeURIComponent(beneficiaireUrl)}&size=200&format=svg`
     : null
   const qrCodeUrlLarge = beneficiaireUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(beneficiaireUrl)}`
+    ? `/api/qrcode?data=${encodeURIComponent(beneficiaireUrl)}&size=400&format=svg`
     : null
 
   const handleCopy = (url: string) => {
