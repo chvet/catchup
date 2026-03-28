@@ -147,10 +147,9 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   }, [onClose])
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-slide-up">
-      <span>\u2705</span>
+    <div className={`fixed bottom-6 right-6 z-50 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-slide-up ${message.toLowerCase().includes('erreur') ? 'bg-red-600' : 'bg-green-600'}`}>
       <span className="text-sm font-medium">{message}</span>
-      <button onClick={onClose} className="ml-2 text-white/80 hover:text-white">\u2715</button>
+      <button onClick={onClose} className="ml-2 text-white/80 hover:text-white text-lg leading-none">&times;</button>
     </div>
   )
 }
