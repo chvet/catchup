@@ -82,6 +82,8 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false)
   const [useFallbackImg, setUseFallbackImg] = useState(false)
   const [mediaError, setMediaError] = useState<string | null>(null)
+  const [needsUserGesture, setNeedsUserGesture] = useState(false)
+  const initCalledRef = useRef(false)
 
   // ── Call duration timer ──
 
@@ -526,22 +528,18 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     }
   }, [roomId, participantName, participantRole, sendControl, parseFrame, handleJpegFrame, handleVP8Frame, handleAudioChunk, useFallbackImg])
 
-  // ── Init: get media and connect ──
+  // ── Start media (called from useEffect or from user tap on iOS) ──
 
-  useEffect(() => {
-    let cancelled = false
+  const startMedia = useCallback(async () => {
+    if (initCalledRef.current) return
+    initCalledRef.current = true
+    setNeedsUserGesture(false)
 
-    const init = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode },
-          audio: { echoCancellation: true, noiseSuppression: true },
-        })
-
-        if (cancelled) {
-          stream.getTracks().forEach(t => t.stop())
-          return
-        }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode },
+        audio: { echoCancellation: true, noiseSuppression: true },
+      })
 
         localStreamRef.current = stream
 
@@ -566,7 +564,6 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
         // Try audio-only fallback
         try {
           const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
-          if (cancelled) { audioOnlyStream.getTracks().forEach(t => t.stop()); return }
           localStreamRef.current = audioOnlyStream
           setIsVideoOff(true)
           startAudioEncoding(audioOnlyStream)
@@ -586,12 +583,23 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
         )
         setConnectionStatus('disconnected')
       }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectWs, facingMode, setupAudioPlayback, startAudioEncoding, startVideoEncoding])
+
+  // ── Init: detect iOS and either auto-start or wait for tap ──
+
+  useEffect(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
+    if (isIOS) {
+      // iOS Safari requires user gesture for getUserMedia
+      setNeedsUserGesture(true)
+    } else {
+      startMedia()
     }
 
-    init()
-
     return () => {
-      cancelled = true
       cleanup()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -744,6 +752,35 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
   const remoteParticipant = participants.length > 0 ? participants[0] : null
 
   // ── Render ──
+
+  // iOS: show "tap to start" screen before getUserMedia
+  if (needsUserGesture) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-gray-900 flex flex-col items-center justify-center">
+        <div className="text-center px-6">
+          <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h2 className="text-white text-xl font-bold mb-2">Appel video</h2>
+          <p className="text-gray-400 text-sm mb-8">Appuie pour autoriser la camera et le micro</p>
+          <button
+            onClick={startMedia}
+            className="px-8 py-4 bg-emerald-500 text-white text-lg font-semibold rounded-2xl hover:bg-emerald-600 active:bg-emerald-700 transition-colors shadow-lg"
+          >
+            Demarrer l&apos;appel
+          </button>
+          <button
+            onClick={onClose}
+            className="block mx-auto mt-4 text-gray-500 text-sm hover:text-gray-300 transition-colors"
+          >
+            Annuler
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-[9999] bg-gray-900 flex flex-col">
