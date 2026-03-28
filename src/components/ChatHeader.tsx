@@ -24,10 +24,10 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
 
   return (
     <header className="bg-gradient-to-r from-catchup-primary to-indigo-600 text-white px-3 py-2.5 flex items-center gap-3 shadow-lg z-30">
-      <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 overflow-hidden">
+      <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm">
         {brandConfig.logo.startsWith('/') ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={brandConfig.logo} alt={brandConfig.appName} className="w-8 h-8" />
+          <img src={brandConfig.logo} alt={brandConfig.appName} className="w-8 h-8 object-contain" />
         ) : (
           <span className="text-xl">{brandConfig.logo}</span>
         )}

@@ -951,9 +951,9 @@ export default function ChatApp() {
               <div className="flex-1 overflow-y-auto chat-scroll px-2 py-3 md:px-6 w-full max-w-full" style={{ overflowX: 'clip' }}>
                 {!hasMessages && (
                   <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                    <div className="mb-5">
+                    <div className="mb-6">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/logo-wesh.png" alt="Wesh" className="h-16 object-contain mx-auto" />
+                      <img src="/logo-wesh.png" alt="Wesh" className="h-28 md:h-36 object-contain mx-auto" />
                     </div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2">
                       {structureInfo
