@@ -23,9 +23,13 @@ echo ""
 echo "[2/4] Build Docker (wesh + catchup)..."
 docker-compose build wesh catchup
 
-# 3. Redemarrer les containers
+# 3. Redemarrer les containers (force recreate pour eviter le bug ContainerConfig)
 echo ""
 echo "[3/4] Redemarrage des containers..."
+docker stop catchup_wesh_1 catchup_catchup_1 2>/dev/null || true
+docker rm catchup_wesh_1 catchup_catchup_1 2>/dev/null || true
+# Nettoyer les containers orphelins avec prefix
+docker ps -a --format '{{.Names}}' | grep catchup | xargs -r docker rm -f 2>/dev/null || true
 docker-compose up -d wesh catchup
 
 # 4. Nettoyage des anciennes images
