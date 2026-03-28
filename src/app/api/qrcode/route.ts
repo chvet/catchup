@@ -1,30 +1,8 @@
-// GET /api/qrcode?data=xxx&size=300&format=svg
-// QR code avec logo Wesh au centre
+// GET /api/qrcode?data=xxx&size=300
+// QR code SVG avec logo Wesh au centre
 
 import QRCode from 'qrcode'
-import { readFile } from 'fs/promises'
-import { join } from 'path'
-
-let logoBase64Cache: string | null = null
-
-async function getLogoBase64(): Promise<string> {
-  if (logoBase64Cache) return logoBase64Cache
-
-  const paths = [
-    join(process.cwd(), 'public', 'logo-wesh.png'),
-    join('/app', 'public', 'logo-wesh.png'),
-  ]
-
-  for (const p of paths) {
-    try {
-      const buf = await readFile(p)
-      logoBase64Cache = buf.toString('base64')
-      return logoBase64Cache
-    } catch { /* try next */ }
-  }
-
-  return ''
-}
+import { LOGO_BASE64 } from './logo-b64'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -44,41 +22,30 @@ export async function GET(request: Request) {
       errorCorrectionLevel: 'H',
     })
 
-    const logoB64 = await getLogoBase64()
+    // Parse viewBox to get coordinate system
+    const viewBoxMatch = qrSvg.match(/viewBox="0 0 (\d+) (\d+)"/)
+    const vbSize = viewBoxMatch ? parseInt(viewBoxMatch[1]) : size
 
-    if (logoB64) {
-      // Parse the viewBox to get the coordinate system
-      const viewBoxMatch = qrSvg.match(/viewBox="0 0 (\d+) (\d+)"/)
-      const vbSize = viewBoxMatch ? parseInt(viewBoxMatch[1]) : size
+    // Logo takes ~25% of the QR in viewBox coordinates
+    const logoSize = Math.round(vbSize * 0.25)
+    const logoOffset = Math.round((vbSize - logoSize) / 2)
+    const padding = Math.round(logoSize * 0.12)
 
-      // Logo takes ~25% of the QR in viewBox coordinates
-      const logoSize = Math.round(vbSize * 0.25)
-      const logoOffset = Math.round((vbSize - logoSize) / 2)
-      const padding = Math.round(logoSize * 0.12)
+    const logoInsert = `
+      <rect x="${logoOffset - padding}" y="${logoOffset - padding}" width="${logoSize + padding * 2}" height="${logoSize + padding * 2}" rx="${padding}" fill="white"/>
+      <image
+        x="${logoOffset}"
+        y="${logoOffset}"
+        width="${logoSize}"
+        height="${logoSize}"
+        href="data:image/png;base64,${LOGO_BASE64}"
+        preserveAspectRatio="xMidYMid meet"
+      />
+    `
 
-      const logoInsert = `
-        <rect x="${logoOffset - padding}" y="${logoOffset - padding}" width="${logoSize + padding * 2}" height="${logoSize + padding * 2}" rx="${padding}" fill="white"/>
-        <image
-          x="${logoOffset}"
-          y="${logoOffset}"
-          width="${logoSize}"
-          height="${logoSize}"
-          href="data:image/png;base64,${logoB64}"
-          preserveAspectRatio="xMidYMid meet"
-        />
-      `
+    const finalSvg = qrSvg.replace('</svg>', `${logoInsert}</svg>`)
 
-      const finalSvg = qrSvg.replace('</svg>', `${logoInsert}</svg>`)
-
-      return new Response(finalSvg, {
-        headers: {
-          'Content-Type': 'image/svg+xml',
-          'Cache-Control': 'public, max-age=86400',
-        },
-      })
-    }
-
-    return new Response(qrSvg, {
+    return new Response(finalSvg, {
       headers: {
         'Content-Type': 'image/svg+xml',
         'Cache-Control': 'public, max-age=86400',
