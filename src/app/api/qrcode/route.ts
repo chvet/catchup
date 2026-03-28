@@ -11,8 +11,8 @@ async function getLogoBase64(): Promise<string> {
   if (logoBase64Cache) return logoBase64Cache
 
   const paths = [
-    join(process.cwd(), 'public', 'favicon.png'),
-    join('/app', 'public', 'favicon.png'),
+    join(process.cwd(), 'public', 'logo-wesh.png'),
+    join('/app', 'public', 'logo-wesh.png'),
   ]
 
   for (const p of paths) {
