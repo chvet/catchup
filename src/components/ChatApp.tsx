@@ -801,7 +801,10 @@ export default function ChatApp() {
             </div>
             <h3 className="text-lg font-bold text-gray-800 mb-2">Nouvelle conversation ?</h3>
             <p className="text-sm text-gray-500 mb-5">
-              Ta conversation actuelle sera perdue. Si tu veux la garder, inscris-toi d&apos;abord.
+              {referralStatus === 'prise_en_charge'
+                ? <>Attention : ta discussion avec ton conseiller sera interrompue et tu perdras l&apos;accompagnement en cours.</>
+                : <>Ta conversation actuelle sera perdue. Si tu veux la garder, inscris-toi d&apos;abord.</>
+              }
             </p>
             <div className="flex flex-col gap-2.5">
               {!authUser && (
