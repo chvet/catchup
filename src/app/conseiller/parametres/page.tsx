@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useConseiller } from '@/components/conseiller/ConseillerProvider'
+import { useAppBrand } from '@/hooks/useAppBrand'
 
 interface ParcoureoStatus {
   configured: boolean
@@ -16,6 +17,7 @@ interface CalendarStatus {
 
 export default function ParametresPage() {
   const conseiller = useConseiller()
+  const brandConfig = useAppBrand()
   const [slug, setSlug] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [parcoureo, setParcoureo] = useState<ParcoureoStatus>({ configured: false, linked: false })
@@ -123,8 +125,8 @@ export default function ParametresPage() {
     window.location.href = '/api/conseiller/auth/parcoureo'
   }
 
-  const beneficiaireUrl = slug ? `https://wesh.chat/?s=${slug}` : null
-  const conseillerUrl = slug ? `https://wesh.chat/conseiller/login?s=${slug}` : null
+  const beneficiaireUrl = slug ? `https://${brandConfig.publicHost}/?s=${slug}` : null
+  const conseillerUrl = slug ? `https://${brandConfig.publicHost}/conseiller/login?s=${slug}` : null
   const qrCodeUrl = beneficiaireUrl
     ? `/api/qrcode?data=${encodeURIComponent(beneficiaireUrl)}&size=200&v=2`
     : null

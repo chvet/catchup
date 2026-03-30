@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useConseiller } from '@/components/conseiller/ConseillerProvider'
+import { useAppBrand } from '@/hooks/useAppBrand'
 import dynamic from 'next/dynamic'
 import type { MapMarker } from '@/components/MapView'
 
@@ -73,6 +74,7 @@ export default function StructureDetailPage() {
   const params = useParams()
   const router = useRouter()
   const conseiller = useConseiller()
+  const brandConfig = useAppBrand()
   const structureId = params.structureId as string
 
   const [structure, setStructure] = useState<StructureDetail | null>(null)
@@ -230,7 +232,7 @@ export default function StructureDetailPage() {
   }
 
   const structureUrl = structure.slug
-    ? `https://wesh.chat/?s=${structure.slug}`
+    ? `https://${brandConfig.publicHost}/?s=${structure.slug}`
     : null
   const encodedUrl = structureUrl ? encodeURIComponent(structureUrl) : ''
   const qrCodeSrc = structureUrl
