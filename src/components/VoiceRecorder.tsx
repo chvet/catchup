@@ -165,8 +165,6 @@ export default function VoiceRecorder({ onRecorded, disabled }: Props) {
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  if (!isAvailable) return <div className="relative" />
-
   if (permissionDenied) {
     return (
       <div className="flex items-center gap-1">
@@ -224,8 +222,8 @@ export default function VoiceRecorder({ onRecorded, disabled }: Props) {
     <div className="relative">
       <button
         onClick={startRecording}
-        disabled={disabled}
-        className="p-2 rounded-full text-gray-500 hover:text-catchup-primary hover:bg-gray-100 transition-all disabled:opacity-40"
+        disabled={disabled || !isAvailable}
+        className={`p-2 rounded-full text-gray-500 hover:text-catchup-primary hover:bg-gray-100 transition-all disabled:opacity-40 ${!isAvailable ? 'hidden' : ''}`}
         title="Message vocal"
         type="button"
       >
