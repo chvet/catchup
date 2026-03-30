@@ -161,7 +161,7 @@ export default function AccompagnementPage() {
               href="/"
               className="px-3 py-1.5 text-xs rounded-full bg-white/10 hover:bg-white/20 transition"
             >
-              🤖 IA
+              <span aria-hidden="true">🤖</span> IA
             </a>
             <span className="px-3 py-1.5 text-xs rounded-full bg-catchup-primary font-medium">
               👤 Conseiller

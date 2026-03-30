@@ -15,6 +15,7 @@ import {
   type QuizChoice,
 } from '@/core/quiz-data'
 import { RIASEC_COLORS } from '@/core/types'
+import { useAppBrand } from '@/hooks/useAppBrand'
 
 type Step = 'splash' | 'q1' | 'q2' | 'q3' | 'result'
 const STEPS: Step[] = ['splash', 'q1', 'q2', 'q3', 'result']
@@ -217,6 +218,7 @@ function ResultScreen({
   const topTwo = getTopTwo(scores)
   const resultKey = getResultKey(topTwo)
   const result = QUIZ_RESULTS[resultKey]
+  const brandConfig = useAppBrand()
 
   const [animating, setAnimating] = useState(true)
   const [barWidths, setBarWidths] = useState<Record<string, number>>({})
@@ -247,14 +249,14 @@ function ResultScreen({
   })
 
   const handleShare = async () => {
-    const shareText = `Mon profil Catch'Up : ${result?.title} ${result?.emoji}\nEt toi t'es quoi ? \u{1F440}\nwesh.chat/quiz`
+    const shareText = `Mon profil ${brandConfig.appName} : ${result?.title} ${result?.emoji}\nEt toi t'es quoi ? \u{1F440}\n${brandConfig.publicHost}/quiz`
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Mon profil Catch'Up",
+          title: `Mon profil ${brandConfig.appName}`,
           text: shareText,
-          url: 'https://wesh.chat/quiz',
+          url: `https://${brandConfig.publicHost}/quiz`,
         })
       } catch {
         // L'utilisateur a annule
@@ -373,6 +375,7 @@ function ResultScreen({
 function QuizPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const brandConfig = useAppBrand()
 
   const [step, setStep] = useState<Step>('splash')
   const [answers, setAnswers] = useState<(0 | 1)[]>([])

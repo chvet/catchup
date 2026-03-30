@@ -361,7 +361,7 @@ export default function CaseDetailPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <span>{tab.icon}</span>
+                <span aria-hidden="true">{tab.icon}</span>
                 <span>{tab.label}</span>
                 {tab.badge && (
                   <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
@@ -466,7 +466,7 @@ export default function CaseDetailPage() {
                   <div className="px-6 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-catchup-primary/20 flex items-center justify-center">
-                        <span className="text-sm">🤖</span>
+                        <span className="text-sm" aria-hidden="true">🤖</span>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-700">
@@ -832,7 +832,7 @@ function ChatBubble({
         <div className={`max-w-[85%] md:max-w-[75%] ${isUser ? 'order-2' : 'order-1'}`}>
           {/* Nom expéditeur */}
           <p className={`text-xs mb-1 ${isUser ? 'text-right text-gray-400' : 'text-left text-catchup-primary/70'}`}>
-            {isUser ? beneficiairePrenom : '🤖 IA Catch\'Up'}
+            {isUser ? beneficiairePrenom : 'IA Catch\'Up'}
           </p>
 
           {/* Bulle */}
@@ -869,7 +869,7 @@ function ChatBubble({
 function TimelineItem({ label, date, icon }: { label: string; date: string; icon: string }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="text-lg">{icon}</span>
+      <span className="text-lg" aria-hidden="true">{icon}</span>
       <div>
         <p className="text-sm font-medium text-gray-700">{label}</p>
         <p className="text-xs text-gray-400">

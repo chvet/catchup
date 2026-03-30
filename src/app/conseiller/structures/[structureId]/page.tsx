@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useConseiller } from '@/components/conseiller/ConseillerProvider'
+import { useAppBrand } from '@/hooks/useAppBrand'
 import dynamic from 'next/dynamic'
 import type { MapMarker } from '@/components/MapView'
 
@@ -73,6 +74,7 @@ export default function StructureDetailPage() {
   const params = useParams()
   const router = useRouter()
   const conseiller = useConseiller()
+  const brandConfig = useAppBrand()
   const structureId = params.structureId as string
 
   const [structure, setStructure] = useState<StructureDetail | null>(null)
@@ -158,7 +160,7 @@ export default function StructureDetailPage() {
   if (!isAdmin) {
     return (
       <div className="text-center py-12">
-        <p className="text-4xl mb-4">🔒</p>
+        <p className="text-4xl mb-4" aria-hidden="true">🔒</p>
         <p className="text-gray-500">Accès réservé aux administrateurs</p>
       </div>
     )
@@ -230,7 +232,7 @@ export default function StructureDetailPage() {
   }
 
   const structureUrl = structure.slug
-    ? `https://wesh.chat/?s=${structure.slug}`
+    ? `https://${brandConfig.publicHost}/?s=${structure.slug}`
     : null
   const encodedUrl = structureUrl ? encodeURIComponent(structureUrl) : ''
   const qrCodeSrc = structureUrl

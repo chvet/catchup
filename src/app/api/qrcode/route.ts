@@ -1,5 +1,5 @@
 // GET /api/qrcode?data=xxx&size=300
-// QR code SVG avec logo Wesh au centre
+// QR code SVG avec logo au centre
 
 import QRCode from 'qrcode'
 import { LOGO_BASE64 } from './logo-b64'

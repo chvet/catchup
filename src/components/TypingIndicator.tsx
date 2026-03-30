@@ -1,10 +1,15 @@
 'use client'
 
+import { useAppBrand } from '@/hooks/useAppBrand'
+
 export default function TypingIndicator() {
+  const brandConfig = useAppBrand()
+
   return (
     <div className="flex items-start mb-2 msg-appear">
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-catchup-primary to-catchup-accent flex items-center justify-center flex-shrink-0 mr-1.5">
-        <span className="text-sm">🚀</span>
+      <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mr-1.5 shadow-sm overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={brandConfig.logo} alt="" className="w-6 h-6 object-contain" aria-hidden="true" />
       </div>
       <div className="bg-white rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
         <div className="flex gap-1.5">
