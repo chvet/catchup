@@ -1,6 +1,8 @@
 'use client'
 
-import ChatApp from '@/components/ChatApp'
+import dynamic from 'next/dynamic'
+
+const ChatApp = dynamic(() => import('@/components/ChatApp'), { ssr: false })
 
 export default function Home() {
   return <ChatApp />

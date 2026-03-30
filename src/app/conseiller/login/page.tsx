@@ -119,7 +119,11 @@ function LoginForm() {
         {/* Logo */}
         <div className="text-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-wesh.png" alt={brandConfig.appName} className="h-12 mx-auto mb-3" />
+          <img
+            src={brandConfig.brand === 'catchup' ? '/logo-catchup.svg' : '/logo-wesh.png'}
+            alt={brandConfig.appName}
+            className="h-12 mx-auto mb-3"
+          />
           <p className="text-catchup-primary text-lg">Espace Conseiller</p>
           {structureInfo ? (
             <div className="mt-3 px-4 py-2 bg-white/10 rounded-lg border border-white/20">

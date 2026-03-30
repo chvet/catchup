@@ -1,14 +1,18 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
+const isCatchup = process.env.NEXT_PUBLIC_APP_BRAND === 'catchup'
+
 export const metadata: Metadata = {
-  title: "Wesh — Ton guide orientation",
-  description: "Wesh t'aide a trouver ta voie professionnelle. Decouvre ton profil, explore des metiers, construis ton avenir.",
+  title: isCatchup ? "Catch'Up — Ton guide orientation" : "Wesh — Ton guide orientation",
+  description: isCatchup
+    ? "Catch'Up t'aide a trouver ta voie professionnelle. Decouvre ton profil, explore des metiers, construis ton avenir."
+    : "Wesh t'aide a trouver ta voie professionnelle. Decouvre ton profil, explore des metiers, construis ton avenir.",
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: "Catch'Up",
+    title: isCatchup ? "Catch'Up" : 'Wesh',
   },
 }
 
@@ -33,9 +37,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        <link rel="icon" type="image/png" href="/favicon.png" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="apple-touch-icon" href="/icons/icon-512.png" />
+        {isCatchup ? (
+          <>
+            <link rel="icon" type="image/svg+xml" href="/favicon-catchup.svg" />
+            <link rel="apple-touch-icon" href="/logo-catchup.png" />
+          </>
+        ) : (
+          <>
+            <link rel="icon" type="image/png" href="/favicon.png" />
+            <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+            <link rel="apple-touch-icon" href="/icons/icon-512.png" />
+          </>
+        )}
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className="font-sans antialiased bg-catchup-bg overflow-x-hidden">

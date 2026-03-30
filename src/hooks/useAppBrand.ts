@@ -32,26 +32,35 @@ const BRANDS: Record<AppBrand, BrandConfig> = {
     proHost: 'pro.catchup.jaeprive.fr',
     publicHost: 'catchup.jaeprive.fr',
     primaryColor: '#6C63FF',
-    logo: '/favicon.png',
+    logo: '/favicon-catchup.svg',
   },
 }
 
 function detectBrand(): AppBrand {
-  if (typeof window === 'undefined') return 'wesh'
+  if (typeof window === 'undefined') {
+    // SSR : lire la variable d'env build-time
+    const envBrand = process.env.NEXT_PUBLIC_APP_BRAND
+    if (envBrand === 'catchup' || envBrand === 'wesh') return envBrand
+    return 'wesh'
+  }
 
-  // 1. Cookie défini par le middleware
+  // 1. Variable d'env build-time (priorité max — définie dans .env.local ou docker)
+  const envBrand = process.env.NEXT_PUBLIC_APP_BRAND
+  if (envBrand === 'catchup' || envBrand === 'wesh') return envBrand
+
+  // 2. Cookie défini par le middleware
   const cookie = document.cookie.split(';').find(c => c.trim().startsWith('app_brand='))
   if (cookie) {
     const value = cookie.split('=')[1]?.trim()
     if (value === 'catchup' || value === 'wesh') return value
   }
 
-  // 2. Hostname
+  // 3. Hostname
   const host = window.location.hostname
   if (host.includes('wesh.chat')) return 'wesh'
   if (host.includes('catchup') || host.includes('jaeprive')) return 'catchup'
 
-  // 3. Default
+  // 4. Default
   return 'wesh'
 }
 

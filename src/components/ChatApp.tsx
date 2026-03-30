@@ -956,7 +956,11 @@ export default function ChatApp() {
                   <div className="flex flex-col items-center justify-center h-full text-center px-4">
                     <div className="mb-6">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/logo-wesh.png" alt="Wesh" className="h-28 md:h-36 object-contain mx-auto" />
+                      <img
+                        src={brandConfig.brand === 'catchup' ? '/logo-catchup.svg' : '/logo-wesh.png'}
+                        alt={brandConfig.appName}
+                        className="h-28 md:h-36 object-contain mx-auto"
+                      />
                     </div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2">
                       {structureInfo
