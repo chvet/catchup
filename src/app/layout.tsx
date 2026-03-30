@@ -37,18 +37,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        {isCatchup ? (
-          <>
-            <link rel="icon" type="image/svg+xml" href="/favicon-catchup.svg" />
-            <link rel="apple-touch-icon" href="/logo-catchup.png" />
-          </>
-        ) : (
-          <>
-            <link rel="icon" type="image/png" href="/favicon.png" />
-            <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-            <link rel="apple-touch-icon" href="/icons/icon-512.png" />
-          </>
-        )}
+        <link rel="icon" type="image/svg+xml" href={isCatchup ? '/favicon-catchup.svg' : '/favicon.svg'} />
+        {!isCatchup && <link rel="icon" type="image/png" href="/favicon.png" />}
+        <link rel="apple-touch-icon" href={isCatchup ? '/logo-catchup.png' : '/icons/icon-512.png'} />
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className="font-sans antialiased bg-catchup-bg overflow-x-hidden">
@@ -57,15 +48,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(function(reg) {
-                      console.log('[SW] Enregistré, scope :', reg.scope);
-                    })
-                    .catch(function(err) {
-                      console.warn('[SW] Échec enregistrement :', err);
-                    });
-                });
+                if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+                  // Dev : désactiver le SW et vider les caches
+                  navigator.serviceWorker.getRegistrations().then(function(regs) {
+                    regs.forEach(function(r) { r.unregister(); });
+                  });
+                  caches.keys().then(function(names) {
+                    names.forEach(function(n) { caches.delete(n); });
+                  });
+                } else {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js')
+                      .then(function(reg) {
+                        console.log('[SW] Enregistré, scope :', reg.scope);
+                      })
+                      .catch(function(err) {
+                        console.warn('[SW] Échec enregistrement :', err);
+                      });
+                  });
+                }
               }
             `,
           }}
