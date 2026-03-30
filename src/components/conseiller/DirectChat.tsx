@@ -10,7 +10,8 @@ import VideoCallCard from '@/components/VideoCallCard'
 import RdvCard from '@/components/RdvCard'
 import PlanifierRdvModal from '@/components/conseiller/PlanifierRdvModal'
 import OnlineDot from '@/components/OnlineDot'
-import VoiceRecorder from '@/components/VoiceRecorder'
+import dynamic from 'next/dynamic'
+const VoiceRecorder = dynamic(() => import('@/components/VoiceRecorder'), { ssr: false })
 import VoiceMessage from '@/components/VoiceMessage'
 import { useIsOnline } from '@/hooks/useOnlineStatus'
 
