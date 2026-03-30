@@ -1,16 +1,14 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
-const appName = process.env.APP_BRAND === 'wesh' ? 'Wesh' : "Catch'Up"
-
 export const metadata: Metadata = {
-  title: `${appName} — Ton guide orientation`,
-  description: `${appName} t'aide a trouver ta voie professionnelle. Decouvre ton profil, explore des metiers, construis ton avenir.`,
+  title: "Wesh — Ton guide orientation",
+  description: "Wesh t'aide a trouver ta voie professionnelle. Decouvre ton profil, explore des metiers, construis ton avenir.",
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: appName,
+    title: "Catch'Up",
   },
 }
 
@@ -35,8 +33,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        <link rel="icon" type="image/svg+xml" href={process.env.APP_BRAND === 'wesh' ? '/favicon.svg' : '/favicon-catchup.svg'} />
         <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="apple-touch-icon" href="/icons/icon-512.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>

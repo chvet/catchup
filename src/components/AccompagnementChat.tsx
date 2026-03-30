@@ -10,7 +10,7 @@ import VideoCallCard from './VideoCallCard'
 import RdvCard from './RdvCard'
 import PushNotificationManager from './PushNotificationManager'
 import OnlineDot from './OnlineDot'
-const VoiceRecorder = dynamic(() => import('./VoiceRecorder'), { ssr: false })
+import VoiceRecorder from './VoiceRecorder'
 import VoiceMessage from './VoiceMessage'
 import { useHeartbeat } from '@/hooks/useHeartbeat'
 import { useIsOnline } from '@/hooks/useOnlineStatus'

@@ -1,9 +1,8 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
 import EmojiPickerBtn from './EmojiPicker'
-const VoiceRecorder = dynamic(() => import('./VoiceRecorder'), { ssr: false })
+import VoiceRecorder from './VoiceRecorder'
 import FileAttachment from './FileAttachment'
 
 interface Props {

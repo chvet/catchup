@@ -10,8 +10,7 @@ import VideoCallCard from '@/components/VideoCallCard'
 import RdvCard from '@/components/RdvCard'
 import PlanifierRdvModal from '@/components/conseiller/PlanifierRdvModal'
 import OnlineDot from '@/components/OnlineDot'
-import dynamic from 'next/dynamic'
-const VoiceRecorder = dynamic(() => import('@/components/VoiceRecorder'), { ssr: false })
+import VoiceRecorder from '@/components/VoiceRecorder'
 import VoiceMessage from '@/components/VoiceMessage'
 import { useIsOnline } from '@/hooks/useOnlineStatus'
 
@@ -880,7 +879,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
                 <span className="ml-2">→ {codeInfo.moyenContact}</span>
               </p>
               <p className="text-xs text-blue-500 mt-1">
-                Le bénéficiaire saisit ce code sur catchup.jaeprive.fr/accompagnement
+                Le bénéficiaire saisit ce code sur wesh.chat/accompagnement
               </p>
             </div>
             <button

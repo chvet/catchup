@@ -1,7 +1,6 @@
 'use client'
 
 import VoiceMessage from './VoiceMessage'
-import { useAppBrand } from '@/hooks/useAppBrand'
 
 interface VoiceData {
   audioUrl: string
@@ -18,7 +17,6 @@ interface Props {
 }
 
 export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, voiceData }: Props) {
-  const brandConfig = useAppBrand()
   const isUser = message.role === 'user'
   const msgDate = message.createdAt ? new Date(message.createdAt as string | number | Date) : new Date()
   const time = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -26,9 +24,8 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
   return (
     <div className={`flex mb-2.5 msg-appear w-full max-w-full overflow-hidden ${isUser ? 'justify-end' : 'justify-start'}`}>
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5 shadow-sm overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={brandConfig.logo} alt="" className="w-6 h-6 object-contain" aria-hidden="true" />
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-catchup-primary to-catchup-accent flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5 shadow-sm">
+          <span className="text-sm">🚀</span>
         </div>
       )}
 

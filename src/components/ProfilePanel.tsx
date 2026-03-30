@@ -131,7 +131,7 @@ function StreakRecord({ gameState }: { gameState: GameState }) {
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-100 rounded-xl">
-      <span className="text-lg" aria-hidden="true">🔥</span>
+      <span className="text-lg">🔥</span>
       <div>
         <span className="text-xs font-semibold text-orange-700">
           Série actuelle : {gameState.streakActuel} jour{gameState.streakActuel > 1 ? 's' : ''}

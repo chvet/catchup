@@ -38,7 +38,7 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           <h1 className="font-bold text-base tracking-tight">{brandConfig.appName}</h1>
           {streak >= 2 && (
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-white/15 text-[11px] font-semibold">
-              <span className="animate-pulse" aria-hidden="true">🔥</span>
+              <span className="animate-pulse">🔥</span>
               <span>{streak}j</span>
             </span>
           )}

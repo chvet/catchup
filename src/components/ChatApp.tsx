@@ -748,7 +748,7 @@ export default function ChatApp() {
                 : 'bg-transparent text-gray-500 hover:bg-gray-100'
             }`}
           >
-            <span aria-hidden="true">🤖</span> {brandConfig.appName} IA
+            🤖 Wesh IA
           </button>
           <button
             onClick={() => setChatMode('conseiller')}
@@ -758,7 +758,7 @@ export default function ChatApp() {
                 : 'bg-transparent text-gray-500 hover:bg-gray-100'
             }`}
           >
-            <span aria-hidden="true">🤝</span> Mon conseiller : {referralConseillerPrenom || 'Conseiller'}
+            🤝 Mon conseiller : {referralConseillerPrenom || 'Conseiller'}
             {conseillerUnread && chatMode !== 'conseiller' && (
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-gray-50" />
             )}
@@ -956,12 +956,12 @@ export default function ChatApp() {
                   <div className="flex flex-col items-center justify-center h-full text-center px-4">
                     <div className="mb-6">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={brandConfig.logo} alt={brandConfig.appName} className="h-28 md:h-36 object-contain mx-auto" />
+                      <img src="/logo-wesh.png" alt="Wesh" className="h-28 md:h-36 object-contain mx-auto" />
                     </div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2">
                       {structureInfo
-                        ? <>Bienvenue sur {brandConfig.appName} — {structureInfo.nom}</>
-                        : <>Hey ! Moi c&apos;est {brandConfig.appName}</>
+                        ? <>Bienvenue sur {brandConfig.appName} — {structureInfo.nom} 👋</>
+                        : <>Hey ! Moi c&apos;est {brandConfig.appName} 👋</>
                       }
                     </h2>
                     <p className="text-gray-500 text-sm mb-6 max-w-[280px] leading-relaxed">
@@ -1001,7 +1001,7 @@ export default function ChatApp() {
 
               {error && (
                 <div className="mx-3 mb-1 md:mx-6 flex items-center justify-between gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
-                  <span className="text-red-600 text-xs">Oups, souci <span aria-hidden="true">😅</span></span>
+                  <span className="text-red-600 text-xs">Oups, souci 😅</span>
                   <button onClick={() => reload()} className="shrink-0 rounded bg-red-600 px-2 py-1 text-[10px] font-semibold text-white">Réessayer</button>
                 </div>
               )}
@@ -1013,16 +1013,16 @@ export default function ChatApp() {
                     onClick={() => setChatMode('conseiller')}
                     className="w-full flex items-center justify-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded-full text-[11px] font-medium text-green-700 hover:bg-green-100 transition-colors"
                   >
-                    <span aria-hidden="true">🤝</span><span>Ton conseiller {referralConseillerPrenom} est disponible — clique ici pour discuter</span>
+                    <span>🤝</span><span>Ton conseiller {referralConseillerPrenom} est disponible — clique ici pour discuter</span>
                   </button>
                 </div>
               ) : hasMessages && (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee') ? (
                 <div className="mx-2 md:mx-6 shrink-0">
                   <button
                     onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-green-600 rounded-xl text-sm font-semibold text-white shadow-sm hover:bg-green-700 active:scale-[0.98] transition-all"
+                    className="w-full flex items-center justify-center gap-1 px-2 py-1 bg-catchup-primary/5 border border-catchup-primary/20 rounded-full text-[11px] font-medium text-catchup-primary hover:bg-catchup-primary/10 transition-colors"
                   >
-                    <span aria-hidden="true">💬</span>Parler a un conseiller
+                    <span>🤝</span><span>À tout moment, parler à un conseiller</span>
                   </button>
                 </div>
               ) : null}
@@ -1064,7 +1064,7 @@ export default function ChatApp() {
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
             <div className="text-center mb-5">
               <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-catchup-primary/10 flex items-center justify-center">
-                <span className="text-2xl" aria-hidden="true">{authMode === 'signup' ? '📝' : '🔑'}</span>
+                <span className="text-2xl">{authMode === 'signup' ? '📝' : '🔑'}</span>
               </div>
               <h3 className="text-lg font-bold text-gray-800">
                 {authMode === 'signup' ? 'Creer mon compte' : 'Me connecter'}

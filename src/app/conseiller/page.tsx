@@ -583,7 +583,7 @@ function KpiCard({
   return (
     <div className={`rounded-xl border p-3 sm:p-4 ${colorClasses[color]}`}>
       <div className="flex items-center justify-between mb-1 sm:mb-2">
-        <span className="text-xl sm:text-2xl" aria-hidden="true">{icon}</span>
+        <span className="text-xl sm:text-2xl">{icon}</span>
       </div>
       <p className="text-xl sm:text-2xl font-bold text-gray-800">{value}</p>
       <p className="text-xs sm:text-sm text-gray-500 leading-tight">{label}</p>
@@ -610,7 +610,7 @@ function QuickAction({
       href={href}
       className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 hover:border-catchup-primary hover:shadow-md transition-all group"
     >
-      <span className="text-2xl group-hover:scale-110 transition-transform" aria-hidden="true">{icon}</span>
+      <span className="text-2xl group-hover:scale-110 transition-transform">{icon}</span>
       <div className="min-w-0">
         <p className="text-sm font-semibold text-gray-800 group-hover:text-catchup-primary transition-colors">{label}</p>
         <p className="text-xs text-gray-400 truncate">{description}</p>

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAppBrand } from '@/hooks/useAppBrand'
 
 interface Props {
   conversationCount: number
@@ -17,7 +16,6 @@ const EXCLUSIVE_FEATURES = [
 ]
 
 export default function AppInterstitial({ conversationCount }: Props) {
-  const brandConfig = useAppBrand()
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -39,9 +37,8 @@ export default function AppInterstitial({ conversationCount }: Props) {
       <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-br from-catchup-primary to-indigo-600 px-6 py-8 text-center text-white">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={brandConfig.logo} alt="" className="w-10 h-10 object-contain" aria-hidden="true" />
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            <span className="text-3xl">🚀</span>
           </div>
           <h2 className="text-xl font-bold mb-1">Passe à la vitesse supérieure</h2>
           <p className="text-white/70 text-sm">Débloque des fonctionnalités exclusives</p>

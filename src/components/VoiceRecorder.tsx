@@ -27,7 +27,6 @@ export default function VoiceRecorder({ onRecorded, disabled }: Props) {
   const [recording, setRecording] = useState(false)
   const [duration, setDuration] = useState(0)
   const [permissionDenied, setPermissionDenied] = useState(false)
-  const [isAvailable, setIsAvailable] = useState(false)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -36,15 +35,12 @@ export default function VoiceRecorder({ onRecorded, disabled }: Props) {
   const startTimeRef = useRef<number>(0)
   const cancelledRef = useRef(false)
 
-  // Vérifier si MediaRecorder est disponible (côté client uniquement)
-  useEffect(() => {
-    setIsAvailable(
-      typeof navigator !== 'undefined'
-      && !!navigator.mediaDevices?.getUserMedia
-      && typeof MediaRecorder !== 'undefined'
-      && !!getSupportedMimeType()
-    )
-  }, [])
+  // Vérifier si MediaRecorder est disponible
+  const isAvailable = typeof window !== 'undefined'
+    && typeof navigator !== 'undefined'
+    && !!navigator.mediaDevices?.getUserMedia
+    && typeof MediaRecorder !== 'undefined'
+    && !!getSupportedMimeType()
 
   const cleanup = useCallback(() => {
     if (timerRef.current) {
@@ -165,6 +161,8 @@ export default function VoiceRecorder({ onRecorded, disabled }: Props) {
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
+  if (!isAvailable) return null
+
   if (permissionDenied) {
     return (
       <div className="flex items-center gap-1">
@@ -222,8 +220,8 @@ export default function VoiceRecorder({ onRecorded, disabled }: Props) {
     <div className="relative">
       <button
         onClick={startRecording}
-        disabled={disabled || !isAvailable}
-        className={`p-2 rounded-full text-gray-500 hover:text-catchup-primary hover:bg-gray-100 transition-all disabled:opacity-40 ${!isAvailable ? 'hidden' : ''}`}
+        disabled={disabled}
+        className="p-2 rounded-full text-gray-500 hover:text-catchup-primary hover:bg-gray-100 transition-all disabled:opacity-40"
         title="Message vocal"
         type="button"
       >

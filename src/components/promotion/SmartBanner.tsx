@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAppBrand } from '@/hooks/useAppBrand'
 
 function detectPlatform(): 'ios' | 'android' | 'desktop' {
   if (typeof navigator === 'undefined') return 'desktop'
@@ -18,7 +17,6 @@ function isStandalone(): boolean {
 }
 
 export default function SmartBanner() {
-  const brandConfig = useAppBrand()
   const [visible, setVisible] = useState(false)
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>('desktop')
 
@@ -60,9 +58,8 @@ export default function SmartBanner() {
         </svg>
       </button>
 
-      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center flex-shrink-0 overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={brandConfig.logo} alt="" className="w-8 h-8 object-contain" aria-hidden="true" />
+      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-catchup-primary to-catchup-accent flex items-center justify-center flex-shrink-0">
+        <span className="text-lg">🚀</span>
       </div>
 
       <div className="flex-1 min-w-0">
