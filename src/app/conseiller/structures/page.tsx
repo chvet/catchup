@@ -80,7 +80,7 @@ export default function StructuresPage() {
   if (!isAdmin) {
     return (
       <div className="text-center py-12">
-        <p className="text-4xl mb-4">🔒</p>
+        <p className="text-4xl mb-4" aria-hidden="true">🔒</p>
         <p className="text-gray-500">Accès réservé aux administrateurs</p>
       </div>
     )
