@@ -27,6 +27,7 @@ export default function VoiceRecorder({ onRecorded, disabled }: Props) {
   const [recording, setRecording] = useState(false)
   const [duration, setDuration] = useState(0)
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [isAvailable, setIsAvailable] = useState(false)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -35,12 +36,15 @@ export default function VoiceRecorder({ onRecorded, disabled }: Props) {
   const startTimeRef = useRef<number>(0)
   const cancelledRef = useRef(false)
 
-  // Vérifier si MediaRecorder est disponible
-  const isAvailable = typeof window !== 'undefined'
-    && typeof navigator !== 'undefined'
-    && !!navigator.mediaDevices?.getUserMedia
-    && typeof MediaRecorder !== 'undefined'
-    && !!getSupportedMimeType()
+  // Vérifier si MediaRecorder est disponible (côté client uniquement)
+  useEffect(() => {
+    setIsAvailable(
+      typeof navigator !== 'undefined'
+      && !!navigator.mediaDevices?.getUserMedia
+      && typeof MediaRecorder !== 'undefined'
+      && !!getSupportedMimeType()
+    )
+  }, [])
 
   const cleanup = useCallback(() => {
     if (timerRef.current) {
