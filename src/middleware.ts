@@ -157,10 +157,14 @@ export async function middleware(request: NextRequest) {
   // 2) DÉTECTION DE L'APP (wesh.chat vs catchup.jaeprive.fr)
   // ══════════════════════════════════════════════════════════
 
-  // Détecter quelle app est utilisée selon le domaine
+  // Détecter quelle app est utilisée
+  // Priorité : variable d'env APP_BRAND (Docker/local) > hostname
   const isWeshApp = hostname.includes('wesh.chat')
   const isCatchupApp = hostname.includes('catchup.jaeprive.fr') || hostname.includes('jaeprive')
-  const appBrand = isWeshApp ? 'wesh' : isCatchupApp ? 'catchup' : 'wesh'
+  const envBrand = process.env.APP_BRAND
+  const appBrand: string = (envBrand === 'catchup' || envBrand === 'wesh')
+    ? envBrand
+    : isWeshApp ? 'wesh' : isCatchupApp ? 'catchup' : 'wesh'
 
   // ══════════════════════════════════════════════════════════
   // 3) ROUTAGE PAR SOUS-DOMAINE
