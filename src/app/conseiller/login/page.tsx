@@ -120,8 +120,8 @@ function LoginForm() {
         <div className="text-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={brandConfig.brand === 'catchup' ? '/logo-catchup.svg' : '/logo-wesh.png'}
-            alt={brandConfig.appName}
+            src="/logo-catchup.svg"
+            alt="Catch'Up"
             className="h-12 mx-auto mb-3"
           />
           <p className="text-catchup-primary text-lg">Espace Conseiller</p>

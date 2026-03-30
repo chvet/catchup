@@ -5,7 +5,7 @@
  * Génère l'URL WebSocket du serveur visio
  */
 function getVisioWsUrl(): string {
-  return process.env.VISIO_WS_URL || 'wss://visio.wesh.chat'
+  return process.env.VISIO_WS_URL || 'wss://visio.catchup.jaeprive.fr'
 }
 
 /**
@@ -14,7 +14,7 @@ function getVisioWsUrl(): string {
  * se retrouvent dans la même room
  */
 export function getVisioJoinUrl(priseEnChargeId: string, name?: string, role?: string): string {
-  const publicHost = process.env.PUBLIC_HOST || 'wesh.chat'
+  const publicHost = process.env.PUBLIC_HOST || 'catchup.jaeprive.fr'
   const roomId = `room-${priseEnChargeId.substring(0, 12)}`
   let url = `https://${publicHost}/visio?room=${roomId}`
   if (name) url += `&name=${encodeURIComponent(name)}`

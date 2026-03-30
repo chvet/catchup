@@ -24,12 +24,12 @@ export interface TokenResult {
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CALENDAR_CLIENT_ID || ''
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CALENDAR_CLIENT_SECRET || ''
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI || 'https://wesh.chat/api/calendar/google/callback'
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI || 'https://catchup.jaeprive.fr/api/calendar/google/callback'
 
 const O365_TENANT_ID = process.env.O365_TENANT_ID || ''
 const O365_CLIENT_ID = process.env.O365_CLIENT_ID || ''
 const O365_CLIENT_SECRET = process.env.O365_CLIENT_SECRET || ''
-const O365_REDIRECT_URI = process.env.O365_CALENDAR_REDIRECT_URI || 'https://wesh.chat/api/calendar/outlook/callback'
+const O365_REDIRECT_URI = process.env.O365_CALENDAR_REDIRECT_URI || 'https://catchup.jaeprive.fr/api/calendar/outlook/callback'
 
 // ══════════════════════════════════════════
 // GOOGLE CALENDAR

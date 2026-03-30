@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const systemPrompt = `Tu es un assistant IA privé pour les conseillers d'orientation Catch'Up/Wesh.
+    const systemPrompt = `Tu es un assistant IA privé pour les conseillers d'orientation Catch'Up.
 Tu aides le conseiller à accompagner ${context.prenom}${context.age ? `, ${context.age} ans` : ''}.
 ${context.resumeConversation ? `Résumé de la conversation IA avec le bénéficiaire : ${context.resumeConversation}` : ''}
 

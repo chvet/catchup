@@ -1,48 +1,11 @@
 services:
-  # ═══ App Wesh (wesh.chat) ═══
-  wesh:
-    build: .
-    restart: always
-    ports:
-      - "3002:3000"
-      - "3003:3003"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - TURSO_DATABASE_URL=file:/app/data/local.db
-      - JWT_SECRET=${JWT_SECRET:-wesh-prod-secret-2026}
-      - PRO_HOST=pro.wesh.chat
-      - PUBLIC_HOST=wesh.chat
-      - APP_BRAND=wesh
-      - NOTIFICATION_MODE=${NOTIFICATION_MODE:-email}
-      - SMTP_FROM=${SMTP_FROM:-noreply@fondation-jae.org}
-      - O365_TENANT_ID=${O365_TENANT_ID}
-      - O365_CLIENT_ID=${O365_CLIENT_ID}
-      - O365_CLIENT_SECRET=${O365_CLIENT_SECRET}
-      - VISIO_WS_URL=wss://visio.wesh.chat
-      - VISIO_PORT=3003
-      - TOKEN_DAILY_LIMIT=200000
-      - TOKEN_MONTHLY_LIMIT=2000000
-      - PARCOUREO_API_URL=${PARCOUREO_API_URL:-}
-      - PARCOUREO_API_KEY=${PARCOUREO_API_KEY:-}
-      - GOOGLE_CALENDAR_CLIENT_ID=${GOOGLE_CALENDAR_CLIENT_ID}
-      - GOOGLE_CALENDAR_CLIENT_SECRET=${GOOGLE_CALENDAR_CLIENT_SECRET}
-      - GOOGLE_CALENDAR_REDIRECT_URI=https://wesh.chat/api/calendar/google/callback
-      - O365_CALENDAR_REDIRECT_URI=https://wesh.chat/api/calendar/outlook/callback
-    volumes:
-      - /mnt/HC_Volume_105238085/wesh-data:/app/data
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
   # ═══ App Catch'Up (catchup.jaeprive.fr) ═══
   catchup:
     build: .
     restart: always
     ports:
-      - "3004:3000"
-      - "3005:3003"
+      - "3002:3000"
+      - "3003:3003"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - TURSO_DATABASE_URL=file:/app/data/local.db
@@ -73,6 +36,5 @@ services:
       timeout: 5s
       retries: 3
 
-# Chaque app a son propre répertoire de données sur le volume Hetzner 1 TO :
-# - wesh-data   → /mnt/HC_Volume_105238085/wesh-data/local.db
+# Données sur le volume Hetzner 1 TO :
 # - catchup-data → /mnt/HC_Volume_105238085/catchup-data/local.db

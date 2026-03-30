@@ -1,11 +1,11 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'chat.wesh.app',
-  appName: 'Wesh',
+  appId: 'fr.jaeprive.catchup',
+  appName: "Catch'Up",
   webDir: 'out',
   server: {
-    url: 'https://wesh.chat',
+    url: 'https://catchup.jaeprive.fr',
     cleartext: false,
   },
   plugins: {
@@ -37,7 +37,7 @@ const config: CapacitorConfig = {
     captureInput: true,
     webContentsDebuggingEnabled: false,
     initialFocus: true,
-    overrideUserAgent: 'Wesh-Android',
+    overrideUserAgent: 'CatchUp-Android',
   },
 };
 

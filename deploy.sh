@@ -1,7 +1,6 @@
 #!/bin/bash
 # deploy.sh — Deploiement Catch'Up sur Hetzner
-# Usage depuis Windows : ssh root@wesh.chat "/opt/catchup/deploy.sh"
-# Ou depuis Claude     : "deploie sur la prod"
+# Usage : ssh root@catchup.jaeprive.fr "/opt/catchup/deploy.sh"
 
 set -e
 
@@ -18,19 +17,16 @@ git fetch origin main
 git reset --hard origin/main
 echo "  -> $(git log --oneline -1)"
 
-# 2. Build les images Docker
+# 2. Build l'image Docker
 echo ""
-echo "[2/4] Build Docker (wesh + catchup)..."
-docker-compose build wesh catchup
+echo "[2/4] Build Docker..."
+docker-compose build catchup
 
-# 3. Redemarrer les containers (force recreate pour eviter le bug ContainerConfig)
+# 3. Redemarrer le container (force recreate pour eviter le bug ContainerConfig)
 echo ""
-echo "[3/4] Redemarrage des containers..."
-docker stop catchup_wesh_1 catchup_catchup_1 2>/dev/null || true
-docker rm catchup_wesh_1 catchup_catchup_1 2>/dev/null || true
-# Nettoyer les containers orphelins avec prefix
+echo "[3/4] Redemarrage du container..."
 docker ps -a --format '{{.Names}}' | grep catchup | xargs -r docker rm -f 2>/dev/null || true
-docker-compose up -d wesh catchup
+docker-compose up -d catchup
 
 # 4. Nettoyage des anciennes images
 echo ""

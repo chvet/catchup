@@ -28,7 +28,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
     // Fonts : self
     "font-src 'self' data:",
     // Connexions API : self + visio WebSocket + OpenAI (chat IA)
-    "connect-src 'self' https://api.openai.com wss://visio.wesh.chat ws://localhost:3003 https://geo.api.gouv.fr https://api-adresse.data.gouv.fr",
+    "connect-src 'self' https://api.openai.com wss://visio.catchup.jaeprive.fr ws://localhost:3003 https://geo.api.gouv.fr https://api-adresse.data.gouv.fr",
     // Frames : self uniquement (visio intégrée en composant React)
     "frame-src 'self'",
     // Media : self + blob (visio audio/video playback)

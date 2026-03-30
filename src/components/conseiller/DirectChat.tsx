@@ -879,7 +879,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
                 <span className="ml-2">→ {codeInfo.moyenContact}</span>
               </p>
               <p className="text-xs text-blue-500 mt-1">
-                Le bénéficiaire saisit ce code sur wesh.chat/accompagnement
+                Le bénéficiaire saisit ce code sur catchup.jaeprive.fr/accompagnement
               </p>
             </div>
             <button

@@ -230,7 +230,7 @@ export default function StructureDetailPage() {
   }
 
   const structureUrl = structure.slug
-    ? `https://wesh.chat/?s=${structure.slug}`
+    ? `https://catchup.jaeprive.fr/?s=${structure.slug}`
     : null
   const encodedUrl = structureUrl ? encodeURIComponent(structureUrl) : ''
   const qrCodeSrc = structureUrl

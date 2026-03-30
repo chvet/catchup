@@ -447,7 +447,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     const wsHost = process.env.NEXT_PUBLIC_VISIO_WS_URL || (
       typeof window !== 'undefined' && window.location.hostname === 'localhost'
         ? 'ws://localhost:3003'
-        : 'wss://visio.wesh.chat'
+        : 'wss://visio.catchup.jaeprive.fr'
     )
 
     const url = `${wsHost}?room=${encodeURIComponent(roomId)}&id=${encodeURIComponent(participantIdRef.current)}&name=${encodeURIComponent(participantName)}&role=${encodeURIComponent(participantRole)}`

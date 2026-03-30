@@ -1,6 +1,6 @@
 // Middleware Next.js — Routage par sous-domaine + protection JWT + sécurité
-// - pro.wesh.chat → Espace Conseiller (sécurisé JWT)
-// - wesh.chat     → App bénéficiaire
+// - pro.catchup.jaeprive.fr → Espace Conseiller (sécurisé JWT)
+// - catchup.jaeprive.fr     → App bénéficiaire
 // En dev (localhost) : les deux espaces sont accessibles sans restriction de hostname
 
 import { NextResponse } from 'next/server'
@@ -22,8 +22,8 @@ const PUBLIC_ROUTES = [
 ]
 
 // Domaines configurables via env (fallback sur les valeurs prod)
-const PRO_HOST = process.env.PRO_HOST || 'pro.wesh.chat'
-const PUBLIC_HOST = process.env.PUBLIC_HOST || 'wesh.chat'
+const PRO_HOST = process.env.PRO_HOST || 'pro.catchup.jaeprive.fr'
+const PUBLIC_HOST = process.env.PUBLIC_HOST || 'catchup.jaeprive.fr'
 
 // Routes bénéficiaire (ne doivent pas être servies sur pro.*)
 const BENEFICIAIRE_ROUTES = ['/', '/quiz', '/offline']
@@ -154,24 +154,17 @@ export async function middleware(request: NextRequest) {
   }
 
   // ══════════════════════════════════════════════════════════
-  // 2) DÉTECTION DE L'APP (wesh.chat vs catchup.jaeprive.fr)
+  // 2) BRANDING — Catch'Up uniquement
   // ══════════════════════════════════════════════════════════
 
-  // Détecter quelle app est utilisée
-  // Priorité : variable d'env APP_BRAND (Docker/local) > hostname
-  const isWeshApp = hostname.includes('wesh.chat')
-  const isCatchupApp = hostname.includes('catchup.jaeprive.fr') || hostname.includes('jaeprive')
-  const envBrand = process.env.APP_BRAND
-  const appBrand: string = (envBrand === 'catchup' || envBrand === 'wesh')
-    ? envBrand
-    : isWeshApp ? 'wesh' : isCatchupApp ? 'catchup' : 'wesh'
+  const appBrand = 'catchup'
 
   // ══════════════════════════════════════════════════════════
   // 3) ROUTAGE PAR SOUS-DOMAINE
   // ══════════════════════════════════════════════════════════
 
   if (!isLocalDev(hostname)) {
-    // ── Sur pro.wesh.chat ──
+    // ── Sur pro.catchup.jaeprive.fr ──
     if (isProDomain(hostname)) {
       if (pathname === '/') {
         return applySecurityHeaders(NextResponse.redirect(new URL('/conseiller', request.url)))
@@ -181,7 +174,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // ── Sur wesh.chat ──
+    // ── Sur catchup.jaeprive.fr ──
     if (isPublicDomain(hostname)) {
       const proEnabled = process.env.PRO_SUBDOMAIN_ENABLED === 'true'
       if (proEnabled && (pathname.startsWith('/conseiller') || pathname.startsWith('/api/conseiller'))) {

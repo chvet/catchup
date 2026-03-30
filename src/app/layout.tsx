@@ -1,18 +1,14 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
-const isCatchup = process.env.NEXT_PUBLIC_APP_BRAND === 'catchup'
-
 export const metadata: Metadata = {
-  title: isCatchup ? "Catch'Up — Ton guide orientation" : "Wesh — Ton guide orientation",
-  description: isCatchup
-    ? "Catch'Up t'aide a trouver ta voie professionnelle. Decouvre ton profil, explore des metiers, construis ton avenir."
-    : "Wesh t'aide a trouver ta voie professionnelle. Decouvre ton profil, explore des metiers, construis ton avenir.",
+  title: "Catch'Up — Ton guide orientation",
+  description: "Catch'Up t'aide a trouver ta voie professionnelle. Decouvre ton profil, explore des metiers, construis ton avenir.",
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: isCatchup ? "Catch'Up" : 'Wesh',
+    title: "Catch'Up",
   },
 }
 
@@ -37,9 +33,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        <link rel="icon" type="image/svg+xml" href={isCatchup ? '/favicon-catchup.svg' : '/favicon.svg'} />
-        {!isCatchup && <link rel="icon" type="image/png" href="/favicon.png" />}
-        <link rel="apple-touch-icon" href={isCatchup ? '/logo-catchup.png' : '/icons/icon-512.png'} />
+        <link rel="icon" type="image/svg+xml" href="/favicon-catchup.svg" />
+        <link rel="apple-touch-icon" href="/logo-catchup.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className="font-sans antialiased bg-catchup-bg overflow-x-hidden">
@@ -49,7 +44,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `
               if ('serviceWorker' in navigator) {
                 if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-                  // Dev : désactiver le SW et vider les caches
                   navigator.serviceWorker.getRegistrations().then(function(regs) {
                     regs.forEach(function(r) { r.unregister(); });
                   });

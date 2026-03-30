@@ -123,8 +123,8 @@ export default function ParametresPage() {
     window.location.href = '/api/conseiller/auth/parcoureo'
   }
 
-  const beneficiaireUrl = slug ? `https://wesh.chat/?s=${slug}` : null
-  const conseillerUrl = slug ? `https://wesh.chat/conseiller/login?s=${slug}` : null
+  const beneficiaireUrl = slug ? `https://catchup.jaeprive.fr/?s=${slug}` : null
+  const conseillerUrl = slug ? `https://catchup.jaeprive.fr/conseiller/login?s=${slug}` : null
   const qrCodeUrl = beneficiaireUrl
     ? `/api/qrcode?data=${encodeURIComponent(beneficiaireUrl)}&size=200&v=2`
     : null

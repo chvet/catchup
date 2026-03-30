@@ -318,9 +318,10 @@ export async function sendPinCode(
 ): Promise<NotificationResult> {
   const { type, prenom, conseillerPrenom, structureNom } = options
 
+  const host = process.env.PUBLIC_HOST || 'catchup.jaeprive.fr'
   const message = type === 'beneficiaire'
-    ? `${prenom ? prenom + ', votre' : 'Votre'} conseiller${conseillerPrenom ? ' ' + conseillerPrenom : ''}${structureNom ? ' (' + structureNom + ')' : ''} vous accompagne sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur wesh.chat/accompagnement`
-    : `Vous êtes invité(e) à rejoindre un accompagnement sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur wesh.chat/tiers`
+    ? `${prenom ? prenom + ', votre' : 'Votre'} conseiller${conseillerPrenom ? ' ' + conseillerPrenom : ''}${structureNom ? ' (' + structureNom + ')' : ''} vous accompagne sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur ${host}/accompagnement`
+    : `Vous êtes invité(e) à rejoindre un accompagnement sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur ${host}/tiers`
 
   const subject = type === 'beneficiaire'
     ? `Catch'Up — Votre code d'accès`

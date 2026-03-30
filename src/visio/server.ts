@@ -3,7 +3,7 @@
  * Relais binaire pour audio/video entre participants d'une room.
  *
  * Port : 3003 (separe de Next.js sur 3000)
- * Nginx doit proxifier wss://visio.wesh.chat -> ws://localhost:3003
+ * Nginx doit proxifier wss://visio.catchup.jaeprive.fr -> ws://localhost:3003
  *
  * Protocole binaire :
  *   0x01 = JPEG frame (fallback)
