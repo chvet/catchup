@@ -165,7 +165,7 @@ export default function VoiceRecorder({ onRecorded, disabled }: Props) {
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  if (!isAvailable) return null
+  if (!isAvailable) return <div className="relative" />
 
   if (permissionDenied) {
     return (
