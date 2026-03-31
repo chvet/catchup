@@ -59,6 +59,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const reconnectCountRef = useRef(0)
   const canvasIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const jpegFallbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const keyframeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const callStartRef = useRef<number>(Date.now())
   const prevObjectUrlRef = useRef<string | null>(null)
@@ -360,6 +361,33 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
           }
         }
         readFrame()
+
+        // Also send periodic JPEG fallback frames (every 2s) for receivers
+        // that don't support VP8 decoding (Firefox/Safari/older browsers)
+        const fallbackCanvas = document.createElement('canvas')
+        fallbackCanvas.width = 320
+        fallbackCanvas.height = 240
+        const fallbackCtx = fallbackCanvas.getContext('2d')
+        const fallbackVideo = document.createElement('video')
+        fallbackVideo.srcObject = new MediaStream([videoTrack])
+        fallbackVideo.muted = true
+        fallbackVideo.playsInline = true
+        fallbackVideo.play().catch(() => {})
+
+        jpegFallbackIntervalRef.current = setInterval(() => {
+          if (fallbackCtx && fallbackVideo.readyState >= 2) {
+            fallbackCtx.drawImage(fallbackVideo, 0, 0, 320, 240)
+            fallbackCanvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  blob.arrayBuffer().then((buf) => sendFrame(MSG_JPEG, buf))
+                }
+              },
+              'image/jpeg',
+              0.5
+            )
+          }
+        }, 2000)
       } catch (err) {
         console.warn('[Visio] WebCodecs encoding failed, falling back to canvas:', err)
         startCanvasFallback(videoTrack)
@@ -632,6 +660,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     }
 
     if (canvasIntervalRef.current) clearInterval(canvasIntervalRef.current)
+    if (jpegFallbackIntervalRef.current) clearInterval(jpegFallbackIntervalRef.current)
     if (keyframeIntervalRef.current) clearInterval(keyframeIntervalRef.current)
     if (heartbeatRef.current) clearInterval(heartbeatRef.current)
 
