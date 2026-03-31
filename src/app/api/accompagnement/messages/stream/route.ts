@@ -84,8 +84,8 @@ export async function GET(request: Request) {
               heartbeatCount = 0
             }
 
-            // Attendre 2 secondes avant le prochain poll
-            await new Promise((resolve) => setTimeout(resolve, 2000))
+            // Attendre 1 seconde avant le prochain poll
+            await new Promise((resolve) => setTimeout(resolve, 1000))
           } catch (error) {
             console.error('[SSE Poll Error]', error)
             cancelled = true

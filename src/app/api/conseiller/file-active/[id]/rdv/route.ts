@@ -94,8 +94,9 @@ export async function POST(
     const icsUrl = `/api/conseiller/file-active/${id}/rdv/${rdvId}/ics`
 
     // Insérer un message structuré dans le chat pour que le bénéficiaire voie le RDV
+    const messageId = uuidv4()
     await db.insert(messageDirect).values({
-      id: uuidv4(),
+      id: messageId,
       priseEnChargeId: pec.id,
       expediteurType: 'conseiller',
       expediteurId: ctx.id,
@@ -117,6 +118,7 @@ export async function POST(
 
     return jsonSuccess({
       id: rdvId,
+      messageId,
       titre,
       dateDebut,
       dateFin,

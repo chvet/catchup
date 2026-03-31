@@ -45,7 +45,7 @@ export async function GET(
           encoder.encode(`data: ${JSON.stringify({ type: 'connected', priseEnChargeId })}\n\n`)
         )
 
-        // Intervalle de poll : toutes les 2 secondes
+        // Intervalle de poll : toutes les 1 seconde
         const pollInterval = setInterval(async () => {
           if (!alive) {
             clearInterval(pollInterval)
@@ -79,7 +79,7 @@ export async function GET(
             console.error('[SSE Poll Error]', error)
             // Ne pas fermer le stream sur une erreur de poll isolee
           }
-        }, 2000)
+        }, 1000)
 
         // Heartbeat toutes les 15 secondes
         const heartbeatInterval = setInterval(() => {

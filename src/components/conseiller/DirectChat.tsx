@@ -554,10 +554,10 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   }, [referralId, rdvReminderLoading, latestRdv])
 
   // Callback quand un RDV est créé via le modal
-  const handleRdvCreated = useCallback((rdv: { id: string; titre: string; dateDebut: string; dateFin: string; googleUrl: string; icsUrl: string }) => {
-    // Ajouter le message RDV localement dans le chat
+  const handleRdvCreated = useCallback((rdv: { id: string; messageId?: string; titre: string; dateDebut: string; dateFin: string; googleUrl: string; icsUrl: string }) => {
+    // Ajouter le message RDV localement dans le chat avec le vrai id du message en base
     const rdvMessage: DirectMessage = {
-      id: `rdv-${rdv.id}`,
+      id: rdv.messageId || `rdv-${rdv.id}`,
       expediteurType: 'conseiller',
       expediteurId: '',
       contenu: JSON.stringify({
