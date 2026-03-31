@@ -957,7 +957,7 @@ export default function ChatApp() {
                     <div className="mb-6">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src="/logo-catchup.svg"
+                        src="/logo-catchup.png"
                         alt="Catch'Up"
                         className="h-28 md:h-36 object-contain mx-auto"
                       />
