@@ -331,12 +331,13 @@ export default function ChatApp() {
     }
   }, [messages])
 
-  // Polling statut referral (si un referral existe) — with timeout for slow networks
+  // Polling statut referral (si un referral existe) — toutes les 5s pour réactivité
   useEffect(() => {
     if (!referralId) return
+    let prevStatut = referralStatus
     const checkStatus = () => {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 10000) // 10s timeout
+      const timeout = setTimeout(() => controller.abort(), 10000)
       fetch(`/api/referrals/${referralId}/status`, { signal: controller.signal })
         .then(r => r.ok ? r.json() : null)
         .then(d => {
@@ -345,14 +346,21 @@ export default function ChatApp() {
             if (d.priseEnCharge?.exists) {
               setReferralConseillerPrenom(d.priseEnCharge.conseiller?.prenom || null)
             }
+            // Quand le statut passe à prise_en_charge, notifier le bénéficiaire
+            if (d.statut === 'prise_en_charge' && prevStatut !== 'prise_en_charge') {
+              // Force scroll pour que le bénéficiaire voie le changement
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+            }
+            prevStatut = d.statut
           }
         })
         .catch(() => {})
         .finally(() => clearTimeout(timeout))
     }
     checkStatus()
-    const interval = setInterval(checkStatus, 30000)
+    const interval = setInterval(checkStatus, 5000)
     return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [referralId])
 
   // === GAMIFICATION : évaluer jauge + badges à chaque changement de messages/profil ===
