@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/data/db'
-import { referral, priseEnCharge, conseiller, structure } from '@/data/schema'
+import { referral, priseEnCharge, conseiller } from '@/data/schema'
 import { eq } from 'drizzle-orm'
+
+// Regex UUID v4 pour valider le format du referral ID
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export async function GET(
   request: NextRequest,
@@ -10,32 +13,34 @@ export async function GET(
   try {
     const { id } = params
 
-    if (!id) {
+    // Valider le format UUID pour éviter les injections
+    if (!id || !UUID_REGEX.test(id)) {
       return NextResponse.json(
-        { error: 'Referral ID is required' },
+        { error: 'Invalid request' },
         { status: 400 }
       )
     }
 
     // 1. Find the referral
     const ref = await db
-      .select()
+      .select({ statut: referral.statut })
       .from(referral)
       .where(eq(referral.id, id))
       .limit(1)
 
     if (ref.length === 0) {
+      // Réponse générique pour ne pas révéler si l'ID existe ou non
       return NextResponse.json(
-        { error: 'Referral not found' },
+        { error: 'Invalid request' },
         { status: 404 }
       )
     }
 
     const refData = ref[0]
 
-    // 2. Check for prise en charge
+    // 2. Check for prise en charge — ne retourner que le minimum
     const pec = await db
-      .select()
+      .select({ conseillerId: priseEnCharge.conseillerId })
       .from(priseEnCharge)
       .where(eq(priseEnCharge.referralId, id))
       .limit(1)
@@ -43,34 +48,21 @@ export async function GET(
     let priseEnChargeInfo: {
       exists: boolean
       conseiller?: { prenom: string }
-      structure?: { nom: string }
     } = { exists: false }
 
     if (pec.length > 0) {
-      const pecData = pec[0]
-
-      // Get conseiller info
       const conseillerData = await db
         .select({ prenom: conseiller.prenom })
         .from(conseiller)
-        .where(eq(conseiller.id, pecData.conseillerId))
-        .limit(1)
-
-      // Get structure info
-      const structureData = await db
-        .select({ nom: structure.nom })
-        .from(structure)
-        .where(eq(structure.id, pecData.structureId))
+        .where(eq(conseiller.id, pec[0].conseillerId))
         .limit(1)
 
       priseEnChargeInfo = {
         exists: true,
         conseiller: conseillerData[0] ? { prenom: conseillerData[0].prenom } : undefined,
-        structure: structureData[0] ? { nom: structureData[0].nom } : undefined,
       }
     }
 
-    // 3. Return response
     return NextResponse.json({
       statut: refData.statut,
       priseEnCharge: priseEnChargeInfo,

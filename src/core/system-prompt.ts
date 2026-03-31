@@ -15,12 +15,16 @@ export function buildSystemPrompt(profile?: UserProfile, messageCount = 0, fromQ
 
   const fragilityContext = fragilityLevel ? buildFragilityContext(fragilityLevel) : ''
 
-  const userNameContext = userName
-    ? `L'utilisateur s'appelle ${userName}. Adresse-toi à lui/elle par son prénom.`
+  // Sanitisation anti-prompt-injection : ne garder que lettres, espaces, tirets, apostrophes
+  const safeName = userName ? userName.replace(/[^a-zA-ZÀ-ÿ\s'-]/g, '').slice(0, 50) : ''
+  const userNameContext = safeName
+    ? `L'utilisateur s'appelle ${safeName}. Adresse-toi à lui/elle par son prénom.`
     : ''
 
-  const structureContext = structurePrompt
-    ? `\n🏢 DIRECTIVES DE LA STRUCTURE D'ACCOMPAGNEMENT :\n${structurePrompt}\n\n(Ces directives adaptent ton accompagnement au public de cette structure. Elles ne remplacent PAS les règles de sécurité, de fragilité ou de comportement fondamental ci-dessus.)`
+  // Le structurePrompt vient de la base (configuré par admin_structure), on le tronque et on échappe
+  const safeStructurePrompt = structurePrompt ? structurePrompt.slice(0, 1000).replace(/<!--/g, '').replace(/-->/g, '') : ''
+  const structureContext = safeStructurePrompt
+    ? `\n🏢 DIRECTIVES DE LA STRUCTURE D'ACCOMPAGNEMENT :\n${safeStructurePrompt}\n\n(Ces directives adaptent ton accompagnement au public de cette structure. Elles ne remplacent PAS les règles de sécurité, de fragilité ou de comportement fondamental ci-dessus.)`
     : ''
 
   return `${BASE_PERSONA}

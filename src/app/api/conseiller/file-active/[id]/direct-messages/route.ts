@@ -35,6 +35,11 @@ export async function GET(
 
     const pec = pecs[0]
 
+    // Vérifier que le conseiller est bien assigné (ou super_admin)
+    if (pec.conseillerId !== ctx.id && ctx.role !== 'super_admin') {
+      return jsonError('Non autorise', 403)
+    }
+
     // Recuperer tous les messages de cette prise en charge
     const messages = await db
       .select()
@@ -127,11 +132,13 @@ export async function POST(
 
     const pec = pecs[0]
 
+    // Vérifier que le conseiller est bien assigné à cette prise en charge (ou super_admin)
+    if (pec.conseillerId !== ctx.id && ctx.role !== 'super_admin') {
+      return jsonError('Non autorise', 403)
+    }
+
     if (pec.statut !== 'prise_en_charge') {
-      return jsonError(
-        `Impossible d'envoyer un message : statut actuel "${pec.statut}". Le statut doit etre "prise_en_charge".`,
-        400
-      )
+      return jsonError('Impossible d\'envoyer un message pour cette prise en charge', 400)
     }
 
     // Creer le message

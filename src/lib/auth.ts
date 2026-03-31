@@ -21,8 +21,11 @@ export interface ConseillerJWT extends JWTPayload {
 
 // === CONSTANTES ===
 
+if (!process.env.JWT_SECRET) {
+  console.error('[SECURITY] JWT_SECRET is not set. Authentication will fail.')
+}
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'catchup-dev-secret-change-in-production'
+  process.env.JWT_SECRET || ''
 )
 const JWT_DURATION = '8h'
 const COOKIE_NAME = 'catchup_conseiller_session'

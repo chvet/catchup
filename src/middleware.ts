@@ -8,8 +8,11 @@ import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 import { applySecurityHeaders } from '@/lib/security-headers'
 
+if (!process.env.JWT_SECRET) {
+  console.error('[SECURITY] JWT_SECRET is not set. Authentication will fail.')
+}
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'catchup-dev-secret-change-in-production'
+  process.env.JWT_SECRET || ''
 )
 
 const COOKIE_NAME = 'catchup_conseiller_session'
@@ -150,6 +153,29 @@ export async function middleware(request: NextRequest) {
         JSON.stringify({ error: 'Trop de requêtes. Réessayez dans un instant.' }),
         { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } }
       )
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // 1b) CSRF — Vérification Origin sur les requêtes POST/PUT/DELETE (sauf SSE/streaming)
+  // ══════════════════════════════════════════════════════════
+
+  if (pathname.startsWith('/api/') && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
+    const origin = request.headers.get('origin')
+    const isSSE = pathname.includes('/stream')
+    if (!isSSE && origin && !isLocalDev(hostname)) {
+      const allowedOrigins = [
+        `https://${PUBLIC_HOST}`,
+        `https://${PRO_HOST}`,
+        `https://catchup.jaeprive.fr`,
+        `https://pro.catchup.jaeprive.fr`,
+      ]
+      if (!allowedOrigins.some(o => origin.startsWith(o))) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
     }
   }
 

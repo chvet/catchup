@@ -4,7 +4,7 @@
 
 import { db } from '@/data/db'
 import { utilisateur, conversation, message, referral, profilRiasec } from '@/data/schema'
-import { eq, desc } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import bcrypt from 'bcryptjs'
 
@@ -89,6 +89,8 @@ async function handleSignup(body: {
   }
 
   // Check if we have an existing utilisateur from the current session
+  // Sécurité : vérifier que le utilisateurId correspond bien à un user sans mot de passe
+  // ET qu'il a une conversation (preuve qu'il s'agit du vrai utilisateur de cette session)
   if (utilisateurId) {
     const sessionUser = await db
       .select()
@@ -97,24 +99,32 @@ async function handleSignup(body: {
       .limit(1)
 
     if (sessionUser.length > 0 && !sessionUser[0].motDePasse) {
-      // Link this existing session user to the new account
-      await db.update(utilisateur)
-        .set({
+      // Vérifier qu'une conversation existe pour cet utilisateur (preuve de session légitime)
+      const hasConversation = conversationId
+        ? await db.select({ id: conversation.id }).from(conversation)
+            .where(and(eq(conversation.id, conversationId), eq(conversation.utilisateurId, utilisateurId)))
+            .limit(1)
+        : []
+
+      if (!conversationId || hasConversation.length > 0) {
+        await db.update(utilisateur)
+          .set({
+            prenom,
+            email: emailLower,
+            motDePasse: hashedPassword,
+            sessionToken,
+            misAJourLe: now,
+          })
+          .where(eq(utilisateur.id, utilisateurId))
+
+        return Response.json({
+          ok: true,
+          token: sessionToken,
+          utilisateurId,
           prenom,
           email: emailLower,
-          motDePasse: hashedPassword,
-          sessionToken,
-          misAJourLe: now,
         })
-        .where(eq(utilisateur.id, utilisateurId))
-
-      return Response.json({
-        ok: true,
-        token: sessionToken,
-        utilisateurId,
-        prenom,
-        email: emailLower,
-      })
+      }
     }
   }
 
