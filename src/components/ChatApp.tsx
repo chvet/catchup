@@ -982,10 +982,15 @@ export default function ChatApp() {
                       />
                     </div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2">
-                      {structureInfo
-                        ? <>Bienvenue sur {brandConfig.appName} — {structureInfo.nom} 👋</>
-                        : <>Hey ! Moi c&apos;est {brandConfig.appName} 👋</>
-                      }
+                      {(() => {
+                        const hour = new Date().getHours()
+                        const greeting = hour >= 18 || hour < 5 ? 'Bonsoir' : 'Bonjour'
+                        const prenom = savedPrenom || profile.name
+                        if (structureInfo) {
+                          return <>{greeting}{prenom ? ` ${prenom}` : ''} ! Bienvenue sur {brandConfig.appName} 😊</>
+                        }
+                        return <>{greeting}{prenom ? ` ${prenom}` : ''} ! Moi c&apos;est {brandConfig.appName} 😊</>
+                      })()}
                     </h2>
                     <p className="text-gray-500 text-sm mb-6 max-w-[280px] leading-relaxed">
                       Je suis là pour t&apos;aider à trouver ta voie.

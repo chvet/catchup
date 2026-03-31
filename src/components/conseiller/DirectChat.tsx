@@ -924,6 +924,16 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
             <p className="text-4xl mb-3">💬</p>
             <p className="text-gray-400 mb-2">Aucun message pour le moment</p>
             <p className="text-sm text-gray-400">Envoyez un premier message pour démarrer l&apos;accompagnement.<br/>Un code PIN sera automatiquement généré pour le bénéficiaire.</p>
+            <button
+              onClick={() => {
+                const hour = new Date().getHours()
+                const greeting = hour >= 18 || hour < 5 ? 'Bonsoir' : 'Bonjour'
+                setInput(`${greeting} ${beneficiairePrenom || ''} ! `.trimEnd() + ' ')
+              }}
+              className="mt-4 px-4 py-2 bg-catchup-primary/10 text-catchup-primary rounded-full text-sm font-medium hover:bg-catchup-primary/20 transition-colors"
+            >
+              😊 {new Date().getHours() >= 18 || new Date().getHours() < 5 ? 'Bonsoir' : 'Bonjour'} {beneficiairePrenom || ''}...
+            </button>
           </div>
         )}
 

@@ -746,6 +746,16 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
               Votre conseiller {conseillerPrenom} est disponible.
             </p>
             <p className="text-gray-400 text-xs mt-1">Envoyez-lui un message pour d&eacute;marrer la conversation !</p>
+            <button
+              onClick={() => {
+                const hour = new Date().getHours()
+                const greeting = hour >= 18 || hour < 5 ? 'Bonsoir' : 'Bonjour'
+                setInput(`${greeting} ${conseillerPrenom} ! `)
+              }}
+              className="mt-4 px-4 py-2 bg-catchup-primary/10 text-catchup-primary rounded-full text-sm font-medium hover:bg-catchup-primary/20 transition-colors"
+            >
+              {new Date().getHours() >= 18 || new Date().getHours() < 5 ? '😊 Bonsoir' : '😊 Bonjour'} {conseillerPrenom}...
+            </button>
           </div>
         ) : (
           messages.map((msg, idx) => {
