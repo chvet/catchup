@@ -183,21 +183,21 @@ export default function AiAssistantPanel({
       {/* Backdrop mobile */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/30 z-40 md:hidden"
+          className="fixed inset-0 bg-black/30 z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
-      {/* Panel */}
+      {/* Panel — intégré en sidebar droite sur desktop, overlay sur mobile */}
       <div
         className={`
           fixed top-0 right-0 h-full z-50
-          md:relative md:z-auto md:h-auto
-          bg-white border-l border-gray-200 shadow-xl
+          lg:relative lg:z-auto lg:h-full
+          bg-white border-l border-gray-200 shadow-xl lg:shadow-none
           flex flex-col
-          transition-transform duration-300 ease-in-out
-          w-full md:w-[350px] md:min-w-[350px] md:max-w-[350px]
-          ${isOpen ? 'translate-x-0' : 'translate-x-full md:hidden'}
+          transition-all duration-300 ease-in-out
+          w-[85%] sm:w-[350px] lg:w-[350px] lg:min-w-[350px] lg:max-w-[350px]
+          ${isOpen ? 'translate-x-0' : 'translate-x-full lg:w-0 lg:min-w-0 lg:max-w-0 lg:overflow-hidden lg:border-0'}
         `}
       >
         {/* Header */}

@@ -826,7 +826,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   }
 
   return (
-    <div className={`flex ${showAiAssistant ? 'flex-row' : ''}`} style={{ minHeight: '500px' }}>
+    <div className="flex flex-row h-[calc(100vh-180px)]">
     <div className={`flex flex-col ${showAiAssistant ? 'flex-1 min-w-0' : 'w-full'}`}>
       {/* En-tête */}
       <div className="px-6 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
@@ -930,7 +930,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
       )}
 
       {/* Zone de messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3" style={{ maxHeight: '400px' }}>
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
         {loading && (
           <div className="flex items-center justify-center py-12">
             <div className="w-8 h-8 border-3 border-catchup-primary border-t-transparent rounded-full animate-spin" />
@@ -1202,7 +1202,17 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
       />
     </div>
 
-    {/* AI Assistant Panel */}
+    {/* AI Assistant — toggle bar + panel */}
+    {!showAiAssistant && (
+      <button
+        onClick={() => setShowAiAssistant(true)}
+        className="hidden lg:flex flex-col items-center justify-center w-10 bg-indigo-50 border-l border-indigo-100 hover:bg-indigo-100 transition-colors shrink-0 gap-1"
+        title="Ouvrir l'assistant IA"
+      >
+        <span className="text-lg">&#129302;</span>
+        <span className="text-[9px] font-semibold text-indigo-600 writing-vertical" style={{ writingMode: 'vertical-rl' }}>Assistant IA</span>
+      </button>
+    )}
     <AiAssistantPanel
       beneficiairePrenom={beneficiairePrenom}
       beneficiaireAge={beneficiaireAge}
