@@ -989,6 +989,7 @@ export default function ChatApp() {
                     onSpeak={() => handleSpeak(msg.id, msg.content)}
                     rgaaMode={rgaaMode}
                     voiceData={voiceDataMap.current.get(msg.content)}
+                    genre={profile.genre}
                   />
                 ))}
 
@@ -1021,12 +1022,14 @@ export default function ChatApp() {
                   </button>
                 </div>
               ) : hasMessages && (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee') ? (
-                <div className="mx-2 md:mx-6 shrink-0">
+                <div className="mx-3 md:mx-6 shrink-0">
                   <button
                     onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}
-                    className="w-full flex items-center justify-center gap-1 px-2 py-1 bg-catchup-primary/5 border border-catchup-primary/20 rounded-full text-[11px] font-medium text-catchup-primary hover:bg-catchup-primary/10 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-catchup-primary to-catchup-secondary text-white rounded-xl text-sm font-semibold shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                   >
-                    <span>🤝</span><span>À tout moment, parler à un conseiller</span>
+                    <span className="text-base">🙋</span>
+                    <span>Parler à un conseiller</span>
+                    <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </button>
                 </div>
               ) : null}

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <circle cx="60" cy="60" r="60" fill="url(#bg-n)"/>
+  <!-- Cheveux courts neutres -->
+  <ellipse cx="60" cy="40" rx="28" ry="24" fill="#8B7355"/>
+  <!-- Visage -->
+  <ellipse cx="60" cy="58" rx="25" ry="26" fill="#FFDBB4"/>
+  <!-- Yeux joyeux (arcs) -->
+  <path d="M45 55 Q50 50 55 55" stroke="#3D3D3D" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+  <path d="M65 55 Q70 50 75 55" stroke="#3D3D3D" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+  <!-- Grand sourire ouvert -->
+  <path d="M46 67 Q60 82 74 67" stroke="#3D3D3D" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- T-shirt -->
+  <path d="M30 95 Q32 82 60 80 Q88 82 90 95 L90 120 L30 120 Z" fill="url(#ts-n)"/>
+  <!-- Petite etoile -->
+  <circle cx="88" cy="22" r="3" fill="#FFD700" opacity="0.8"/>
+  <circle cx="28" cy="18" r="2" fill="#FFD700" opacity="0.6"/>
+  <defs>
+    <linearGradient id="bg-n" x1="0" y1="0" x2="120" y2="120">
+      <stop offset="0%" stop-color="#FFF8E1"/>
+      <stop offset="100%" stop-color="#F0E6FF"/>
+    </linearGradient>
+    <linearGradient id="ts-n" x1="30" y1="80" x2="90" y2="120">
+      <stop offset="0%" stop-color="#6C63FF"/>
+      <stop offset="100%" stop-color="#9B8FFF"/>
+    </linearGradient>
+  </defs>
+</svg>

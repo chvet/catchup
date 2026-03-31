@@ -149,17 +149,19 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
           <div className="p-4 flex items-center justify-between border-b border-white/10">
             {(sidebarOpen || isMobile) ? (
               <div className="flex items-center gap-2.5">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/favicon-catchup.png" alt={brandConfig.appName} className="w-8 h-8" />
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/favicon-catchup.png" alt={brandConfig.appName} className="w-6 h-6 object-contain" />
+                </div>
                 <div>
                   <h1 className="text-lg font-bold text-catchup-primary leading-tight">{brandConfig.appName}</h1>
                   <p className="text-[10px] text-gray-400">Espace Conseiller</p>
                 </div>
               </div>
             ) : (
-              <div className="mx-auto">
+              <div className="mx-auto w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/favicon-catchup.png" alt={brandConfig.appName} className="w-8 h-8" />
+                <img src="/favicon-catchup.png" alt={brandConfig.appName} className="w-6 h-6 object-contain" />
               </div>
             )}
             <button

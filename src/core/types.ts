@@ -20,6 +20,7 @@ export interface MessageMetadata {
 export interface UserProfile {
   id: string
   name?: string
+  genre?: 'M' | 'F' | null
   R: number
   I: number
   A: number
@@ -116,6 +117,7 @@ export const RIASEC_ICONS: Record<string, string> = {
 
 export const EMPTY_PROFILE: UserProfile = {
   id: 'default',
+  genre: null,
   R: 0, I: 0, A: 0, S: 0, E: 0, C: 0,
   traits: [],
   interests: [],

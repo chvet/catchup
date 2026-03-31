@@ -14,9 +14,15 @@ interface Props {
   onSpeak: () => void
   rgaaMode: boolean
   voiceData?: VoiceData
+  genre?: 'M' | 'F' | null
 }
 
-export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, voiceData }: Props) {
+const AVATAR_BY_GENRE: Record<string, string> = {
+  M: '/avatar-homme.svg',
+  F: '/avatar-femme.svg',
+}
+
+export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, voiceData, genre }: Props) {
   const isUser = message.role === 'user'
   const msgDate = message.createdAt ? new Date(message.createdAt as string | number | Date) : new Date()
   const time = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -24,8 +30,9 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
   return (
     <div className={`flex mb-2.5 msg-appear w-full max-w-full overflow-hidden ${isUser ? 'justify-end' : 'justify-start'}`}>
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-catchup-primary to-catchup-accent flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5 shadow-sm">
-          <span className="text-sm">🚀</span>
+        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5 shadow-sm overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/favicon-catchup.png" alt="Catch'Up" className="w-6 h-6 object-contain" />
         </div>
       )}
 
@@ -84,8 +91,9 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
       </div>
 
       {isUser && (
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-catchup-secondary to-pink-400 flex items-center justify-center flex-shrink-0 ml-1.5 mt-0.5 shadow-sm">
-          <span className="text-white text-xs font-bold">👤</span>
+        <div className="w-8 h-8 rounded-full flex-shrink-0 ml-1.5 mt-0.5 shadow-sm overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={genre ? AVATAR_BY_GENRE[genre] || '/avatar-neutre.svg' : '/avatar-neutre.svg'} alt="Vous" className="w-8 h-8" />
         </div>
       )}
     </div>
