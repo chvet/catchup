@@ -590,7 +590,17 @@ export default function ChatApp() {
   const handleReset = useCallback(() => {
     setShowResetConfirm(true)
   }, [])
-  const confirmReset = useCallback(() => {
+  const [resetting, setResetting] = useState(false)
+  const confirmReset = useCallback(async () => {
+    setResetting(true)
+    try {
+      // Si un accompagnement est en cours, rompre proprement
+      if (referralId && (referralStatus === 'prise_en_charge' || referralStatus === 'en_attente' || referralStatus === 'nouvelle')) {
+        await fetch(`/api/referrals/${referralId}/rupture`, { method: 'POST' })
+      }
+    } catch {
+      // On continue le reset même si l'appel échoue
+    }
     // Effacer les données de conversation + referral pour repartir de zéro
     localStorage.removeItem(LS_MESSAGES_KEY)
     localStorage.removeItem(LS_PROFILE_KEY)
@@ -601,7 +611,7 @@ export default function ChatApp() {
     setShowResetConfirm(false)
     // Recharger la page pour repartir de zéro proprement
     window.location.reload()
-  }, [])
+  }, [referralId, referralStatus])
 
   const handleCancelReferral = async () => {
     if (!referralId) return
@@ -765,14 +775,6 @@ export default function ChatApp() {
           </button>
         </div>
       )}
-      {referralStatus === 'en_attente' && (
-        <div className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-200">
-          <span className="text-amber-600 text-sm inline-block animate-spin" style={{ animationDuration: '2s' }}>⏳</span>
-          <p className="text-xs text-amber-800 font-medium">
-            Ta demande est en cours de traitement. Un conseiller te contactera bientôt.
-          </p>
-        </div>
-      )}
 
       {/* Bandeau nom de la structure partenaire */}
       {structureInfo && chatMode === 'ia' && (
@@ -800,12 +802,28 @@ export default function ChatApp() {
               <span className="text-2xl">⚠️</span>
             </div>
             <h3 className="text-lg font-bold text-gray-800 mb-2">Nouvelle conversation ?</h3>
-            <p className="text-sm text-gray-500 mb-5">
-              {referralStatus === 'prise_en_charge'
-                ? <>Attention : ta discussion avec ton conseiller sera interrompue et tu perdras l&apos;accompagnement en cours.</>
-                : <>Ta conversation actuelle sera perdue. Si tu veux la garder, inscris-toi d&apos;abord.</>
-              }
-            </p>
+            {referralStatus === 'prise_en_charge' ? (
+              <div className="text-sm text-gray-500 mb-5 space-y-2">
+                <p className="font-semibold text-red-600">
+                  Ton accompagnement avec {referralConseillerPrenom || 'ton conseiller'} sera rompu.
+                </p>
+                <p>
+                  Un message sera envoy&eacute; &agrave; ton conseiller pour l&apos;informer.
+                  Tu pourras toujours refaire une demande plus tard.
+                </p>
+              </div>
+            ) : referralStatus === 'en_attente' ? (
+              <div className="text-sm text-gray-500 mb-5 space-y-2">
+                <p className="font-semibold text-amber-600">
+                  Ta demande d&apos;accompagnement en attente sera annul&eacute;e.
+                </p>
+                <p>Tu pourras en refaire une plus tard si tu le souhaites.</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 mb-5">
+                Ta conversation actuelle sera perdue. Si tu veux la garder, inscris-toi d&apos;abord.
+              </p>
+            )}
             <div className="flex flex-col gap-2.5">
               {!authUser && (
                 <button
@@ -817,9 +835,10 @@ export default function ChatApp() {
               )}
               <button
                 onClick={confirmReset}
-                className="w-full px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors"
+                disabled={resetting}
+                className="w-full px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Repartir à zéro
+                {resetting ? 'Fermeture en cours...' : referralStatus === 'prise_en_charge' ? 'Rompre et repartir à zéro' : 'Repartir à zéro'}
               </button>
               <button
                 onClick={() => setShowResetConfirm(false)}
@@ -994,6 +1013,26 @@ export default function ChatApp() {
                 ))}
 
                 {isLoading && <TypingIndicator />}
+
+                {referralStatus === 'en_attente' && (
+                  <div className="flex mb-2.5 msg-appear justify-start">
+                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5 shadow-sm overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/favicon-catchup.png?v=2" alt="Catch'Up" className="w-6 h-6 object-contain" />
+                    </div>
+                    <div className="max-w-[85%] md:max-w-[65%]">
+                      <div className="msg-bubble rounded-2xl rounded-bl-sm px-3.5 py-2.5 shadow-sm bg-white text-gray-800">
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-500 inline-block animate-spin" style={{ animationDuration: '2s' }}>⏳</span>
+                          <p className="text-[15px] leading-relaxed">
+                            Ta demande est en cours de traitement. Un conseiller te contactera bientôt 😊
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </div>
 

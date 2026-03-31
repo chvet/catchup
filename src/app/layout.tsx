@@ -33,8 +33,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        <link rel="icon" type="image/png" href="/favicon-catchup.png" />
-        <link rel="apple-touch-icon" href="/logo-catchup.png" />
+        <link rel="icon" type="image/png" href="/favicon-catchup.png?v=2" />
+        <link rel="apple-touch-icon" href="/logo-catchup.png?v=2" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className="font-sans antialiased bg-catchup-bg overflow-x-hidden">

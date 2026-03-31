@@ -32,7 +32,7 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
       {!isUser && (
         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5 shadow-sm overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/favicon-catchup.png" alt="Catch'Up" className="w-6 h-6 object-contain" />
+          <img src="/favicon-catchup.png?v=2" alt="Catch'Up" className="w-6 h-6 object-contain" />
         </div>
       )}
 
