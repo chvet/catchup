@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
@@ -137,7 +137,9 @@ export default function CaseDetailPage() {
   const [newNote, setNewNote] = useState('')
   const [notes, setNotes] = useState<{ id: string; contenu: string; horodatage: string }[]>([])
   const [statusUpdating, setStatusUpdating] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabType>('resume')
+  const searchParams = useSearchParams()
+  const initialTab = searchParams.get('tab') as TabType | null
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab && ['resume','conversation','accompagnement','profil','notes','journal'].includes(initialTab) ? initialTab : 'resume')
 
   // État pour l'historique de conversation (chargement à la demande)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
@@ -208,6 +210,7 @@ export default function CaseDetailPage() {
     if (res.ok) {
       const d = await fetch(`/api/conseiller/file-active/${id}`).then(r => r.json())
       setData(d)
+      setActiveTab('accompagnement')
     } else {
       const err = await res.json().catch(() => ({ error: 'Erreur inconnue' }))
       alert(err.error || 'Erreur lors de la prise en charge')

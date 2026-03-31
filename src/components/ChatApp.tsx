@@ -1052,12 +1052,14 @@ export default function ChatApp() {
 
               {/* ── Barre compacte : statut referral OU bouton mise en relation ── */}
               {hasMessages && referralStatus === 'prise_en_charge' ? (
-                <div className="mx-2 md:mx-6 shrink-0">
+                <div className="mx-3 md:mx-6 shrink-0">
                   <button
                     onClick={() => setChatMode('conseiller')}
-                    className="w-full flex items-center justify-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded-full text-[11px] font-medium text-green-700 hover:bg-green-100 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500 text-white rounded-xl text-sm font-semibold shadow-md hover:bg-green-600 hover:shadow-lg active:scale-[0.98] transition-all duration-200"
                   >
-                    <span>🤝</span><span>Ton conseiller {referralConseillerPrenom} est disponible — clique ici pour discuter</span>
+                    <span className="text-base">😊</span>
+                    <span>Ton conseiller {referralConseillerPrenom} est disponible — discuter</span>
+                    <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </button>
                 </div>
               ) : hasMessages && (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee') ? (

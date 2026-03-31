@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useConseiller } from '@/components/conseiller/ConseillerProvider'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import OnlineDot from '@/components/OnlineDot'
@@ -324,6 +324,7 @@ function CompatibilityScore({ item }: { item: ReferralItem }) {
 
 export default function FileActivePage() {
   const conseiller = useConseiller()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [allReferrals, setAllReferrals] = useState<ReferralItem[]>([])
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 200, total: 0, pages: 0 })
@@ -706,9 +707,8 @@ export default function FileActivePage() {
         headers: { 'Content-Type': 'application/json' },
       })
       if (res.ok) {
-        setGeneriqueData(prev => prev.filter(r => r.id !== item.id))
         setToast(`${item.prenom || 'Anonyme'} pris(e) en charge`)
-        fetchData() // Refresh main data so "Mes accompagnements" updates
+        router.push(`/conseiller/file-active/${item.id}?tab=accompagnement`)
       } else {
         setToast('Erreur lors de la prise en charge')
       }
