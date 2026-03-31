@@ -116,8 +116,12 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
     <div className="bg-white border-t border-gray-200 px-2 py-1 safe-area-bottom">
       {/* Indicateur de transcription */}
       {transcribing && (
-        <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
-          <div className="w-3 h-3 border-2 border-catchup-primary border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center gap-2 px-3 py-1.5 mb-1 animate-fade-in">
+          <div className="flex gap-1">
+            <span className="w-1.5 h-1.5 bg-catchup-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 bg-catchup-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1.5 h-1.5 bg-catchup-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
           <span className="text-xs text-gray-500">Transcription en cours...</span>
         </div>
       )}
@@ -131,7 +135,7 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
         <FileAttachment onFile={handleFile} />
 
         {/* Zone de saisie : [emoji | texte | micro] */}
-        <div className="flex-1 flex items-end gap-0 bg-gray-50 border border-gray-200 rounded-2xl focus-within:border-catchup-primary focus-within:ring-1 focus-within:ring-catchup-primary/30 transition-all min-w-0 overflow-hidden">
+        <div className="flex-1 flex items-end gap-0 bg-gray-50 border border-gray-200 rounded-2xl focus-within:border-catchup-primary focus-within:ring-2 focus-within:ring-catchup-primary/30 transition-all duration-200 min-w-0 overflow-hidden">
           {/* Emoji button inside input, left side */}
           <div className="flex items-center pl-1 pb-1.5 shrink-0">
             <EmojiPickerBtn onSelect={handleEmoji} />
@@ -145,7 +149,7 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
             placeholder="Message..."
             rows={1}
             disabled={isLoading || transcribing}
-            className="flex-1 min-w-0 resize-none bg-transparent py-2 pr-1 text-[15px] text-gray-800 placeholder-gray-400 focus:outline-none disabled:opacity-50"
+            className="flex-1 min-w-0 resize-none bg-transparent py-2 pr-1 text-[15px] text-gray-800 placeholder-gray-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ maxHeight: '100px' }}
             autoFocus
           />

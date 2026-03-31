@@ -36,6 +36,8 @@ export default function SuggestionChips({ onSelect, messageCount = 0, compact = 
             chip-hover inline-flex items-center gap-1.5
             bg-white border border-catchup-primary/20
             text-catchup-primary rounded-full shadow-sm
+            hover:bg-catchup-primary/5 hover:shadow-md
+            focus-visible:ring-2 focus-visible:ring-catchup-primary focus-visible:outline-none
             transition-all active:scale-95 shrink-0 whitespace-nowrap
             ${compact ? 'px-3 py-1.5 text-[13px]' : 'px-4 py-2 text-sm'}
           `}

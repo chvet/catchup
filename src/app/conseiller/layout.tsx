@@ -137,7 +137,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
         )}
 
         {/* Sidebar */}
-        <aside className={`
+        <aside id="sidebar-nav" className={`
           bg-catchup-dark text-white flex flex-col shrink-0
           transition-all duration-300 ease-in-out
           ${isMobile
@@ -172,7 +172,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 py-4 overflow-y-auto">
+          <nav className="flex-1 py-4 overflow-y-auto" aria-label="Navigation principale">
             {navItems.map(item => {
               const isActive = 'exact' in item && item.exact
                 ? pathname === item.href
@@ -185,7 +185,8 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
                   key={item.href}
                   href={item.href}
                   className={`
-                    flex items-center gap-3 px-4 py-3 text-sm transition-colors relative
+                    flex items-center gap-3 px-4 py-3 text-sm transition-colors duration-150 relative
+                    focus-visible:ring-2 focus-visible:ring-catchup-primary focus-visible:outline-none
                     ${isActive
                       ? 'bg-catchup-primary/20 text-catchup-primary border-r-2 border-catchup-primary'
                       : 'text-gray-300 hover:bg-white/5 hover:text-white'
@@ -223,12 +224,12 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
 
           {/* User info */}
           {(sidebarOpen || isMobile) && conseiller && (
-            <div className="p-4 border-t border-white/10">
+            <div className="p-4 border-t border-white/10 hover:bg-white/5 transition-colors duration-150 rounded-lg mx-1 mb-1">
               <p className="text-sm font-medium">{conseiller.prenom} {conseiller.nom}</p>
               <p className="text-xs text-gray-400">{conseiller.structure?.nom || 'Super Admin'}</p>
               <button
                 onClick={handleLogout}
-                className="mt-2 text-xs text-red-400 hover:text-red-300 transition-colors"
+                className="mt-2 text-xs text-red-400 hover:text-red-300 transition-colors focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none rounded"
               >
                 Se déconnecter
               </button>
@@ -246,6 +247,8 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="lg:hidden text-gray-500 hover:text-gray-700 text-xl p-1"
                 aria-label="Menu"
+                aria-expanded={sidebarOpen}
+                aria-controls="sidebar-nav"
               >
                 ☰
               </button>

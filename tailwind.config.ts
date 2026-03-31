@@ -14,6 +14,7 @@ const config: Config = {
           bg: '#F0F2F5',
           dark: '#1A1A2E',
         },
+        'parcoureo': '#2D5F8A',
       },
       fontFamily: {
         sans: ['Inter', 'Segoe UI', 'Roboto', 'sans-serif'],
@@ -32,11 +33,21 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateY(100%)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'scale-in': {
+          '0%': { opacity: '0', transform: 'scale(0.9)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'skeleton': {
+          '0%, 100%': { opacity: '0.4' },
+          '50%': { opacity: '1' },
+        },
       },
       animation: {
         'bounce-once': 'bounce-once 0.6s ease-in-out',
         'fade-in': 'fade-in 0.4s ease-out',
         'slide-up': 'slide-up 0.3s ease-out',
+        'scale-in': 'scale-in 0.2s ease-out',
+        'skeleton': 'skeleton 1.5s ease-in-out infinite',
       },
     },
   },

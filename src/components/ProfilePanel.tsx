@@ -166,14 +166,15 @@ export default function ProfilePanel({ profile, messageCount = 0, gameState, onC
   }, [confiance.niveau])
 
   return (
-    <div className="absolute inset-y-0 right-0 w-80 md:w-96 bg-white shadow-2xl z-40 slide-in-right flex flex-col">
+    <div className="absolute inset-y-0 right-0 w-80 md:w-96 bg-white shadow-2xl z-40 slide-in-right flex flex-col" role="dialog" aria-label="Profil utilisateur">
       {/* Header */}
       <div className="bg-gradient-to-r from-catchup-primary to-indigo-600 text-white px-4 py-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-bold text-lg">Mon profil</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
+            className="p-1.5 rounded-full hover:bg-white/20 transition-colors focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none"
+            aria-label="Fermer le profil"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
