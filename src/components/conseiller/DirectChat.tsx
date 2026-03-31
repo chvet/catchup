@@ -492,10 +492,12 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
 
       if (res.ok) {
         const data = await res.json()
-        if (data.message) {
+        // L'API retourne le message directement à la racine (pas dans .message)
+        const msg = data.message || data
+        if (msg.id) {
           setMessages(prev => {
-            if (prev.some(m => m.id === data.message.id)) return prev
-            return [...prev, data.message]
+            if (prev.some(m => m.id === msg.id)) return prev
+            return [...prev, msg]
           })
         }
       }

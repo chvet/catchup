@@ -215,7 +215,9 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
       })
       .catch((err) => {
         console.error('[AccompagnementChat] Load error:', err)
-        setError('Session expirée. Veuillez vous reconnecter.')
+        // Session expirée — supprimer le token invalide du localStorage
+        try { localStorage.removeItem('catchup_accompagnement') } catch {}
+        setError('session_expired')
         setLoading(false)
       })
   }, [token])
@@ -671,14 +673,19 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-white px-6 text-center">
-        <span className="text-4xl mb-4">⚠️</span>
-        <p className="text-gray-700 font-medium mb-2">{error}</p>
+        <span className="text-4xl mb-4">🔄</span>
+        <p className="text-gray-700 font-medium mb-2">
+          {error === 'session_expired' ? 'Ta session a expiré' : error}
+        </p>
+        <p className="text-gray-400 text-sm mb-4">
+          {error === 'session_expired' ? 'Reconnecte-toi avec ton code PIN pour reprendre la conversation.' : ''}
+        </p>
         <button
           onClick={() => {
             localStorage.removeItem('catchup_accompagnement')
             window.location.reload()
           }}
-          className="mt-3 px-4 py-2 bg-catchup-primary text-white rounded-lg text-sm hover:bg-catchup-primary/90 transition-colors"
+          className="px-5 py-2.5 bg-catchup-primary text-white rounded-xl text-sm font-medium hover:bg-catchup-primary/90 active:scale-[0.98] transition-all"
         >
           Se reconnecter
         </button>

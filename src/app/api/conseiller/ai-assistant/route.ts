@@ -15,22 +15,35 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { messages, context } = body
 
-    if (!messages || !Array.isArray(messages) || !context?.prenom) {
+    if (!messages || !Array.isArray(messages)) {
       return Response.json(
-        { error: 'Messages et contexte (prenom) requis' },
+        { error: 'Messages requis' },
         { status: 400 }
       )
     }
 
-    const systemPrompt = `Tu es un assistant IA privé pour les conseillers d'orientation Catch'Up.
+    const hasContext = context?.prenom
+    const systemPrompt = hasContext
+      ? `Tu es un assistant IA privé pour les conseillers d'orientation Catch'Up.
 Tu aides le conseiller à accompagner ${context.prenom}${context.age ? `, ${context.age} ans` : ''}.
 ${context.resumeConversation ? `Résumé de la conversation IA avec le bénéficiaire : ${context.resumeConversation}` : ''}
 
 Ton rôle :
-- Suggérer des approches pédagogiques adaptées au profil
+- Suggérer des approches pédagogiques adaptées au profil du bénéficiaire
 - Proposer des formations ou métiers pertinents
 - Aider à rédiger des messages bienveillants et motivants
 - Alerter sur les signaux de fragilité et comment y répondre
+- Être concis et professionnel
+
+Réponds toujours en français.`
+      : `Tu es un assistant IA privé pour les conseillers d'orientation Catch'Up.
+Tu aides les conseillers dans leur travail quotidien d'accompagnement de jeunes (16-25 ans).
+
+Ton rôle :
+- Conseiller sur les approches pédagogiques
+- Proposer des formations, métiers ou ressources
+- Aider à rédiger des messages ou courriers
+- Informer sur les dispositifs d'insertion (Garantie Jeunes, PACEA, CEJ, etc.)
 - Être concis et professionnel
 
 Réponds toujours en français.`
