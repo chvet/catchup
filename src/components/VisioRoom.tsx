@@ -494,14 +494,16 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
       switch (parsed.type) {
         case MSG_JPEG:
-          if (!useFallbackImg && typeof VideoDecoder !== 'undefined') break
+          // Toujours accepter les frames JPEG — l'autre participant
+          // peut envoyer du JPEG (Firefox/Safari) même si on supporte VP8
           handleJpegFrame(parsed.payload)
           break
         case MSG_VP8_KEY:
         case MSG_VP8_DELTA:
           if (useFallbackImg) {
-            // Already in fallback mode, ignore VP8
-            break
+            // On recevait du JPEG, mais maintenant on reçoit du VP8
+            // Basculer vers VP8 (meilleure qualité)
+            setUseFallbackImg(false)
           }
           handleVP8Frame(parsed.type, parsed.payload)
           break
@@ -526,7 +528,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     ws.onerror = () => {
       console.error('[Visio] WebSocket error')
     }
-  }, [roomId, participantName, participantRole, sendControl, parseFrame, handleJpegFrame, handleVP8Frame, handleAudioChunk, useFallbackImg])
+  }, [roomId, participantName, participantRole, sendControl, parseFrame, handleJpegFrame, handleVP8Frame, handleAudioChunk])
 
   // ── Start media (called from useEffect or from user tap on iOS) ──
 
@@ -808,22 +810,19 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
       {/* Main video area */}
       <div className="flex-1 relative overflow-hidden bg-black">
-        {/* Remote video */}
+        {/* Remote video — both canvas (VP8) and img (JPEG) are mounted, visibility toggled */}
         {hasRemoteVideo ? (
           <>
-            {!useFallbackImg ? (
-              <canvas
-                ref={remoteCanvasRef}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                ref={remoteImgRef}
-                alt="Video distante"
-                className="w-full h-full object-contain"
-              />
-            )}
+            <canvas
+              ref={remoteCanvasRef}
+              className={`w-full h-full object-contain absolute inset-0 ${useFallbackImg ? 'hidden' : ''}`}
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              ref={remoteImgRef}
+              alt="Video distante"
+              className={`w-full h-full object-contain ${useFallbackImg ? '' : 'hidden'}`}
+            />
           </>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-white/60">
