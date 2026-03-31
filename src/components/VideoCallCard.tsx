@@ -17,9 +17,10 @@ interface VideoCallCardProps {
   viewerName?: string
   onAccept?: (id: string) => void
   onDecline?: (id: string) => void
+  onCancel?: (id: string) => void
 }
 
-export default function VideoCallCard({ proposal, viewerType, viewerId, viewerName, onAccept, onDecline }: VideoCallCardProps) {
+export default function VideoCallCard({ proposal, viewerType, viewerId, viewerName, onAccept, onDecline, onCancel }: VideoCallCardProps) {
   const { id, statut, jitsiUrl: videoUrl, proposePar } = proposal
   const [showIOSWarning, setShowIOSWarning] = useState(false)
   const [iosCopied, setIosCopied] = useState(false)
@@ -159,6 +160,18 @@ export default function VideoCallCard({ proposal, viewerType, viewerId, viewerNa
               className="flex-1 px-4 py-2.5 text-sm font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
             >
               Accepter
+            </button>
+          </div>
+        )}
+
+        {/* Cancel button for proposer (pending) or anyone (accepted) */}
+        {onCancel && !isRefused && (isPending && isProposer || isAccepted) && (
+          <div className="border-t border-gray-100">
+            <button
+              onClick={() => onCancel(id)}
+              className="w-full px-4 py-2 text-xs font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+            >
+              Annuler l&apos;appel
             </button>
           </div>
         )}

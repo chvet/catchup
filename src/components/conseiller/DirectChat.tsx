@@ -650,6 +650,24 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
             viewerType="conseiller"
             viewerId={msg.expediteurId}
             viewerName={conseillerPrenom}
+            onCancel={async (videoId) => {
+              try {
+                const res = await fetch(`/api/conseiller/file-active/${referralId}/video/cancel`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ messageId: msg.id }),
+                })
+                if (res.ok) {
+                  setMessages(prev => prev.map(m => {
+                    if (m.id !== msg.id) return m
+                    const content = JSON.parse(m.contenu)
+                    return { ...m, contenu: JSON.stringify({ ...content, statut: 'declinee' }) }
+                  }))
+                }
+              } catch (err) {
+                console.error('Erreur annulation visio:', err)
+              }
+            }}
           />
         )
 
