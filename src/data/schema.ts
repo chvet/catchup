@@ -23,6 +23,7 @@ export const utilisateur = sqliteTable('utilisateur', {
   misAJourLe: text('mis_a_jour_le').notNull(),
   motDePasse: text('mot_de_passe'),
   sessionToken: text('session_token').unique(),
+  sessionTokenExpireLe: text('session_token_expire_le'),
   derniereVisite: text('derniere_visite'),
   supprimeLe: text('supprime_le'),
 })

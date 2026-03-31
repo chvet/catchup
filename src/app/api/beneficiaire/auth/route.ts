@@ -8,6 +8,13 @@ import { eq, and, desc } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import bcrypt from 'bcryptjs'
 
+// Duree de validite du token beneficiaire : 30 jours
+const SESSION_TOKEN_DURATION_MS = 30 * 24 * 60 * 60 * 1000
+
+function getTokenExpiry(): string {
+  return new Date(Date.now() + SESSION_TOKEN_DURATION_MS).toISOString()
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -75,6 +82,7 @@ async function handleSignup(body: {
         email: emailLower,
         motDePasse: hashedPassword,
         sessionToken,
+        sessionTokenExpireLe: getTokenExpiry(),
         misAJourLe: now,
       })
       .where(eq(utilisateur.id, existing[0].id))
@@ -113,6 +121,7 @@ async function handleSignup(body: {
             email: emailLower,
             motDePasse: hashedPassword,
             sessionToken,
+            sessionTokenExpireLe: getTokenExpiry(),
             misAJourLe: now,
           })
           .where(eq(utilisateur.id, utilisateurId))
@@ -136,6 +145,7 @@ async function handleSignup(body: {
     email: emailLower,
     motDePasse: hashedPassword,
     sessionToken,
+    sessionTokenExpireLe: getTokenExpiry(),
     creeLe: now,
     misAJourLe: now,
   })
@@ -187,7 +197,7 @@ async function handleLogin(body: { email: string; password: string }) {
   const now = new Date().toISOString()
 
   await db.update(utilisateur)
-    .set({ sessionToken, derniereVisite: now, misAJourLe: now })
+    .set({ sessionToken, sessionTokenExpireLe: getTokenExpiry(), derniereVisite: now, misAJourLe: now })
     .where(eq(utilisateur.id, user.id))
 
   // Fetch user's latest conversation + messages
@@ -268,14 +278,25 @@ async function handleRestore(body: { token: string }) {
     .limit(1)
 
   if (users.length === 0) {
-    return Response.json({ error: 'Session expir\u00e9e' }, { status: 401 })
+    return Response.json({ error: 'Session expiree' }, { status: 401 })
   }
 
   const user = users[0]
+
+  // Vérifier l'expiration du token (30 jours)
+  if (user.sessionTokenExpireLe && new Date(user.sessionTokenExpireLe) < new Date()) {
+    // Token expiré — le supprimer
+    await db.update(utilisateur)
+      .set({ sessionToken: null, sessionTokenExpireLe: null })
+      .where(eq(utilisateur.id, user.id))
+    return Response.json({ error: 'Session expiree' }, { status: 401 })
+  }
+
   const now = new Date().toISOString()
 
+  // Prolonger le token à chaque restore (rolling expiration)
   await db.update(utilisateur)
-    .set({ derniereVisite: now })
+    .set({ derniereVisite: now, sessionTokenExpireLe: getTokenExpiry() })
     .where(eq(utilisateur.id, user.id))
 
   // Same restore logic as login
