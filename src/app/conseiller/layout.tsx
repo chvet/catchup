@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { ConseillerProvider, type ConseillerInfo } from '@/components/conseiller/ConseillerProvider'
 import PushNotificationManager from '@/components/PushNotificationManager'
+import AiAssistantPanel from '@/components/conseiller/AiAssistantPanel'
 import { useAppBrand } from '@/hooks/useAppBrand'
 import { useHeartbeat } from '@/hooks/useHeartbeat'
 
@@ -312,6 +313,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
         </main>
       </div>
       {conseiller && <PushNotificationManager type="conseiller" />}
+      {conseiller && <AiAssistantPanel />}
     </ConseillerProvider>
   )
 }

@@ -5,7 +5,7 @@
 // Integre : envoi de documents, appels video (Jitsi), planification de RDV
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import AiAssistantPanel from '@/components/conseiller/AiAssistantPanel'
+// AiAssistantPanel est maintenant dans le layout conseiller (FAB flottant)
 import VideoCallCard from '@/components/VideoCallCard'
 import RdvCard from '@/components/RdvCard'
 import PlanifierRdvModal from '@/components/conseiller/PlanifierRdvModal'
@@ -240,7 +240,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   const [sendingRelance, setSendingRelance] = useState(false)
 
   // AI Assistant panel
-  const [showAiAssistant, setShowAiAssistant] = useState(false)
+  // AI assistant panel supprimé — maintenant dans le layout conseiller (FAB flottant)
 
   // Charger les messages initiaux
   useEffect(() => {
@@ -826,8 +826,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   }
 
   return (
-    <div className="flex flex-row h-[calc(100vh-180px)]">
-    <div className={`flex flex-col ${showAiAssistant ? 'flex-1 min-w-0' : 'w-full'}`}>
+    <div className="flex flex-col h-[calc(100vh-180px)]">
       {/* En-tête */}
       <div className="px-6 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -842,17 +841,6 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAiAssistant(prev => !prev)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              showAiAssistant
-                ? 'text-indigo-700 bg-indigo-100 border border-indigo-300'
-                : 'text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100'
-            }`}
-            title="Assistant IA"
-          >
-            &#129302; IA
-          </button>
           {!ruptured && (
             <button
               onClick={() => setRuptureModalOpen(true)}
@@ -1200,26 +1188,6 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
         onClose={() => setRdvModalOpen(false)}
         onCreated={handleRdvCreated}
       />
-    </div>
-
-    {/* AI Assistant — toggle bar + panel */}
-    {!showAiAssistant && (
-      <button
-        onClick={() => setShowAiAssistant(true)}
-        className="hidden lg:flex flex-col items-center justify-center w-10 bg-indigo-50 border-l border-indigo-100 hover:bg-indigo-100 transition-colors shrink-0 gap-1"
-        title="Ouvrir l'assistant IA"
-      >
-        <span className="text-lg">&#129302;</span>
-        <span className="text-[9px] font-semibold text-indigo-600 writing-vertical" style={{ writingMode: 'vertical-rl' }}>Assistant IA</span>
-      </button>
-    )}
-    <AiAssistantPanel
-      beneficiairePrenom={beneficiairePrenom}
-      beneficiaireAge={beneficiaireAge}
-      conversationResume={null}
-      isOpen={showAiAssistant}
-      onClose={() => setShowAiAssistant(false)}
-    />
     </div>
   )
 }
