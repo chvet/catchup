@@ -451,7 +451,7 @@ function msgTimestamps(baseHoursAgo: number, count: number): string[] {
 // ── Seed principal ──────────────────────────────────────────────────
 
 async function seed() {
-  const client = createClient({ url: 'file:/app/data/local.db' })
+  const client = createClient({ url: process.env.TURSO_DATABASE_URL || 'file:/app/data/local.db' })
 
   console.log('=== Seed complet Catch\'Up ===\n')
 

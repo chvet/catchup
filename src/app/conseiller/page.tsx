@@ -132,8 +132,33 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-10 h-10 border-4 border-catchup-primary border-t-transparent rounded-full animate-spin" />
+      <div className="space-y-6 animate-fade-in">
+        {/* Skeleton header */}
+        <div className="flex items-center justify-between">
+          <div className="skeleton h-8 w-48" />
+          <div className="skeleton h-9 w-32 rounded-lg" />
+        </div>
+        {/* Skeleton KPI cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-gray-100 p-3 sm:p-4 space-y-2">
+              <div className="skeleton h-6 w-8" />
+              <div className="skeleton h-7 w-16" />
+              <div className="skeleton h-4 w-24" />
+            </div>
+          ))}
+        </div>
+        {/* Skeleton charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
+            <div className="skeleton h-5 w-40 mb-4" />
+            <div className="skeleton h-48 w-full" />
+          </div>
+          <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
+            <div className="skeleton h-5 w-40 mb-4" />
+            <div className="skeleton h-48 w-full" />
+          </div>
+        </div>
       </div>
     )
   }
@@ -547,7 +572,7 @@ function CampagnesWidget() {
             </div>
             <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-500 ${progressColor(c.pourcentage, c.dateFin)}`}
+                className={`h-full rounded-full transition-all duration-500 ease-out ${progressColor(c.pourcentage, c.dateFin)}`}
                 style={{ width: `${c.pourcentage}%` }}
               />
             </div>
@@ -608,7 +633,7 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 hover:border-catchup-primary hover:shadow-md transition-all group"
+      className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 hover:border-catchup-primary hover:shadow-md active:scale-[0.98] transition-all duration-150 group"
     >
       <span className="text-2xl group-hover:scale-110 transition-transform">{icon}</span>
       <div className="min-w-0">

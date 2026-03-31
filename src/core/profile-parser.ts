@@ -37,6 +37,7 @@ export function extractProfileFromMessage(content: string): UserProfile | null {
     return {
       id: 'default',
       name: data.name || undefined,
+      genre: data.genre === 'M' || data.genre === 'F' ? data.genre : null,
       R: clamp(data.R || 0),
       I: clamp(data.I || 0),
       A: clamp(data.A || 0),
