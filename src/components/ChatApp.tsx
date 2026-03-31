@@ -976,7 +976,7 @@ export default function ChatApp() {
                     <div className="mb-6">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src="/logo-catchup.png"
+                        src="/logo-catchup.png?v=3"
                         alt="Catch'Up"
                         className="h-28 md:h-36 object-contain mx-auto"
                       />
@@ -1018,7 +1018,7 @@ export default function ChatApp() {
                   <div className="flex mb-2.5 msg-appear justify-start">
                     <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5 shadow-sm overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/favicon-catchup.png?v=2" alt="Catch'Up" className="w-6 h-6 object-contain" />
+                      <img src="/favicon-catchup.png?v=3" alt="Catch'Up" className="w-6 h-6 object-contain" />
                     </div>
                     <div className="max-w-[85%] md:max-w-[65%]">
                       <div className="msg-bubble rounded-2xl rounded-bl-sm px-3.5 py-2.5 shadow-sm bg-white text-gray-800">

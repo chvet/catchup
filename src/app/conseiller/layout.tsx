@@ -151,7 +151,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/favicon-catchup.png?v=2" alt={brandConfig.appName} className="w-6 h-6 object-contain" />
+                  <img src="/favicon-catchup.png?v=3" alt={brandConfig.appName} className="w-6 h-6 object-contain" />
                 </div>
                 <div>
                   <h1 className="text-lg font-bold text-catchup-primary leading-tight">{brandConfig.appName}</h1>
@@ -161,7 +161,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
             ) : (
               <div className="mx-auto w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/favicon-catchup.png?v=2" alt={brandConfig.appName} className="w-6 h-6 object-contain" />
+                <img src="/favicon-catchup.png?v=3" alt={brandConfig.appName} className="w-6 h-6 object-contain" />
               </div>
             )}
             <button

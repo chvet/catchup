@@ -17,7 +17,7 @@ const BRAND_CONFIG: BrandConfig = {
   proHost: process.env.PRO_HOST || 'pro.catchup.jaeprive.fr',
   publicHost: process.env.PUBLIC_HOST || 'catchup.jaeprive.fr',
   primaryColor: '#6C63FF',
-  logo: '/favicon-catchup.png?v=2',
+  logo: '/favicon-catchup.png?v=3',
 }
 
 export function useAppBrand(): BrandConfig {

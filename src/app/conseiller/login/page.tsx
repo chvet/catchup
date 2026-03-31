@@ -120,7 +120,7 @@ function LoginForm() {
         <div className="text-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo-catchup.png"
+            src="/logo-catchup.png?v=3"
             alt="Catch'Up"
             className="h-12 mx-auto mb-3"
           />
