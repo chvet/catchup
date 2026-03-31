@@ -1,5 +1,11 @@
-// Rate limiter en mémoire (adapté au MVP — pas de Redis nécessaire)
+// Rate limiter en mémoire (adapté au mono-instance — pas de Redis nécessaire)
 // Protège contre le brute force sur les endpoints sensibles (login, vérification PIN, etc.)
+//
+// MIGRATION MULTI-INSTANCE :
+// Si le serveur passe en multi-instance (load balancer), remplacer le Map en mémoire
+// par un store Redis partagé. L'interface RateLimitEntry et checkRateLimit() restent identiques,
+// seul le backend de stockage change. Installer ioredis et remplacer store.get/set/delete
+// par des commandes Redis INCR + EXPIRE. Voir aussi RATE_LIMITS pour les fenêtres.
 
 interface RateLimitEntry {
   count: number

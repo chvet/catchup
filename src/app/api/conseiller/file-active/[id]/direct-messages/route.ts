@@ -164,7 +164,9 @@ export async function POST(
 
     if (pec.notificationEnvoyee === 0) {
       // Generer un code a 6 chiffres
-      const code = String(Math.floor(100000 + Math.random() * 900000))
+      const randomBytes = new Uint32Array(1)
+      crypto.getRandomValues(randomBytes)
+      const code = String(100000 + (randomBytes[0] % 900000))
 
       // Recuperer le referral pour l'utilisateurId et le moyen de contact
       const refs = await db
@@ -202,7 +204,7 @@ export async function POST(
           prenom: undefined, // on n'a pas le prénom ici
           conseillerPrenom: ctx.email?.split('@')[0],
         })
-        console.log(`[PIN] Code pour ${ref.moyenContact}: ${code} (envoyé via ${notifResult.channel})`)
+        console.log(`[PIN] Code envoyé à ${ref.moyenContact} via ${notifResult.channel}`)
 
         codeInfo = {
           codeGenere: true,

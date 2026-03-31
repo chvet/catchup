@@ -33,10 +33,13 @@ Catch'Up traite des donnees sensibles (jeunes en fragilite, donnees RIASEC, conv
 - Session stockee en DB (`session_conseiller`) pour revocation
 - Payload JWT : `sub`, `email`, `role`, `structureId`, `jti`
 
-### Beneficiaire (Token PIN)
-- Code PIN 6 chiffres, envoye par email/SMS
-- Expiration : 24h
-- Max 5 tentatives de verification
+### Beneficiaire (Token session + mot de passe)
+- Mot de passe minimum **12 caracteres**
+- Session token UUID avec expiration glissante **30 jours**
+- Rolling renewal a chaque restauration de session
+- Token expire : supprime en DB, beneficiaire redirige vers login
+- Code PIN 6 chiffres (crypto.getRandomValues), envoye par email/SMS
+- Expiration PIN : 24h, max 5 tentatives
 - Token UUID stocke cote client (localStorage)
 
 ### Tiers intervenant (Token PIN)
@@ -228,10 +231,12 @@ Retention : **2 ans** (conformite RGPD).
 - [x] Audit trail RGPD
 - [x] Sessions revocables cote serveur
 - [x] Tokens PIN avec expiration et limite de tentatives
-- [ ] Expiration des tokens beneficiaire (sessionToken) — a implementer
-- [ ] Migration vers crypto.getRandomValues() pour les PIN — a implementer
+- [x] Expiration des tokens beneficiaire (sessionToken) avec rolling renewal 30j
+- [x] Migration vers crypto.getRandomValues() pour les PIN (4 fichiers)
+- [x] Mot de passe beneficiaire minimum 12 caracteres (backend + frontend)
+- [x] Suppression des codes PIN dans les logs (plus de fuite en clair)
+- [x] Rate limiting documente pour migration Redis (mono-instance OK, multi-instance pret)
 - [ ] WAF (Web Application Firewall) — futur
 - [ ] DMARC/SPF pour les emails — futur
 - [ ] Tests de penetration externes — futur
 - [ ] CSP nonce au lieu de unsafe-inline — futur
-- [ ] Rate limiting distribue (Redis) — futur si multi-instance

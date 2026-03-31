@@ -96,7 +96,9 @@ export async function PATCH(
       })
 
       // Générer un code PIN pour le tiers
-      const pin = String(Math.floor(100000 + Math.random() * 900000))
+      const randomBytes = new Uint32Array(1)
+      crypto.getRandomValues(randomBytes)
+      const pin = String(100000 + (randomBytes[0] % 900000))
       const expireLe = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 jours
 
       await db.insert(codeVerification).values({

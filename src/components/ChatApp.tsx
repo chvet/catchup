@@ -507,7 +507,7 @@ export default function ChatApp() {
     if (authMode === 'signup') {
       if (!authPrenom.trim()) { setAuthError('Entre ton prenom'); return }
       if (!authEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authEmail.trim())) { setAuthError('Email invalide'); return }
-      if (authPassword.length < 6) { setAuthError('Mot de passe : 6 caracteres minimum'); return }
+      if (authPassword.length < 12) { setAuthError('Mot de passe : 12 caracteres minimum'); return }
     } else {
       if (!authEmail.trim()) { setAuthError('Entre ton email'); return }
       if (!authPassword) { setAuthError('Entre ton mot de passe'); return }

@@ -66,7 +66,9 @@ export async function POST(
     }
 
     // Générer un nouveau code à 6 chiffres
-    const code = String(Math.floor(100000 + Math.random() * 900000))
+    const randomBytes = new Uint32Array(1)
+    crypto.getRandomValues(randomBytes)
+    const code = String(100000 + (randomBytes[0] % 900000))
     const token = uuidv4()
     const expireLe = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 jours
 
@@ -88,7 +90,7 @@ export async function POST(
       conseillerPrenom: ctx.email?.split('@')[0],
     })
 
-    console.log(`[PIN RESEND] Nouveau code pour ${ref.moyenContact}: ${code} (via ${notifResult.channel})`)
+    console.log(`[PIN RESEND] Code renvoyé à ${ref.moyenContact} via ${notifResult.channel}`)
 
     // Audit
     await logAudit(ctx.id, 'resend_code', 'referral', referralId)

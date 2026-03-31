@@ -55,8 +55,8 @@ async function handleSignup(body: {
     return Response.json({ error: 'Email invalide' }, { status: 400 })
   }
 
-  if (password.length < 6) {
-    return Response.json({ error: 'Le mot de passe doit faire au moins 6 caracteres' }, { status: 400 })
+  if (password.length < 12) {
+    return Response.json({ error: 'Le mot de passe doit faire au moins 12 caracteres' }, { status: 400 })
   }
 
   // Check if email already exists with a password set (already signed up)
