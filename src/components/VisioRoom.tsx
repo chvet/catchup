@@ -250,7 +250,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     new Uint8Array(audioCopy).set(payload)
     audioQueueRef.current.push(audioCopy)
 
-    if (audioQueueRef.current.length >= 5) {
+    if (audioQueueRef.current.length >= 2) {
       // Try multiple mime types (iOS Safari doesn't support webm)
       const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
       let mimeType = 'audio/webm;codecs=opus'
@@ -327,16 +327,16 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
           codec: 'vp8',
           width: 640,
           height: 480,
-          bitrate: 800_000,
-          framerate: 15,
+          bitrate: 1_200_000,
+          framerate: 24,
         })
 
         encoderRef.current = encoder
 
-        // Force keyframe every 2 seconds
+        // Force keyframe every 1 second (faster recovery after packet loss)
         keyframeIntervalRef.current = setInterval(() => {
           forceKeyframe = true
-        }, 2000)
+        }, 1000)
 
         // Read frames from track
         const processor = new MediaStreamTrackProcessor({ track: videoTrack })
@@ -384,10 +384,10 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
                 }
               },
               'image/jpeg',
-              0.5
+              0.55
             )
           }
-        }, 2000)
+        }, 1000)
       } catch (err) {
         console.warn('[Visio] WebCodecs encoding failed, falling back to canvas:', err)
         startCanvasFallback(videoTrack)
@@ -423,10 +423,10 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
             }
           },
           'image/jpeg',
-          0.6
+          0.65
         )
       }
-    }, 100) // 10fps
+    }, 50) // 20fps
   }, [sendFrame])
 
   // ── Start audio encoding ──

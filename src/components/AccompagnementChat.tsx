@@ -198,10 +198,18 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
       headers: { 'Authorization': `Bearer ${token}` },
     })
       .then(r => {
+        if (r.status === 401) {
+          // Token invalide ou expiré → supprimer et demander reconnexion
+          try { localStorage.removeItem('catchup_accompagnement') } catch {}
+          setError('session_expired')
+          setLoading(false)
+          return null
+        }
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
       })
       .then(data => {
+        if (!data) return // handled above (401)
         const msgs = data.messages || []
         setMessages(msgs)
         // Vérifier si un message de rupture existe déjà
@@ -217,9 +225,8 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
       })
       .catch((err) => {
         console.error('[AccompagnementChat] Load error:', err)
-        // Session expirée — supprimer le token invalide du localStorage
-        try { localStorage.removeItem('catchup_accompagnement') } catch {}
-        setError('session_expired')
+        // Erreur réseau ou serveur — ne PAS supprimer la session, proposer un retry
+        setError('Erreur de connexion. Vérifie ta connexion internet.')
         setLoading(false)
       })
   }, [token])
@@ -679,24 +686,36 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
   }
 
   if (error) {
+    const isSessionExpired = error === 'session_expired'
     return (
       <div className="flex flex-col items-center justify-center h-full bg-white px-6 text-center">
-        <span className="text-4xl mb-4">🔄</span>
+        <span className="text-4xl mb-4">{isSessionExpired ? '🔄' : '📡'}</span>
         <p className="text-gray-700 font-medium mb-2">
-          {error === 'session_expired' ? 'Ta session a expiré' : error}
+          {isSessionExpired ? 'Ta session a expiré' : 'Problème de connexion'}
         </p>
         <p className="text-gray-400 text-sm mb-4">
-          {error === 'session_expired' ? 'Reconnecte-toi avec ton code PIN pour reprendre la conversation.' : ''}
+          {isSessionExpired
+            ? 'Reconnecte-toi avec ton code PIN pour reprendre la conversation.'
+            : 'Vérifie ta connexion internet et réessaie.'}
         </p>
-        <button
-          onClick={() => {
-            localStorage.removeItem('catchup_accompagnement')
-            window.location.reload()
-          }}
-          className="px-5 py-2.5 bg-catchup-primary text-white rounded-xl text-sm font-medium hover:bg-catchup-primary/90 active:scale-[0.98] transition-all"
-        >
-          Se reconnecter
-        </button>
+        {isSessionExpired ? (
+          <button
+            onClick={() => {
+              localStorage.removeItem('catchup_accompagnement')
+              window.location.reload()
+            }}
+            className="px-5 py-2.5 bg-catchup-primary text-white rounded-xl text-sm font-medium hover:bg-catchup-primary/90 active:scale-[0.98] transition-all"
+          >
+            Se reconnecter
+          </button>
+        ) : (
+          <button
+            onClick={() => window.location.reload()}
+            className="px-5 py-2.5 bg-catchup-primary text-white rounded-xl text-sm font-medium hover:bg-catchup-primary/90 active:scale-[0.98] transition-all"
+          >
+            Réessayer
+          </button>
+        )}
       </div>
     )
   }

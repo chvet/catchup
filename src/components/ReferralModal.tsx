@@ -186,6 +186,18 @@ export default function ReferralModal({
       setGeoStatus('denied')
       return
     }
+
+    // Vérifier d'abord si la permission est déjà refusée
+    try {
+      if (navigator.permissions) {
+        const perm = await navigator.permissions.query({ name: 'geolocation' })
+        if (perm.state === 'denied') {
+          setGeoStatus('denied')
+          return
+        }
+      }
+    } catch { /* certains navigateurs ne supportent pas permissions.query */ }
+
     setGeoStatus('loading')
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -506,6 +518,15 @@ export default function ReferralModal({
                       </span>
                     )}
                   </div>
+                  {geoStatus === 'denied' && !departement && (
+                    <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                      <p className="font-medium mb-1">La localisation est bloquée</p>
+                      <p className="text-amber-600 leading-relaxed">
+                        Pour l&apos;activer : clique sur l&apos;icône 🔒 dans la barre d&apos;adresse de ton navigateur, puis autorise la localisation et recharge la page.
+                      </p>
+                      <p className="text-amber-500 mt-1">Tu peux aussi entrer ton code postal manuellement ci-dessus.</p>
+                    </div>
+                  )}
                   <p className="text-[10px] text-gray-400 mt-1">
                     {departement ? `Département détecté : ${departement}` : 'Entre ton code postal (ex: 75012) ou ton numéro de département (ex: 69)'}
                   </p>

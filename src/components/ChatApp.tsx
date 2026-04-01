@@ -1099,7 +1099,7 @@ export default function ChatApp() {
 
               {/* ── Suggestions compactes (1 ligne, scroll horizontal) ── */}
               {hasMessages && !isLoading && (
-                <div className="px-2 md:px-6 max-h-[48px] shrink-0" style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch' }}>
+                <div className="px-2 md:px-6 max-h-[48px] shrink-0" style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', touchAction: 'pan-x' }}>
                   <SuggestionChips onSelect={handleSuggestion} messageCount={userMessageCount} dynamicSuggestions={dynamicSuggestions} compact />
                 </div>
               )}

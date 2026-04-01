@@ -34,7 +34,8 @@ export async function GET(request: Request) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      let lastCheck = new Date().toISOString()
+      // Reculer de 3s pour couvrir le gap entre le chargement initial et l'ouverture du SSE
+      let lastCheck = new Date(Date.now() - 3000).toISOString()
       let heartbeatCount = 0
 
       const sendEvent = (data: string) => {
@@ -90,8 +91,8 @@ export async function GET(request: Request) {
               heartbeatCount = 0
             }
 
-            // Attendre 1 seconde avant le prochain poll
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+            // Poll rapide pour réactivité (500ms)
+            await new Promise((resolve) => setTimeout(resolve, 500))
           } catch (error) {
             console.error('[SSE Poll Error]', error)
             cancelled = true

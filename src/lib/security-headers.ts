@@ -62,7 +62,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
   // (limite la surface d'attaque : pas de géoloc, pas de micro sauf visio, etc.)
   response.headers.set(
     'Permissions-Policy',
-    'camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
+    'camera=(self), microphone=(self), geolocation=(self), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
   )
 
   // ── X-DNS-Prefetch-Control — Désactive le DNS prefetch ──

@@ -27,7 +27,7 @@ export default function SuggestionChips({ onSelect, messageCount = 0, compact = 
   if (suggestions.length === 0) return null
 
   return (
-    <div className={`flex gap-2 overflow-x-auto scrollbar-hide flex-nowrap px-1 ${compact ? 'max-h-[44px] py-1' : 'pb-2 justify-center'}`}>
+    <div className={`flex gap-2 overflow-x-auto scrollbar-hide flex-nowrap px-1 ${compact ? 'max-h-[44px] py-1' : 'pb-2 justify-center'}`} style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x' }}>
       {suggestions.map((s, i) => (
         <button
           key={`${s.text}-${i}`}
