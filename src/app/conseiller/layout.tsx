@@ -230,6 +230,11 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
             <div className="p-4 border-t border-white/10 hover:bg-white/5 transition-colors duration-150 rounded-lg mx-1 mb-1">
               <p className="text-sm font-medium">{conseiller.prenom} {conseiller.nom}</p>
               <p className="text-xs text-gray-400">{conseiller.structure?.nom || 'Super Admin'}</p>
+              <p className="text-[10px] text-catchup-primary/80 mt-0.5">
+                {conseiller.role === 'super_admin' ? 'Super Administrateur'
+                  : conseiller.role === 'admin_structure' ? 'Administrateur'
+                  : 'Conseiller'}
+              </p>
               <button
                 onClick={handleLogout}
                 className="mt-2 text-xs text-red-400 hover:text-red-300 transition-colors focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none rounded"
