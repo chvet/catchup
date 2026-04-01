@@ -142,10 +142,27 @@ export async function PUT(request: Request, { params }: Params) {
       }
     }
 
-    // Validate promptPersonnalise if provided (max 1000 chars)
+    // Validate promptPersonnalise if provided (max 1000 chars + injection check)
     if (body.promptPersonnalise !== undefined && body.promptPersonnalise !== null) {
       if (typeof body.promptPersonnalise !== 'string' || body.promptPersonnalise.length > 1000) {
         return jsonError('Le prompt personnalise ne peut pas depasser 1000 caracteres', 400)
+      }
+      // Vérifier les patterns d'injection courants
+      const injectionPatterns = [
+        /ignore[rz]?\s+(toute|les|tout|all|previous)/i,
+        /oublie[rz]?\s+(toute|les|tout)/i,
+        /tu\s+es\s+(maintenant|désormais|dorénavant)/i,
+        /you\s+are\s+now/i,
+        /agis\s+comme/i,
+        /sans\s+(aucune\s+)?restriction/i,
+        /\[SYSTEM\]/i,
+        /\[INST\]/i,
+        /jailbreak/i,
+        /mode\s+d[ée]veloppeur/i,
+      ]
+      const hasInjection = injectionPatterns.some(p => p.test(body.promptPersonnalise))
+      if (hasInjection) {
+        return jsonError('Le prompt contient des instructions non autorisees. Decrivez uniquement votre public cible et vos attentes d\'accompagnement.', 400)
       }
     }
 
