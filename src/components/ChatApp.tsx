@@ -635,8 +635,10 @@ export default function ChatApp() {
         setStructuresSuggerees([])
         setShowStructures(false)
         setShowCancelConfirm(false)
+        setChatMode('ia')
         localStorage.removeItem(LS_REFERRAL_ID)
         localStorage.removeItem(LS_BENEFICIAIRE_INFO)
+        localStorage.removeItem('catchup_accompagnement')
       } else {
         const data = await res.json()
         alert(data.error || 'Impossible d\'annuler la demande')
@@ -766,7 +768,7 @@ export default function ChatApp() {
                 : 'bg-transparent text-gray-500 hover:bg-gray-100'
             }`}
           >
-            🤖 Catch'Up IA
+            🤖 Catch&apos;Up IA
           </button>
           <button
             onClick={() => setChatMode('conseiller')}
@@ -780,6 +782,13 @@ export default function ChatApp() {
             {conseillerUnread && chatMode !== 'conseiller' && (
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-gray-50" />
             )}
+          </button>
+          <button
+            onClick={() => setShowCancelConfirm(true)}
+            className="ml-1 px-2 py-1.5 text-xs text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-all"
+            title="Quitter l'accompagnement"
+          >
+            ✕
           </button>
         </div>
       )}
@@ -882,12 +891,27 @@ export default function ChatApp() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
             <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
-              <span className="text-2xl">🤔</span>
+              <span className="text-2xl">{referralStatus === 'prise_en_charge' ? '⚠️' : '🤔'}</span>
             </div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Annuler ta demande ?</h3>
-            <p className="text-sm text-gray-500 mb-5">
-              Tu pourras toujours refaire une demande plus tard si tu changes d&apos;avis.
-            </p>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              {referralStatus === 'prise_en_charge' ? 'Quitter ton accompagnement ?' : 'Annuler ta demande ?'}
+            </h3>
+            {referralStatus === 'prise_en_charge' ? (
+              <div className="text-sm text-gray-500 mb-5 space-y-2">
+                <p className="font-semibold text-red-600">
+                  Ton accompagnement avec {referralConseillerPrenom || 'ton conseiller'} sera d&eacute;finitivement arr&ecirc;t&eacute;.
+                </p>
+                <ul className="text-left text-xs space-y-1 text-gray-500">
+                  <li>&#x2022; Ton conseiller sera inform&eacute;</li>
+                  <li>&#x2022; Tu ne pourras plus &eacute;changer avec lui</li>
+                  <li>&#x2022; Tu pourras refaire une demande plus tard</li>
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 mb-5">
+                Ta demande sera annul&eacute;e. Tu pourras en refaire une plus tard si tu changes d&apos;avis.
+              </p>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCancelConfirm(false)}
@@ -1045,7 +1069,7 @@ export default function ChatApp() {
 
                 {isLoading && <TypingIndicator />}
 
-                {referralStatus === 'en_attente' && (
+                {(referralStatus === 'en_attente' || referralStatus === 'nouvelle') && (
                   <div className="flex mb-2.5 msg-appear justify-start">
                     <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5 shadow-sm overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1056,9 +1080,15 @@ export default function ChatApp() {
                         <div className="flex items-center gap-2">
                           <span className="text-amber-500 inline-block animate-spin" style={{ animationDuration: '2s' }}>⏳</span>
                           <p className="text-[15px] leading-relaxed">
-                            Ta demande est en cours de traitement. Un conseiller te contactera bientôt 😊
+                            Ta demande est en cours de traitement. Un conseiller te contactera bient&ocirc;t 😊
                           </p>
                         </div>
+                        <button
+                          onClick={() => setShowCancelConfirm(true)}
+                          className="mt-2 text-xs text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          Annuler ma demande
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1132,8 +1162,16 @@ export default function ChatApp() {
 
       {/* Tag de statut referral flottant (visible seulement si la carte profil n'est pas visible = scroll) */}
       {referralId && referralStatus && !beneficiaireInfo && (
-        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-40">
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
           <ReferralStatusTag statut={referralStatus} withLabel />
+          {(referralStatus === 'en_attente' || referralStatus === 'nouvelle') && (
+            <button
+              onClick={() => setShowCancelConfirm(true)}
+              className="px-2 py-1 text-[10px] text-gray-400 hover:text-red-500 bg-white border border-gray-200 rounded-full shadow-sm hover:border-red-200 transition-all"
+            >
+              Annuler
+            </button>
+          )}
         </div>
       )}
 

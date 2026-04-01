@@ -29,6 +29,8 @@ export default function AccompagnementPage() {
   const [loading, setLoading] = useState(true)
   const [resending, setResending] = useState(false)
   const [resendSuccess, setResendSuccess] = useState(false)
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false)
+  const [quitting, setQuitting] = useState(false)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   // Charger la session existante depuis localStorage
@@ -170,8 +172,8 @@ export default function AccompagnementPage() {
             </span>
           </div>
           <button
-            onClick={handleLogout}
-            className="text-xs text-gray-400 hover:text-white transition"
+            onClick={() => setShowQuitConfirm(true)}
+            className="text-xs text-gray-400 hover:text-red-400 transition"
           >
             Quitter
           </button>
@@ -188,6 +190,49 @@ export default function AccompagnementPage() {
             beneficiairePrenom={session.beneficiairePrenom}
           />
         </div>
+
+        {/* Modale confirmation quitter */}
+        {showQuitConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
+                <span className="text-2xl">⚠️</span>
+              </div>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">Quitter l&apos;accompagnement ?</h3>
+              <div className="text-sm text-gray-500 mb-5 space-y-2">
+                <p>Que souhaitez-vous faire ?</p>
+              </div>
+              <div className="flex flex-col gap-2.5">
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+                >
+                  Se d&eacute;connecter (je reviendrai)
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!session.referralId || quitting) return
+                    setQuitting(true)
+                    try {
+                      await fetch(`/api/referrals/${session.referralId}/cancel`, { method: 'POST' })
+                    } catch { /* on continue */ }
+                    handleLogout()
+                  }}
+                  disabled={quitting}
+                  className="w-full px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-50 transition-colors"
+                >
+                  {quitting ? 'Annulation...' : 'Annuler mon accompagnement'}
+                </button>
+                <button
+                  onClick={() => setShowQuitConfirm(false)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Rester
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }

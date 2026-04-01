@@ -1,11 +1,13 @@
 // POST /api/referrals/[id]/cancel — Annuler une demande d'accompagnement
-// Accessible par le bénéficiaire (pas d'auth JWT, identifié par le referralId)
-// Ne peut annuler que si statut = 'en_attente' ou 'nouvelle' (pas déjà pris en charge)
+// Accessible par le bénéficiaire (identifié par le referralId en localStorage)
+// Gère tous les statuts : en_attente, nouvelle, prise_en_charge
 
 import { NextResponse } from 'next/server'
 import { db } from '@/data/db'
-import { referral } from '@/data/schema'
-import { eq } from 'drizzle-orm'
+import { referral, priseEnCharge, messageDirect } from '@/data/schema'
+import { eq, and } from 'drizzle-orm'
+import { v4 as uuidv4 } from 'uuid'
+import { logJournal } from '@/lib/journal'
 
 export async function POST(
   request: Request,
@@ -21,23 +23,74 @@ export async function POST(
     }
 
     const ref = refs[0]
+    const now = new Date().toISOString()
 
-    // Vérifier que la demande est annulable (pas encore prise en charge)
-    if (ref.statut !== 'en_attente' && ref.statut !== 'nouvelle') {
-      return NextResponse.json(
-        { error: 'Cette demande ne peut plus être annulée car elle est déjà prise en charge.' },
-        { status: 409 }
-      )
+    // Demande en attente ou nouvelle → simple annulation
+    if (ref.statut === 'en_attente' || ref.statut === 'nouvelle') {
+      await db
+        .update(referral)
+        .set({ statut: 'annulee', misAJourLe: now })
+        .where(eq(referral.id, id))
+
+      return NextResponse.json({ success: true, message: 'Demande annulée' })
     }
 
-    // Passer le statut à "annulee"
-    const now = new Date().toISOString()
-    await db
-      .update(referral)
-      .set({ statut: 'annulee', misAJourLe: now })
-      .where(eq(referral.id, id))
+    // Accompagnement en cours → annulation avec notification au conseiller
+    if (ref.statut === 'prise_en_charge') {
+      const pecs = await db.select().from(priseEnCharge).where(
+        and(
+          eq(priseEnCharge.referralId, id),
+          eq(priseEnCharge.statut, 'prise_en_charge')
+        )
+      )
 
-    return NextResponse.json({ success: true, message: 'Demande annulée' })
+      // Clôturer le referral
+      await db.update(referral).set({
+        statut: 'annulee',
+        misAJourLe: now,
+      }).where(eq(referral.id, id))
+
+      for (const pec of pecs) {
+        // Clôturer la prise en charge
+        await db.update(priseEnCharge).set({
+          statut: 'rupture',
+          termineeLe: now,
+          misAJourLe: now,
+        }).where(eq(priseEnCharge.id, pec.id))
+
+        // Envoyer un message système au conseiller
+        await db.insert(messageDirect).values({
+          id: uuidv4(),
+          priseEnChargeId: pec.id,
+          expediteurType: 'conseiller',
+          expediteurId: 'systeme',
+          contenu: JSON.stringify({
+            type: 'rupture',
+            motif: 'Le bénéficiaire a annulé sa demande d\'accompagnement.',
+            comportementInaproprie: false,
+            parBeneficiaire: true,
+          }),
+          conversationType: 'direct',
+          lu: 0,
+          horodatage: now,
+        })
+
+        // Log dans le journal
+        await logJournal(
+          pec.id,
+          'rupture_beneficiaire',
+          'systeme',
+          ref.utilisateurId,
+          'Le bénéficiaire a annulé son accompagnement.',
+          { details: { initiePar: 'beneficiaire', action: 'annulation' } }
+        )
+      }
+
+      return NextResponse.json({ success: true, message: 'Accompagnement annulé' })
+    }
+
+    // Déjà terminé/rompu/annulé → rien à faire
+    return NextResponse.json({ success: true, message: 'Aucune action nécessaire' })
   } catch (error) {
     console.error('[Referral Cancel]', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

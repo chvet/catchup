@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useConseiller } from '@/components/conseiller/ConseillerProvider'
 
 interface CampagneConseiller {
@@ -113,7 +113,10 @@ export default function CampagnesPage() {
     setShowModal(true)
   }
 
+  const savingRef = useRef(false)
   const handleSave = async () => {
+    if (savingRef.current) return
+    savingRef.current = true
     setSaving(true)
     const unite = form.uniteOeuvre === 'custom' ? form.uniteCustom : form.uniteOeuvre
     const payload = {
@@ -141,6 +144,7 @@ export default function CampagnesPage() {
       }
     } catch { alert('Erreur de connexion') }
     setSaving(false)
+    savingRef.current = false
   }
 
   const handleDelete = async (id: string) => {
