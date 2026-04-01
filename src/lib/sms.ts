@@ -1,5 +1,5 @@
 // Module de notification : envoi du code PIN au bénéficiaire ou tiers
-// Supporte : Office 365 SMTP, Graph API, OVH SMS, Brevo, et console.log en dev
+// Supporte : Office 365 SMTP, Graph API, Vonage SMS, OVH SMS, Brevo, et console.log en dev
 //
 // Configuration via variables d'environnement :
 //   NOTIFICATION_MODE=sms|email|both|console (défaut: console en dev, email en prod)
@@ -14,7 +14,10 @@
 //   --- Email Brevo (fallback) ---
 //   BREVO_API_KEY=xxx
 //
-//   --- SMS OVH ---
+//   --- SMS Vonage (prioritaire) ---
+//   VONAGE_API_KEY=xxx / VONAGE_API_SECRET=xxx / VONAGE_SMS_FROM=CatchUp
+//
+//   --- SMS OVH (fallback) ---
 //   OVH_SMS_ACCOUNT=xxx / OVH_SMS_LOGIN=xxx / OVH_SMS_PASSWORD=xxx / OVH_SMS_SENDER=CatchUp
 
 import nodemailer from 'nodemailer'
@@ -27,7 +30,62 @@ interface NotificationResult {
   error?: string
 }
 
-// ─── Envoi par SMS (OVH API) ───
+// ─── Formatage numéro FR → international ───
+function formatPhoneFR(telephone: string): string {
+  let formatted = telephone.replace(/[\s.-]+/g, '')
+  if (formatted.startsWith('0')) {
+    formatted = '33' + formatted.substring(1)
+  }
+  if (!formatted.startsWith('+')) {
+    formatted = '+' + formatted
+  }
+  return formatted
+}
+
+// ─── Envoi par SMS (Vonage API) ───
+async function sendSmsVonage(telephone: string, message: string): Promise<NotificationResult> {
+  const apiKey = process.env.VONAGE_API_KEY
+  const apiSecret = process.env.VONAGE_API_SECRET
+  const from = process.env.VONAGE_SMS_FROM || 'CatchUp'
+
+  if (!apiKey || !apiSecret) {
+    return { sent: false, channel: 'sms', error: 'Vonage credentials missing' }
+  }
+
+  try {
+    const to = formatPhoneFR(telephone).replace('+', '')
+
+    const response = await fetch('https://rest.nexmo.com/sms/json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: apiKey,
+        api_secret: apiSecret,
+        from,
+        to,
+        text: message,
+        type: 'unicode',
+      }),
+    })
+
+    const data = await response.json()
+    const msg = data.messages?.[0]
+
+    if (msg?.status === '0') {
+      console.log(`[SMS] Envoyé à +${to} via Vonage (${msg['message-price']} EUR)`)
+      return { sent: true, channel: 'sms' }
+    } else {
+      const errText = msg?.['error-text'] || 'Unknown error'
+      console.error(`[SMS] Vonage erreur: ${errText} (status: ${msg?.status})`)
+      return { sent: false, channel: 'sms', error: errText }
+    }
+  } catch (error) {
+    console.error('[SMS] Vonage send error:', error)
+    return { sent: false, channel: 'sms', error: String(error) }
+  }
+}
+
+// ─── Envoi par SMS (OVH API — fallback) ───
 async function sendSmsOvh(telephone: string, message: string): Promise<NotificationResult> {
   const account = process.env.OVH_SMS_ACCOUNT
   const login = process.env.OVH_SMS_LOGIN
@@ -40,11 +98,7 @@ async function sendSmsOvh(telephone: string, message: string): Promise<Notificat
   }
 
   try {
-    // Formater le numéro en international FR
-    let formatted = telephone.replace(/\s+/g, '')
-    if (formatted.startsWith('0')) {
-      formatted = '+33' + formatted.substring(1)
-    }
+    const formatted = formatPhoneFR(telephone)
 
     const response = await fetch(
       `https://www.ovh.com/cgi-bin/sms/http2sms.cgi?account=${account}&login=${login}&password=${password}&from=${sender}&to=${formatted}&message=${encodeURIComponent(message)}&noStop=1`,
@@ -63,6 +117,20 @@ async function sendSmsOvh(telephone: string, message: string): Promise<Notificat
     console.error('[SMS] Erreur envoi:', error)
     return { sent: false, channel: 'sms', error: String(error) }
   }
+}
+
+// ─── Envoi SMS (chaîne de fallback : Vonage → OVH → échec) ───
+async function sendSms(telephone: string, message: string): Promise<NotificationResult> {
+  // 1. Vonage (prioritaire)
+  const vonageResult = await sendSmsVonage(telephone, message)
+  if (vonageResult.sent) return vonageResult
+
+  // 2. OVH (fallback)
+  const ovhResult = await sendSmsOvh(telephone, message)
+  if (ovhResult.sent) return ovhResult
+
+  console.warn('[SMS] Aucun service SMS disponible')
+  return { sent: false, channel: 'sms', error: 'No SMS service configured' }
 }
 
 // ─── Authentification Office 365 (Microsoft Graph via Client Credentials) ───
@@ -338,7 +406,7 @@ export async function sendPinCode(
 
   // Mode SMS prioritaire
   if ((NOTIFICATION_MODE === 'sms' || NOTIFICATION_MODE === 'both') && isPhone) {
-    const smsResult = await sendSmsOvh(contact, message)
+    const smsResult = await sendSms(contact, message)
     if (smsResult.sent) return smsResult
     // Fallback email si SMS échoue et qu'on a un email
     if (isEmail) return sendEmail(contact, subject, message)
@@ -378,7 +446,7 @@ export async function sendRdvNotification(
 
   const isPhone = /^[+0]?\d[\d\s-]{8,}$/.test(contact.replace(/\s/g, ''))
   if (isPhone) {
-    return sendSmsOvh(contact, message)
+    return sendSms(contact, message)
   }
 
   return sendConsole(contact, message)
