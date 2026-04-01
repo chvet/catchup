@@ -61,7 +61,7 @@ async function sendSmsVonage(telephone: string, message: string): Promise<Notifi
       body: JSON.stringify({
         api_key: apiKey,
         api_secret: apiSecret,
-        from,
+        from: process.env.VONAGE_SENDER_ID || from,
         to,
         text: message,
         type: 'unicode',

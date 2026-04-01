@@ -32,6 +32,43 @@ interface ControlMessage {
 
 type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected'
 
+// ── Adaptive quality profiles ─────────────────────────────────────
+
+interface QualityProfile {
+  width: number
+  height: number
+  bitrate: number
+  framerate: number
+  keyframeInterval: number  // ms
+  jpegQuality: number
+  jpegInterval: number      // ms for canvas fallback
+  label: string
+}
+
+const QUALITY_PROFILES: Record<string, QualityProfile> = {
+  high: {
+    width: 640, height: 480,
+    bitrate: 1_500_000, framerate: 30,
+    keyframeInterval: 2000,
+    jpegQuality: 0.7, jpegInterval: 50,
+    label: 'HD',
+  },
+  medium: {
+    width: 480, height: 360,
+    bitrate: 800_000, framerate: 20,
+    keyframeInterval: 1500,
+    jpegQuality: 0.55, jpegInterval: 80,
+    label: 'SD',
+  },
+  low: {
+    width: 320, height: 240,
+    bitrate: 400_000, framerate: 15,
+    keyframeInterval: 1000,
+    jpegQuality: 0.4, jpegInterval: 120,
+    label: 'LD',
+  },
+}
+
 // ── Constants ──────────────────────────────────────────────────────
 
 const MSG_JPEG = 0x01
@@ -40,9 +77,14 @@ const MSG_VP8_KEY = 0x03
 const MSG_VP8_DELTA = 0x04
 const MSG_CONTROL = 0x05
 
-const MAX_RECONNECT_ATTEMPTS = 3
-const RECONNECT_DELAY = 2000
+const MAX_RECONNECT_ATTEMPTS = 5
+const RECONNECT_DELAY = 1500
 const HEARTBEAT_INTERVAL = 8000
+
+// Adaptive bitrate thresholds
+const WS_BUFFER_HIGH = 100 * 1024  // 100KB → reduce quality
+const WS_BUFFER_CRITICAL = 256 * 1024 // 256KB → skip frames
+const ENCODER_QUEUE_MAX = 5  // Max frames queued in encoder
 
 // ── Component ──────────────────────────────────────────────────────
 
@@ -71,6 +113,17 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
   const audioQueueRef = useRef<ArrayBuffer[]>([])
   const processorRef = useRef<ReadableStreamDefaultReader<VideoFrame> | null>(null)
   const frameReaderActiveRef = useRef(false)
+  const initCalledRef = useRef(false)
+
+  // Adaptive quality refs
+  const qualityRef = useRef<string>('high')
+  const profileRef = useRef<QualityProfile>(QUALITY_PROFILES.high)
+  const framesSentRef = useRef(0)
+  const framesSkippedRef = useRef(0)
+  const lastQualityCheckRef = useRef(Date.now())
+  const rttSamplesRef = useRef<number[]>([])
+  const lastPingSentRef = useRef(0)
+  const adaptiveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // State
   const [isMuted, setIsMuted] = useState(false)
@@ -84,7 +137,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
   const [useFallbackImg, setUseFallbackImg] = useState(false)
   const [mediaError, setMediaError] = useState<string | null>(null)
   const [needsUserGesture, setNeedsUserGesture] = useState(false)
-  const initCalledRef = useRef(false)
+  const [qualityLabel, setQualityLabel] = useState('HD')
 
   // ── Call duration timer ──
 
@@ -98,16 +151,33 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     return () => clearInterval(interval)
   }, [])
 
-  // ── Send binary frame ──
+  // ── Check WebSocket backpressure ──
+
+  const getWsBufferedAmount = useCallback((): number => {
+    return wsRef.current?.bufferedAmount || 0
+  }, [])
+
+  // ── Send binary frame with backpressure check ──
 
   const sendFrame = useCallback((type: number, payload: ArrayBuffer | Uint8Array) => {
     const ws = wsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) return
 
+    // Backpressure: skip non-critical frames if buffer is too full
+    const buffered = ws.bufferedAmount || 0
+    if (buffered > WS_BUFFER_CRITICAL) {
+      // Only allow keyframes and audio through
+      if (type !== MSG_VP8_KEY && type !== MSG_AUDIO) {
+        framesSkippedRef.current++
+        return
+      }
+    }
+
     const frame = new Uint8Array(1 + payload.byteLength)
     frame[0] = type
     frame.set(new Uint8Array(payload instanceof ArrayBuffer ? payload : payload.buffer), 1)
     ws.send(frame)
+    framesSentRef.current++
   }, [])
 
   // ── Send control message ──
@@ -134,7 +204,6 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     const type = buf[0]
 
     if (type === MSG_CONTROL) {
-      // Control messages don't have sender prefix from server broadcast
       const decoder = new TextDecoder()
       const json = decoder.decode(buf.slice(1))
       try {
@@ -161,20 +230,39 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
   const handleJpegFrame = useCallback((payload: Uint8Array) => {
     setHasRemoteVideo(true)
     setUseFallbackImg(true)
+
+    // Use createImageBitmap for smoother rendering when available
     const copy = new ArrayBuffer(payload.byteLength)
     new Uint8Array(copy).set(payload)
     const blob = new Blob([copy], { type: 'image/jpeg' })
-    const url = URL.createObjectURL(blob)
 
-    if (remoteImgRef.current) {
-      remoteImgRef.current.src = url
+    if (typeof createImageBitmap !== 'undefined' && remoteCanvasRef.current) {
+      createImageBitmap(blob).then(bitmap => {
+        const canvas = remoteCanvasRef.current
+        if (canvas) {
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            canvas.width = bitmap.width
+            canvas.height = bitmap.height
+            ctx.drawImage(bitmap, 0, 0)
+            bitmap.close()
+          }
+        }
+      }).catch(() => {
+        // Fallback to img element
+        const url = URL.createObjectURL(blob)
+        if (remoteImgRef.current) remoteImgRef.current.src = url
+        if (prevObjectUrlRef.current) URL.revokeObjectURL(prevObjectUrlRef.current)
+        prevObjectUrlRef.current = url
+      })
+      // Use canvas for JPEG too when createImageBitmap works
+      setUseFallbackImg(false)
+    } else {
+      const url = URL.createObjectURL(blob)
+      if (remoteImgRef.current) remoteImgRef.current.src = url
+      if (prevObjectUrlRef.current) URL.revokeObjectURL(prevObjectUrlRef.current)
+      prevObjectUrlRef.current = url
     }
-
-    // Revoke previous URL
-    if (prevObjectUrlRef.current) {
-      URL.revokeObjectURL(prevObjectUrlRef.current)
-    }
-    prevObjectUrlRef.current = url
   }, [])
 
   // ── Handle VP8 frame with VideoDecoder ──
@@ -199,7 +287,6 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
           },
           error: (err: DOMException) => {
             console.error('[Visio] VideoDecoder error:', err)
-            // Fall back to JPEG
             setUseFallbackImg(true)
             decoderRef.current?.close()
             decoderRef.current = null
@@ -217,6 +304,11 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
       }
     }
 
+    // Check decoder queue — skip delta frames if decoder is backed up
+    if (type === MSG_VP8_DELTA && decoderRef.current.decodeQueueSize > 3) {
+      return // Skip this delta, wait for next keyframe
+    }
+
     try {
       const chunk = new EncodedVideoChunk({
         type: type === MSG_VP8_KEY ? 'key' : 'delta',
@@ -225,15 +317,18 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
       })
       decoderRef.current!.decode(chunk)
     } catch (err) {
-      console.warn('[Visio] VP8 decode error, falling back to JPEG:', err)
-      setUseFallbackImg(true)
+      console.warn('[Visio] VP8 decode error:', err)
+      // On delta decode failure, just wait for next keyframe
+      if (type === MSG_VP8_KEY) {
+        setUseFallbackImg(true)
+      }
     }
   }, [])
 
   // ── Handle audio chunk ──
 
   const handleAudioChunk = useCallback((payload: Uint8Array) => {
-    // Try MediaSource approach (not supported on iOS Safari)
+    // Try MediaSource approach
     if (mediaSourceRef.current && sourceBufferRef.current && !sourceBufferRef.current.updating) {
       try {
         const abuf = new ArrayBuffer(payload.byteLength)
@@ -245,13 +340,13 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
       }
     }
 
-    // Fallback: accumulate and play as blob
+    // Fallback: play immediately (don't accumulate — reduces latency)
     const audioCopy = new ArrayBuffer(payload.byteLength)
     new Uint8Array(audioCopy).set(payload)
     audioQueueRef.current.push(audioCopy)
 
-    if (audioQueueRef.current.length >= 2) {
-      // Try multiple mime types (iOS Safari doesn't support webm)
+    // Play every chunk instead of waiting for 2 — reduces audio latency
+    if (audioQueueRef.current.length >= 1) {
       const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
       let mimeType = 'audio/webm;codecs=opus'
       for (const t of types) {
@@ -297,6 +392,74 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     }
   }, [])
 
+  // ── Adaptive quality: switch profile based on network conditions ──
+
+  const switchQuality = useCallback((newQuality: string) => {
+    if (newQuality === qualityRef.current) return
+    const profile = QUALITY_PROFILES[newQuality]
+    if (!profile) return
+
+    console.log(`[Visio] Quality: ${qualityRef.current} → ${newQuality} (${profile.label})`)
+    qualityRef.current = newQuality
+    profileRef.current = profile
+    setQualityLabel(profile.label)
+
+    // Reconfigure encoder if active
+    const encoder = encoderRef.current
+    if (encoder && encoder.state === 'configured') {
+      try {
+        encoder.configure({
+          codec: 'vp8',
+          width: profile.width,
+          height: profile.height,
+          bitrate: profile.bitrate,
+          framerate: profile.framerate,
+        })
+      } catch {
+        console.warn('[Visio] Failed to reconfigure encoder')
+      }
+    }
+
+    // Update canvas fallback interval if active
+    if (canvasIntervalRef.current) {
+      clearInterval(canvasIntervalRef.current)
+      // Will be restarted by the canvas fallback loop
+    }
+  }, [])
+
+  // ── Adaptive quality monitor ──
+
+  const startAdaptiveMonitor = useCallback(() => {
+    adaptiveTimerRef.current = setInterval(() => {
+      const buffered = getWsBufferedAmount()
+      const now = Date.now()
+      const elapsed = now - lastQualityCheckRef.current
+
+      if (elapsed < 3000) return // Check every 3 seconds
+      lastQualityCheckRef.current = now
+
+      const currentQuality = qualityRef.current
+      const sent = framesSentRef.current
+      const skipped = framesSkippedRef.current
+      const skipRate = skipped / Math.max(1, sent + skipped)
+
+      // Reset counters
+      framesSentRef.current = 0
+      framesSkippedRef.current = 0
+
+      // Decision logic
+      if (buffered > WS_BUFFER_HIGH || skipRate > 0.15) {
+        // Network congestion → reduce quality
+        if (currentQuality === 'high') switchQuality('medium')
+        else if (currentQuality === 'medium') switchQuality('low')
+      } else if (buffered < 10_000 && skipRate < 0.02) {
+        // Network is clear → try to increase quality
+        if (currentQuality === 'low') switchQuality('medium')
+        else if (currentQuality === 'medium') switchQuality('high')
+      }
+    }, 2000)
+  }, [getWsBufferedAmount, switchQuality])
+
   // ── Start video encoding (WebCodecs or Canvas fallback) ──
 
   const startVideoEncoding = useCallback((stream: MediaStream) => {
@@ -306,10 +469,13 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     const hasWebCodecs = typeof VideoEncoder !== 'undefined' && typeof MediaStreamTrackProcessor !== 'undefined'
     setUseWebCodecs(hasWebCodecs)
 
+    const profile = profileRef.current
+
     if (hasWebCodecs) {
       // ── WebCodecs path (Chrome/Edge) ──
       try {
         let forceKeyframe = false
+        let frameCount = 0
 
         const encoder = new VideoEncoder({
           output: (chunk: EncodedVideoChunk) => {
@@ -325,18 +491,18 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
         encoder.configure({
           codec: 'vp8',
-          width: 640,
-          height: 480,
-          bitrate: 1_200_000,
-          framerate: 24,
+          width: profile.width,
+          height: profile.height,
+          bitrate: profile.bitrate,
+          framerate: profile.framerate,
         })
 
         encoderRef.current = encoder
 
-        // Force keyframe every 1 second (faster recovery after packet loss)
+        // Force keyframe periodically
         keyframeIntervalRef.current = setInterval(() => {
           forceKeyframe = true
-        }, 1000)
+        }, profile.keyframeInterval)
 
         // Read frames from track
         const processor = new MediaStreamTrackProcessor({ track: videoTrack })
@@ -350,9 +516,23 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
               const { value: frame, done } = await reader.read()
               if (done || !frame) break
 
-              if (encoder.state === 'configured') {
+              // Skip frame if encoder queue is backed up (prevents lag buildup)
+              if (encoder.state === 'configured' && encoder.encodeQueueSize <= ENCODER_QUEUE_MAX) {
+                // Skip every other frame if WS buffer is getting full
+                const buffered = getWsBufferedAmount()
+                frameCount++
+
+                if (buffered > WS_BUFFER_HIGH && frameCount % 2 === 0) {
+                  // Drop every other frame under pressure
+                  framesSkippedRef.current++
+                  frame.close()
+                  continue
+                }
+
                 encoder.encode(frame, { keyFrame: forceKeyframe })
                 forceKeyframe = false
+              } else {
+                framesSkippedRef.current++
               }
               frame.close()
             } catch {
@@ -362,8 +542,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
         }
         readFrame()
 
-        // Also send periodic JPEG fallback frames (every 2s) for receivers
-        // that don't support VP8 decoding (Firefox/Safari/older browsers)
+        // Send periodic JPEG fallback for Firefox/Safari receivers (every 3s is enough)
         const fallbackCanvas = document.createElement('canvas')
         fallbackCanvas.width = 320
         fallbackCanvas.height = 240
@@ -376,18 +555,21 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
         jpegFallbackIntervalRef.current = setInterval(() => {
           if (fallbackCtx && fallbackVideo.readyState >= 2) {
-            fallbackCtx.drawImage(fallbackVideo, 0, 0, 320, 240)
-            fallbackCanvas.toBlob(
-              (blob) => {
-                if (blob) {
-                  blob.arrayBuffer().then((buf) => sendFrame(MSG_JPEG, buf))
-                }
-              },
-              'image/jpeg',
-              0.55
-            )
+            // Only send JPEG fallback if WS buffer isn't overloaded
+            if (getWsBufferedAmount() < WS_BUFFER_CRITICAL) {
+              fallbackCtx.drawImage(fallbackVideo, 0, 0, 320, 240)
+              fallbackCanvas.toBlob(
+                (blob) => {
+                  if (blob) {
+                    blob.arrayBuffer().then((buf) => sendFrame(MSG_JPEG, buf))
+                  }
+                },
+                'image/jpeg',
+                0.45
+              )
+            }
           }
-        }, 1000)
+        }, 3000) // Every 3s is fine — VP8 is the primary path
       } catch (err) {
         console.warn('[Visio] WebCodecs encoding failed, falling back to canvas:', err)
         startCanvasFallback(videoTrack)
@@ -396,12 +578,13 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
       // ── Canvas JPEG fallback (Firefox/Safari) ──
       startCanvasFallback(videoTrack)
     }
-  }, [sendFrame])
+  }, [sendFrame, getWsBufferedAmount])
 
   const startCanvasFallback = useCallback((videoTrack: MediaStreamTrack) => {
+    const profile = profileRef.current
     const canvas = document.createElement('canvas')
-    canvas.width = 320
-    canvas.height = 240
+    canvas.width = profile.width
+    canvas.height = profile.height
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
@@ -413,21 +596,48 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     video.setAttribute('webkit-playsinline', '')
     video.play().catch(() => {})
 
-    canvasIntervalRef.current = setInterval(() => {
-      if (video.readyState >= 2) {
-        ctx.drawImage(video, 0, 0, 320, 240)
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              blob.arrayBuffer().then((buf) => sendFrame(MSG_JPEG, buf))
-            }
-          },
-          'image/jpeg',
-          0.65
-        )
+    // Use requestAnimationFrame for smoother timing than setInterval
+    let lastSendTime = 0
+    let rafId: number
+
+    const sendCanvasFrame = (timestamp: number) => {
+      if (!frameReaderActiveRef.current) return
+
+      const interval = profileRef.current.jpegInterval
+      if (timestamp - lastSendTime >= interval) {
+        if (video.readyState >= 2) {
+          const p = profileRef.current
+          canvas.width = p.width
+          canvas.height = p.height
+
+          // Skip if WS buffer is overloaded
+          if (getWsBufferedAmount() < WS_BUFFER_CRITICAL) {
+            ctx.drawImage(video, 0, 0, p.width, p.height)
+            canvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  blob.arrayBuffer().then((buf) => sendFrame(MSG_JPEG, buf))
+                }
+              },
+              'image/jpeg',
+              p.jpegQuality
+            )
+          } else {
+            framesSkippedRef.current++
+          }
+        }
+        lastSendTime = timestamp
       }
-    }, 50) // 20fps
-  }, [sendFrame])
+
+      rafId = requestAnimationFrame(sendCanvasFrame)
+    }
+
+    frameReaderActiveRef.current = true
+    rafId = requestAnimationFrame(sendCanvasFrame)
+
+    // Store rAF ID for cleanup (use a dummy interval so cleanup code works)
+    canvasIntervalRef.current = rafId as any
+  }, [sendFrame, getWsBufferedAmount])
 
   // ── Start audio encoding ──
 
@@ -438,7 +648,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     try {
       const audioStream = new MediaStream([audioTrack])
 
-      // Detect supported mimeType (iOS Safari doesn't support webm)
+      // Detect supported mimeType
       let mimeType = 'audio/webm;codecs=opus'
       if (typeof MediaRecorder !== 'undefined') {
         if (!MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
@@ -447,12 +657,12 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
           } else if (MediaRecorder.isTypeSupported('audio/webm')) {
             mimeType = 'audio/webm'
           } else {
-            mimeType = '' // let browser choose
+            mimeType = ''
           }
         }
       }
 
-      const options: MediaRecorderOptions = { audioBitsPerSecond: 128_000 }
+      const options: MediaRecorderOptions = { audioBitsPerSecond: 64_000 } // 64kbps is plenty for speech
       if (mimeType) options.mimeType = mimeType
       const recorder = new MediaRecorder(audioStream, options)
       mediaRecorderRef.current = recorder
@@ -463,7 +673,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
         }
       }
 
-      recorder.start(200) // chunk every 200ms
+      recorder.start(150) // 150ms chunks (lower latency than 200ms)
     } catch (err) {
       console.warn('[Visio] MediaRecorder not available:', err)
     }
@@ -492,7 +702,11 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
       // Start heartbeat
       heartbeatRef.current = setInterval(() => {
         sendControl({ type: 'ping' })
+        lastPingSentRef.current = Date.now()
       }, HEARTBEAT_INTERVAL)
+
+      // Start adaptive quality monitor
+      startAdaptiveMonitor()
     }
 
     ws.onmessage = (event) => {
@@ -504,13 +718,17 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
       const msgType = buf[0]
 
       if (msgType === MSG_CONTROL) {
-        // Control messages from server don't have sender prefix
         const decoder = new TextDecoder()
         const json = decoder.decode(buf.slice(1))
         try {
           const ctrl = JSON.parse(json) as ControlMessage
           if (ctrl.type === 'participants' && ctrl.participants) {
             setParticipants(ctrl.participants.filter(p => p.id !== participantIdRef.current))
+          }
+          if (ctrl.type === 'pong' && lastPingSentRef.current > 0) {
+            const rtt = Date.now() - lastPingSentRef.current
+            rttSamplesRef.current.push(rtt)
+            if (rttSamplesRef.current.length > 10) rttSamplesRef.current.shift()
           }
         } catch { /* ignore malformed */ }
         return
@@ -522,15 +740,11 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
       switch (parsed.type) {
         case MSG_JPEG:
-          // Toujours accepter les frames JPEG — l'autre participant
-          // peut envoyer du JPEG (Firefox/Safari) même si on supporte VP8
           handleJpegFrame(parsed.payload)
           break
         case MSG_VP8_KEY:
         case MSG_VP8_DELTA:
           if (useFallbackImg) {
-            // On recevait du JPEG, mais maintenant on reçoit du VP8
-            // Basculer vers VP8 (meilleure qualité)
             setUseFallbackImg(false)
           }
           handleVP8Frame(parsed.type, parsed.payload)
@@ -544,21 +758,23 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     ws.onclose = (event) => {
       setConnectionStatus('disconnected')
       if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+      if (adaptiveTimerRef.current) clearInterval(adaptiveTimerRef.current)
 
-      // Auto-reconnect
+      // Auto-reconnect with exponential backoff
       if (event.code !== 1000 && event.code !== 4000 && event.code !== 4001 && reconnectCountRef.current < MAX_RECONNECT_ATTEMPTS) {
         reconnectCountRef.current++
         setConnectionStatus('reconnecting')
-        setTimeout(connectWs, RECONNECT_DELAY)
+        const delay = RECONNECT_DELAY * Math.min(reconnectCountRef.current, 3)
+        setTimeout(connectWs, delay)
       }
     }
 
     ws.onerror = () => {
       console.error('[Visio] WebSocket error')
     }
-  }, [roomId, participantName, participantRole, sendControl, parseFrame, handleJpegFrame, handleVP8Frame, handleAudioChunk])
+  }, [roomId, participantName, participantRole, sendControl, parseFrame, handleJpegFrame, handleVP8Frame, handleAudioChunk, startAdaptiveMonitor])
 
-  // ── Start media (called from useEffect or from user tap on iOS) ──
+  // ── Start media ──
 
   const startMedia = useCallback(async () => {
     if (initCalledRef.current) return
@@ -566,32 +782,35 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     setNeedsUserGesture(false)
 
     try {
+      const profile = profileRef.current
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode },
-        audio: { echoCancellation: true, noiseSuppression: true },
+        video: {
+          width: { ideal: profile.width },
+          height: { ideal: profile.height },
+          facingMode,
+          frameRate: { ideal: profile.framerate, max: 30 },
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       })
 
         localStreamRef.current = stream
 
-        // Show local preview
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream
         }
 
-        // Start encoding
         startVideoEncoding(stream)
         startAudioEncoding(stream)
-
-        // Setup remote audio playback
         setupAudioPlayback()
-
-        // Connect WebSocket
         connectWs()
       } catch (err: unknown) {
         console.error('[Visio] Failed to get media:', err)
         const errMsg = err instanceof Error ? err.message : 'Erreur inconnue'
 
-        // Try audio-only fallback
         try {
           const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
           localStreamRef.current = audioOnlyStream
@@ -616,14 +835,13 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectWs, facingMode, setupAudioPlayback, startAudioEncoding, startVideoEncoding])
 
-  // ── Init: detect iOS and either auto-start or wait for tap ──
+  // ── Init ──
 
   useEffect(() => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
     if (isIOS) {
-      // iOS Safari requires user gesture for getUserMedia
       setNeedsUserGesture(true)
     } else {
       startMedia()
@@ -659,10 +877,14 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
       mediaRecorderRef.current.stop()
     }
 
-    if (canvasIntervalRef.current) clearInterval(canvasIntervalRef.current)
+    if (canvasIntervalRef.current) {
+      cancelAnimationFrame(canvasIntervalRef.current as any)
+      clearInterval(canvasIntervalRef.current)
+    }
     if (jpegFallbackIntervalRef.current) clearInterval(jpegFallbackIntervalRef.current)
     if (keyframeIntervalRef.current) clearInterval(keyframeIntervalRef.current)
     if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+    if (adaptiveTimerRef.current) clearInterval(adaptiveTimerRef.current)
 
     localStreamRef.current?.getTracks().forEach(t => t.stop())
 
@@ -687,14 +909,13 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
     const audioTrack = stream.getAudioTracks()[0]
     if (audioTrack) {
-      audioTrack.enabled = isMuted // toggle (was muted, now unmute)
+      audioTrack.enabled = isMuted
     }
 
     if (isMuted) {
       sendControl({ type: 'unmute' })
-      // Restart MediaRecorder if it was stopped
       if (mediaRecorderRef.current?.state === 'inactive') {
-        try { mediaRecorderRef.current.start(200) } catch { /* ok */ }
+        try { mediaRecorderRef.current.start(150) } catch { /* ok */ }
       }
     } else {
       sendControl({ type: 'mute' })
@@ -714,7 +935,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
     const videoTrack = stream.getVideoTracks()[0]
     if (videoTrack) {
-      videoTrack.enabled = isVideoOff // toggle
+      videoTrack.enabled = isVideoOff
     }
 
     if (isVideoOff) {
@@ -732,12 +953,13 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     const newFacing = facingMode === 'user' ? 'environment' : 'user'
     setFacingMode(newFacing)
 
-    // Stop current video tracks
     localStreamRef.current?.getVideoTracks().forEach(t => t.stop())
 
-    // Stop current encoding
     frameReaderActiveRef.current = false
-    if (canvasIntervalRef.current) clearInterval(canvasIntervalRef.current)
+    if (canvasIntervalRef.current) {
+      cancelAnimationFrame(canvasIntervalRef.current as any)
+      clearInterval(canvasIntervalRef.current)
+    }
     if (keyframeIntervalRef.current) clearInterval(keyframeIntervalRef.current)
     if (encoderRef.current && encoderRef.current.state !== 'closed') {
       encoderRef.current.close()
@@ -745,26 +967,29 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
     }
 
     try {
+      const profile = profileRef.current
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: newFacing },
+        video: {
+          width: { ideal: profile.width },
+          height: { ideal: profile.height },
+          facingMode: newFacing,
+          frameRate: { ideal: profile.framerate, max: 30 },
+        },
         audio: false,
       })
 
       const newVideoTrack = newStream.getVideoTracks()[0]
       const stream = localStreamRef.current
       if (stream) {
-        // Replace video track in stream
         const oldVideoTrack = stream.getVideoTracks()[0]
         if (oldVideoTrack) stream.removeTrack(oldVideoTrack)
         stream.addTrack(newVideoTrack)
       }
 
-      // Update local preview
       if (localVideoRef.current && stream) {
         localVideoRef.current.srcObject = stream
       }
 
-      // Restart encoding
       if (stream) startVideoEncoding(stream)
     } catch (err) {
       console.error('[Visio] Camera switch failed:', err)
@@ -784,7 +1009,6 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
 
   // ── Render ──
 
-  // iOS: show "tap to start" screen before getUserMedia
   if (needsUserGesture) {
     return (
       <div className="fixed inset-0 z-[9999] bg-gray-900 flex flex-col items-center justify-center">
@@ -834,12 +1058,22 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
             </span>
           )}
         </div>
-        <div className="text-white/70 text-sm font-mono">{callDuration}</div>
+        <div className="flex items-center gap-2">
+          {/* Quality badge */}
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+            qualityLabel === 'HD' ? 'bg-green-500/20 text-green-400' :
+            qualityLabel === 'SD' ? 'bg-yellow-500/20 text-yellow-400' :
+            'bg-red-500/20 text-red-400'
+          }`}>
+            {qualityLabel}
+          </span>
+          <span className="text-white/70 text-sm font-mono">{callDuration}</span>
+        </div>
       </div>
 
       {/* Main video area */}
       <div className="flex-1 relative overflow-hidden bg-black">
-        {/* Remote video — both canvas (VP8) and img (JPEG) are mounted, visibility toggled */}
+        {/* Remote video */}
         {hasRemoteVideo ? (
           <>
             <canvas
@@ -905,7 +1139,7 @@ export default function VisioRoom({ roomId, participantName, participantRole, on
           </div>
         )}
 
-        {/* Local video PiP - bottom right */}
+        {/* Local video PiP */}
         <div className="absolute bottom-20 right-4 w-28 h-36 md:w-36 md:h-48 rounded-xl overflow-hidden border-2 border-white/20 shadow-lg bg-gray-800">
           <video
             ref={localVideoRef}

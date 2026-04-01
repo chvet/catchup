@@ -1,5 +1,5 @@
 /**
- * Catch'Up — Serveur WebSocket de visioconference
+ * Catch'Up — Serveur WebSocket de visioconference (OPTIMISE)
  * Relais binaire pour audio/video entre participants d'une room.
  *
  * Port : 3003 (separe de Next.js sur 3000)
@@ -12,7 +12,12 @@
  *   0x04 = VP8 delta frame
  *   0x05 = control message (JSON: join/leave/mute/unmute)
  *
- * Usage : node src/visio/server.js   (ou npx tsx src/visio/server.ts)
+ * Optimisations :
+ *   - Backpressure : skip delta frames si bufferedAmount > seuil
+ *   - Keyframes toujours relayees (jamais droppees)
+ *   - Audio toujours relaye (jamais droppe)
+ *   - Frame rate limiter par participant emetteur
+ *   - Stats de frames droppees loguees periodiquement
  */
 
 import { WebSocketServer, WebSocket, RawData } from 'ws'
@@ -29,6 +34,10 @@ interface Participant {
   videoOff: boolean
   ws: WebSocket
   lastPing: number
+  // Stats
+  framesRelayed: number
+  framesDropped: number
+  lastVideoFrameTime: number
 }
 
 interface Room {
@@ -37,19 +46,33 @@ interface Room {
 }
 
 interface ControlMessage {
-  type: 'join' | 'leave' | 'mute' | 'unmute' | 'video_off' | 'video_on' | 'participants' | 'error' | 'ping' | 'pong'
+  type: 'join' | 'leave' | 'mute' | 'unmute' | 'video_off' | 'video_on' | 'participants' | 'error' | 'ping' | 'pong' | 'quality'
   participantId?: string
   name?: string
   role?: string
   participants?: Array<{ id: string; name: string; role: string; muted: boolean; videoOff: boolean }>
   message?: string
+  quality?: string  // 'low' | 'medium' | 'high'
 }
 
-// ── State ──────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────
 
 const MAX_PARTICIPANTS_PER_ROOM = 4
-const HEARTBEAT_INTERVAL = 10_000 // 10s
-const DISCONNECT_TIMEOUT = 30_000 // 30s
+const HEARTBEAT_INTERVAL = 10_000
+const DISCONNECT_TIMEOUT = 30_000
+
+// Backpressure thresholds (bytes in WebSocket send buffer)
+const BACKPRESSURE_DROP_DELTA = 128 * 1024    // 128KB → start dropping delta video
+const BACKPRESSURE_DROP_JPEG = 256 * 1024     // 256KB → start dropping JPEG too
+// Never drop keyframes or audio
+
+// Minimum interval between video frames per receiver (ms)
+// Prevents flooding slow receivers
+const MIN_FRAME_INTERVAL_MS = 30 // ~33fps max relay rate
+
+const STATS_LOG_INTERVAL = 60_000 // Log stats every 60s
+
+// ── State ──────────────────────────────────────────────────────────
 
 const rooms = new Map<string, Room>()
 
@@ -111,7 +134,7 @@ function removeParticipant(room: Room, participantId: string) {
   if (!participant) return
 
   room.participants.delete(participantId)
-  console.log(`[Visio] ${participant.name} left room ${room.id} (${room.participants.size} remaining)`)
+  console.log(`[Visio] ${participant.name} left room ${room.id} (${room.participants.size} remaining) — relayed: ${participant.framesRelayed}, dropped: ${participant.framesDropped}`)
 
   // Notify others
   const leaveMsg = encodeControlMessage({
@@ -134,12 +157,65 @@ function removeParticipant(room: Room, participantId: string) {
   }
 }
 
+/**
+ * Smart relay: decides per-receiver whether to relay or drop a frame.
+ * - Keyframes (0x03) and audio (0x02) are NEVER dropped.
+ * - Delta video (0x04) and JPEG (0x01) are dropped if receiver has backpressure.
+ */
+function smartRelay(room: Room, senderId: string, msgType: number, relayFrame: Buffer) {
+  const now = Date.now()
+  const isKeyframe = msgType === 0x03
+  const isAudio = msgType === 0x02
+  const isDelta = msgType === 0x04
+  const isJpeg = msgType === 0x01
+  const isVideo = isKeyframe || isDelta || isJpeg
+
+  for (const p of room.participants.values()) {
+    if (p.id === senderId) continue
+    if (p.ws.readyState !== WebSocket.OPEN) continue
+
+    const buffered = (p.ws as any).bufferedAmount || 0
+
+    // Always relay keyframes and audio — they're critical
+    if (isKeyframe || isAudio) {
+      p.ws.send(relayFrame)
+      p.framesRelayed++
+      if (isVideo) p.lastVideoFrameTime = now
+      continue
+    }
+
+    // For delta frames: check backpressure
+    if (isDelta && buffered > BACKPRESSURE_DROP_DELTA) {
+      p.framesDropped++
+      continue
+    }
+
+    // For JPEG: slightly higher threshold
+    if (isJpeg && buffered > BACKPRESSURE_DROP_JPEG) {
+      p.framesDropped++
+      continue
+    }
+
+    // Rate limiter: don't flood receiver with video faster than they can consume
+    if (isVideo && (now - p.lastVideoFrameTime) < MIN_FRAME_INTERVAL_MS) {
+      // Only drop deltas for rate limiting, never keyframes (already handled above)
+      p.framesDropped++
+      continue
+    }
+
+    // Relay the frame
+    p.ws.send(relayFrame)
+    p.framesRelayed++
+    if (isVideo) p.lastVideoFrameTime = now
+  }
+}
+
 // ── WebSocket Server ───────────────────────────────────────────────
 
 const PORT = parseInt(process.env.VISIO_PORT || '3003', 10)
 const wss = new WebSocketServer({ port: PORT })
 
-console.log(`[Visio] WebSocket server listening on port ${PORT}`)
+console.log(`[Visio] WebSocket server listening on port ${PORT} (optimized relay)`)
 
 wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
   // Parse room and participant info from URL
@@ -175,6 +251,9 @@ wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     videoOff: false,
     ws,
     lastPing: Date.now(),
+    framesRelayed: 0,
+    framesDropped: 0,
+    lastVideoFrameTime: 0,
   }
   room.participants.set(participantId, participant)
 
@@ -202,7 +281,6 @@ wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     participant.lastPing = Date.now()
 
     if (!isBinary && !Buffer.isBuffer(data)) {
-      // Text message — ignore (we only handle binary)
       return
     }
 
@@ -234,7 +312,6 @@ wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
           broadcastParticipantList(room)
           break
         case 'ping':
-          // Respond with pong
           ws.send(encodeControlMessage({ type: 'pong' }))
           break
         case 'leave':
@@ -245,7 +322,7 @@ wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
       return
     }
 
-    // Binary media frame (0x01-0x04): relay to all others
+    // Binary media frame (0x01-0x04): smart relay to others
     if (msgType >= 0x01 && msgType <= 0x04) {
       // Prepend sender ID to the frame so receivers know who it's from
       const senderIdBuf = Buffer.from(participantId, 'utf-8')
@@ -260,11 +337,8 @@ wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
         buf.subarray(1),         // original payload
       ])
 
-      for (const p of room.participants.values()) {
-        if (p.id !== participantId && p.ws.readyState === WebSocket.OPEN) {
-          p.ws.send(relayFrame)
-        }
-      }
+      // Use smart relay with backpressure management
+      smartRelay(room, participantId, msgType, relayFrame)
     }
   })
 
@@ -293,6 +367,20 @@ setInterval(() => {
     }
   }
 }, HEARTBEAT_INTERVAL)
+
+// ── Stats logging ─────────────────────────────────────────────────
+
+setInterval(() => {
+  for (const [roomId, room] of rooms) {
+    if (room.participants.size === 0) continue
+    for (const p of room.participants.values()) {
+      if (p.framesRelayed > 0 || p.framesDropped > 0) {
+        const dropRate = p.framesDropped / Math.max(1, p.framesRelayed + p.framesDropped) * 100
+        console.log(`[Visio] Stats ${roomId}/${p.name}: relayed=${p.framesRelayed} dropped=${p.framesDropped} (${dropRate.toFixed(1)}% drop)`)
+      }
+    }
+  }
+}, STATS_LOG_INTERVAL)
 
 // ── Graceful shutdown ──────────────────────────────────────────────
 
