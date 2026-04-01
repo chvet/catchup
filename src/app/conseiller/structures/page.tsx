@@ -405,7 +405,7 @@ export default function StructuresPage() {
                   <div className="mt-3 pt-3 border-t border-gray-100" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-3">
                       <img
-                        src={`/api/qrcode?size=80&data=${encodeURIComponent(`https://catchup.jaeprive.fr/?s=${s.slug}`)}`}
+                        src={`/api/qrcode?size=80&data=${encodeURIComponent(`https://catchup.jaeprive.fr/?s=${s.slug}`)}&v=2`}
                         alt="QR Code"
                         className="w-16 h-16 rounded border border-gray-200"
                         loading="lazy"
@@ -427,7 +427,7 @@ export default function StructuresPage() {
                             {copiedId === s.id ? '✅ Copié !' : '📋 Copier'}
                           </button>
                           <a
-                            href={`/api/qrcode?size=300&data=${encodeURIComponent(`https://catchup.jaeprive.fr/?s=${s.slug}`)}`}
+                            href={`/api/qrcode?size=300&data=${encodeURIComponent(`https://catchup.jaeprive.fr/?s=${s.slug}`)}&v=2`}
                             download={`qr-${s.slug}.png`}
                             className="text-[10px] px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-catchup-primary/10 hover:text-catchup-primary transition-colors"
                           >

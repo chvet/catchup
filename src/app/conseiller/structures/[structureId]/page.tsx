@@ -234,10 +234,10 @@ export default function StructureDetailPage() {
     : null
   const encodedUrl = structureUrl ? encodeURIComponent(structureUrl) : ''
   const qrCodeSrc = structureUrl
-    ? `/api/qrcode?size=200&data=${encodedUrl}`
+    ? `/api/qrcode?size=200&data=${encodedUrl}&v=2`
     : null
   const qrCodeLargeSrc = structureUrl
-    ? `/api/qrcode?size=300&data=${encodedUrl}`
+    ? `/api/qrcode?size=300&data=${encodedUrl}&v=2`
     : null
 
   const handleCopyLink = async () => {

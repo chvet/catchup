@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     return new Response(finalSvg, {
       headers: {
         'Content-Type': 'image/svg+xml',
-        'Cache-Control': 'public, max-age=86400',
+        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=3600',
       },
     })
   } catch (err) {

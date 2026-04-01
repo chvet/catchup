@@ -200,7 +200,7 @@ export default function CampagnesPage() {
   const getQrCodeUrl = (campagneId: string, size = 200) => {
     const url = getCampagneUrl(campagneId)
     if (!url) return null
-    return `/api/qrcode?data=${encodeURIComponent(url)}&size=${size}`
+    return `/api/qrcode?data=${encodeURIComponent(url)}&size=${size}&v=2`
   }
 
   const handleCopyLink = async (campagneId: string) => {
