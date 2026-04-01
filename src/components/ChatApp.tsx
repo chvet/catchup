@@ -42,6 +42,7 @@ const LS_REFERRAL_ID = 'catchup_referral_id'
 const LS_REFERRAL_REFUSED_AT = 'catchup_referral_refused_at'
 const LS_BENEFICIAIRE_INFO = 'catchup_beneficiaire_info'
 const LS_STRUCTURE_SLUG = 'catchup_structure_slug'
+const LS_CAMPAGNE_ID = 'catchup_campagne_id'
 const LS_USER_PRENOM = 'catchup_user_prenom'
 
 interface StructureInfo {
@@ -112,6 +113,7 @@ export default function ChatApp() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [structureInfo, setStructureInfo] = useState<StructureInfo | null>(null)
+  const [campagneId, setCampagneId] = useState<string | null>(null)
   const [showFichesSearch, setShowFichesSearch] = useState(false)
 
   // ── Données vocales par message (audioUrl + durée + transcription) ──
@@ -167,15 +169,25 @@ export default function ChatApp() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    // 1. Chercher ?s=SLUG dans l'URL
+    // 1. Chercher ?s=SLUG et ?c=CAMPAGNE_ID dans l'URL
     const params = new URLSearchParams(window.location.search)
     let slug = params.get('s') || ''
+    const cParam = params.get('c') || ''
 
     // 2. Si trouvé, persister dans localStorage et nettoyer l'URL
+    if (cParam) {
+      localStorage.setItem(LS_CAMPAGNE_ID, cParam)
+      setCampagneId(cParam)
+    } else {
+      const savedCampagne = localStorage.getItem(LS_CAMPAGNE_ID) || ''
+      if (savedCampagne) setCampagneId(savedCampagne)
+    }
+
     if (slug) {
       localStorage.setItem(LS_STRUCTURE_SLUG, slug)
       const url = new URL(window.location.href)
       url.searchParams.delete('s')
+      url.searchParams.delete('c')
       window.history.replaceState({}, '', url.pathname + url.search + url.hash)
     } else {
       // 3. Sinon, vérifier localStorage (retour sans param)
@@ -1334,6 +1346,7 @@ export default function ChatApp() {
                 genre: null,
                 fragilityLevel: currentFragility,
                 structureSlug: structureInfo?.slug || undefined,
+                campagneId: campagneId || undefined,
               }),
             })
             if (res.ok) {

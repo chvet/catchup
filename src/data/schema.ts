@@ -115,6 +115,7 @@ export const referral = sqliteTable('referral', {
   typeContact: text('type_contact'),
   statut: text('statut').default('en_attente'),
   source: text('source').default('generique'), // 'sourcee' | 'generique'
+  campagneId: text('campagne_id'),
   webhookEnvoye: integer('webhook_envoye').default(0),
   webhookReponse: text('webhook_reponse'),
   relanceEnvoyee: integer('relance_envoyee').default(0),

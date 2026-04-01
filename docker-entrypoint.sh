@@ -11,6 +11,21 @@ if [ ! -f "$DB_PATH" ]; then
   echo "✅ Base initialisée"
 else
   echo "📦 Base de données existante trouvée"
+  # Migrations légères (ajout de colonnes manquantes)
+  echo "🔄 Vérification des migrations..."
+  node -e "
+    const { createClient } = require('@libsql/client');
+    (async () => {
+      const db = createClient({ url: 'file:$DB_PATH' });
+      const migrations = [
+        'ALTER TABLE referral ADD COLUMN campagne_id TEXT',
+      ];
+      for (const m of migrations) {
+        try { await db.execute(m); console.log('  ✓', m.substring(0, 60)); } catch(e) { /* already exists */ }
+      }
+    })().catch(() => {});
+  " 2>/dev/null
+  echo "✅ Migrations OK"
 fi
 
 # Lancer le serveur WebSocket de visio en arrière-plan (optionnel)

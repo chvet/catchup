@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
       genre,
       fragilityLevel,
       structureSlug,
+      campagneId,
     } = body
 
     if (!conversationId || !utilisateurId) {
@@ -292,6 +293,7 @@ export async function POST(request: NextRequest) {
       typeContact: typeContact ?? null,
       statut: 'en_attente',
       source: referralSource,
+      campagneId: campagneId || null,
       structureSuggereId: structureSuggereIdFromSlug ?? bestMatch?.structureId ?? null,
       localisation: departement ?? null,
       genre: genre ?? null,

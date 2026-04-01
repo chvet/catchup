@@ -42,12 +42,14 @@ export default function CampagnesPage() {
   const isAdmin = conseiller?.role === 'admin_structure' || conseiller?.role === 'super_admin'
 
   const [campagnes, setCampagnes] = useState<Campagne[]>([])
+  const [structureSlug, setStructureSlug] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [conseillers, setConseillers] = useState<StructureConseiller[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   // Form state
   const [form, setForm] = useState({
@@ -66,6 +68,7 @@ export default function CampagnesPage() {
       const res = await fetch('/api/conseiller/campagnes')
       const data = await res.json()
       setCampagnes(data.campagnes || [])
+      if (data.structureSlug) setStructureSlug(data.structureSlug)
     } catch { /* */ }
     setLoading(false)
   }, [])
@@ -189,6 +192,70 @@ export default function CampagnesPage() {
     return `${days}j restants`
   }
 
+  const getCampagneUrl = (campagneId: string) => {
+    if (!structureSlug) return null
+    return `https://catchup.jaeprive.fr/?s=${structureSlug}&c=${campagneId}`
+  }
+
+  const getQrCodeUrl = (campagneId: string, size = 200) => {
+    const url = getCampagneUrl(campagneId)
+    if (!url) return null
+    return `/api/qrcode?data=${encodeURIComponent(url)}&size=${size}`
+  }
+
+  const handleCopyLink = async (campagneId: string) => {
+    const url = getCampagneUrl(campagneId)
+    if (!url) return
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedId(campagneId)
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch {
+      // Fallback
+      const ta = document.createElement('textarea')
+      ta.value = url
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      setCopiedId(campagneId)
+      setTimeout(() => setCopiedId(null), 2000)
+    }
+  }
+
+  const handleDownloadQR = (campagneId: string, designation: string) => {
+    const qrUrl = getQrCodeUrl(campagneId, 400)
+    if (!qrUrl) return
+    const a = document.createElement('a')
+    a.href = qrUrl
+    a.download = `qr-campagne-${designation.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}.svg`
+    a.target = '_blank'
+    a.click()
+  }
+
+  const handlePrintQR = (campagneId: string, designation: string) => {
+    const qrUrl = getQrCodeUrl(campagneId, 300)
+    const campagneUrl = getCampagneUrl(campagneId)
+    if (!qrUrl || !campagneUrl) return
+    const w = window.open('', '_blank', 'width=500,height=700')
+    if (!w) return
+    w.document.write(`
+      <html><head><title>QR Code — ${designation}</title>
+      <style>body{font-family:system-ui,sans-serif;text-align:center;padding:40px 20px}
+      h2{color:#1a1a2e;margin-bottom:4px}p{color:#666;font-size:14px}
+      img{margin:24px auto;display:block}
+      .url{background:#f3f4f6;padding:8px 16px;border-radius:8px;font-size:12px;color:#4b5563;word-break:break-all;display:inline-block;margin-top:12px}
+      @media print{body{padding:20px}}</style></head><body>
+      <h2>Campagne : ${designation}</h2>
+      <p>Scannez ce QR code pour acceder a Catch'Up</p>
+      <img src="${qrUrl}" width="300" height="300" />
+      <div class="url">${campagneUrl}</div>
+      <script>setTimeout(()=>window.print(),500)<\/script>
+      </body></html>
+    `)
+    w.document.close()
+  }
+
   if (!isAdmin) {
     return (
       <div className="p-6">
@@ -279,6 +346,57 @@ export default function CampagnesPage() {
                       {cc.prenom} {cc.nom?.[0]}.
                     </span>
                   ))}
+                </div>
+              )}
+
+              {/* QR Code campagne */}
+              {structureSlug && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex items-start gap-4">
+                    {/* QR code preview */}
+                    <div className="shrink-0">
+                      <img
+                        src={getQrCodeUrl(c.id, 200) || ''}
+                        alt={`QR Code ${c.designation}`}
+                        width={100}
+                        height={100}
+                        className="rounded-lg border border-gray-200"
+                      />
+                    </div>
+                    {/* Actions */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500 mb-2">QR Code de cette campagne</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          onClick={() => handleCopyLink(c.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          {copiedId === c.id ? (
+                            <><span className="text-green-600">Copie !</span></>
+                          ) : (
+                            <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> Copier le lien</>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDownloadQR(c.id, c.designation)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                          Telecharger
+                        </button>
+                        <button
+                          onClick={() => handlePrintQR(c.id, c.designation)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                          Imprimer
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1.5 truncate">
+                        {getCampagneUrl(c.id)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

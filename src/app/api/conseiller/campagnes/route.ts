@@ -3,7 +3,7 @@
 
 import { getConseillerFromHeaders, hasRole, jsonError, jsonSuccess } from '@/lib/api-helpers'
 import { db } from '@/data/db'
-import { campagne, campagneAssignation, conseiller, priseEnCharge } from '@/data/schema'
+import { campagne, campagneAssignation, conseiller, priseEnCharge, structure } from '@/data/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -40,6 +40,10 @@ export async function GET(request: Request) {
     const ctx = await getConseillerFromHeaders()
     const structureId = ctx.structureId
     if (!structureId) return jsonSuccess({ campagnes: [] })
+
+    // Récupérer le slug de la structure pour les QR codes
+    const structures = await db.select({ slug: structure.slug }).from(structure).where(eq(structure.id, structureId))
+    const structureSlug = structures[0]?.slug || null
 
     const campagnes = await db
       .select()
@@ -85,7 +89,7 @@ export async function GET(request: Request) {
       })
     )
 
-    return jsonSuccess({ campagnes: enriched })
+    return jsonSuccess({ campagnes: enriched, structureSlug })
   } catch (error) {
     console.error('[Campagnes GET]', error)
     return jsonError('Erreur serveur', 500)
