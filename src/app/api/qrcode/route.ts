@@ -38,7 +38,7 @@ export async function GET(request: Request) {
         y="${logoOffset}"
         width="${logoSize}"
         height="${logoSize}"
-        href="data:image/png;base64,${LOGO_BASE64}"
+        href="${LOGO_BASE64}"
         preserveAspectRatio="xMidYMid meet"
       />
     `
