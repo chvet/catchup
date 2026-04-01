@@ -702,9 +702,8 @@ export default function FileActivePage() {
 
   const handlePrendreEnCharge = async (item: ReferralItem) => {
     try {
-      const res = await fetch(`/api/conseiller/file-active/${item.id}/prendre-en-charge`, {
+      const res = await fetch(`/api/conseiller/file-active/${item.id}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
       })
       if (res.ok) {
         setToast(`${item.prenom || 'Anonyme'} pris(e) en charge`)
