@@ -621,13 +621,20 @@ export default function ChatApp() {
     } catch {
       // On continue le reset même si l'appel échoue
     }
-    // Effacer les données de conversation + referral pour repartir de zéro
+    // Effacer TOUTES les données de conversation, referral et accompagnement
     localStorage.removeItem(LS_MESSAGES_KEY)
     localStorage.removeItem(LS_PROFILE_KEY)
     localStorage.removeItem(LS_SESSION_KEY)
     localStorage.removeItem(LS_QUIZ_KEY)
     localStorage.removeItem(LS_SUGGESTIONS_COUNT)
     localStorage.removeItem(LS_REFERRAL_ID)
+    localStorage.removeItem(LS_CONVERSATION_ID)
+    localStorage.removeItem(LS_USER_ID)
+    localStorage.removeItem(LS_USER_PRENOM)
+    localStorage.removeItem(LS_BENEFICIAIRE_INFO)
+    localStorage.removeItem(LS_REFERRAL_REFUSED_AT)
+    localStorage.removeItem('catchup_accompagnement')
+    localStorage.removeItem('catchup_user_token')
     setShowResetConfirm(false)
     // Recharger la page pour repartir de zéro proprement
     window.location.reload()
