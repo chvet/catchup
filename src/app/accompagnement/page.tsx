@@ -27,6 +27,8 @@ export default function AccompagnementPage() {
   const [error, setError] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [resending, setResending] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   // Charger la session existante depuis localStorage
@@ -257,10 +259,46 @@ export default function AccompagnementPage() {
             {verifying ? 'Vérification...' : 'Accéder à mon accompagnement'}
           </button>
 
-          <p className="text-center text-xs text-gray-400 mt-4">
-            Vous n&apos;avez pas reçu de code ?<br />
-            Contactez votre structure d&apos;accompagnement.
-          </p>
+          <div className="text-center mt-4">
+            {resendSuccess ? (
+              <p className="text-xs text-green-600 font-medium">
+                Un nouveau code a ete envoye !
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-gray-400 mb-2">Vous n&apos;avez pas recu de code ?</p>
+                <button
+                  onClick={async () => {
+                    if (!email.trim() || resending) return
+                    setResending(true)
+                    try {
+                      const res = await fetch('/api/accompagnement/resend-code', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: email.trim() }),
+                      })
+                      if (res.ok) {
+                        setResendSuccess(true)
+                        setCode(['', '', '', '', '', ''])
+                        setError('')
+                        setTimeout(() => setResendSuccess(false), 30000)
+                      } else {
+                        const data = await res.json()
+                        setError(data.error || 'Erreur lors du renvoi')
+                      }
+                    } catch {
+                      setError('Erreur de connexion')
+                    }
+                    setResending(false)
+                  }}
+                  disabled={!email.trim() || resending}
+                  className="text-xs text-catchup-primary font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resending ? 'Envoi en cours...' : 'Renvoyer un code'}
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Lien retour */}

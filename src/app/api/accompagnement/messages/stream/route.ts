@@ -5,6 +5,7 @@ import { db } from '@/data/db'
 import { messageDirect } from '@/data/schema'
 import { eq, and, gt } from 'drizzle-orm'
 import { getBeneficiaireFromTokenString } from '@/lib/accompagnement-helpers'
+import { isTyping } from '@/lib/heartbeat-store'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -75,6 +76,11 @@ export async function GET(request: Request) {
               }
               // Mettre à jour lastCheck avec le dernier message
               lastCheck = newMessages[newMessages.length - 1].horodatage
+            }
+
+            // Vérifier si le conseiller est en train d'écrire
+            if (beneficiaire.conseillerId && isTyping(beneficiaire.conseillerId)) {
+              sendEvent(JSON.stringify({ type: 'typing', conseillerId: beneficiaire.conseillerId }))
             }
 
             heartbeatCount++

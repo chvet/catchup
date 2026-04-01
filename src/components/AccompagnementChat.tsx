@@ -161,6 +161,8 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [error, setError] = useState<string | null>(null)
+  const [conseillerTyping, setConseillerTyping] = useState(false)
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [ruptured, setRuptured] = useState(false)
   const [ruptureInfo, setRuptureInfo] = useState<RuptureContent | null>(null)
 
@@ -231,8 +233,14 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
     es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        // SSE envoie { type: 'connected' } ou { type: 'message', ...fields }
+        // SSE envoie { type: 'connected' }, { type: 'typing' } ou { type: 'message', ...fields }
         if (data.type === 'connected') { setConnected(true); return }
+        if (data.type === 'typing') {
+          setConseillerTyping(true)
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+          typingTimeoutRef.current = setTimeout(() => setConseillerTyping(false), 3000)
+          return
+        }
         const msg: DirectMessage = data.message || data
         if (!msg.id) return
         setMessages(prev => {
@@ -813,6 +821,31 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
               </div>
             )
           })
+        )}
+        {/* Indicateur "en train d'écrire..." */}
+        {conseillerTyping && (
+          <div className="flex items-start gap-2 msg-appear">
+            <div className="w-7 h-7 rounded-full bg-catchup-primary/15 flex items-center justify-center shrink-0">
+              <span className="text-xs">{'\u{1F464}'}</span>
+            </div>
+            <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-2.5">
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-gray-500">{conseillerPrenom} &eacute;crit</span>
+                <span className="flex gap-1 ml-1">
+                  {[0, 1, 2].map(i => (
+                    <span
+                      key={i}
+                      className="w-1.5 h-1.5 bg-gray-400 rounded-full inline-block"
+                      style={{
+                        animation: 'typing-dot 1.2s ease-in-out infinite',
+                        animationDelay: `${i * 0.2}s`,
+                      }}
+                    />
+                  ))}
+                </span>
+              </div>
+            </div>
+          </div>
         )}
         <div ref={chatEndRef} />
       </div>

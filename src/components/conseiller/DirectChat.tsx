@@ -13,6 +13,7 @@ import OnlineDot from '@/components/OnlineDot'
 import VoiceRecorder from '@/components/VoiceRecorder'
 import VoiceMessage from '@/components/VoiceMessage'
 import { useIsOnline } from '@/hooks/useOnlineStatus'
+import { useTypingSignal } from '@/hooks/useTypingSignal'
 
 interface DirectMessage {
   id: string
@@ -28,6 +29,7 @@ interface DirectChatProps {
   beneficiairePrenom: string
   beneficiaireAge?: number | null
   priseEnChargeStatut: string
+  conseillerId?: string
 }
 
 // --- Types pour les messages structurés ---
@@ -190,7 +192,8 @@ function UploadProgress({ progress }: { progress: number }) {
 
 // --- Main component ---
 
-export default function DirectChat({ referralId, beneficiairePrenom, beneficiaireAge, priseEnChargeStatut }: DirectChatProps) {
+export default function DirectChat({ referralId, beneficiairePrenom, beneficiaireAge, priseEnChargeStatut, conseillerId }: DirectChatProps) {
+  const sendTyping = useTypingSignal('conseiller', conseillerId)
   // Real online status for the beneficiary (using referralId as heartbeat userId)
   const beneficiaireOnline = useIsOnline(referralId)
 
@@ -1105,7 +1108,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
             <input
               type="text"
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={e => { setInput(e.target.value); sendTyping() }}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder="Écrire un message..."
               className="flex-1 px-4 py-2.5 border border-gray-300 rounded-full text-sm focus:ring-2 focus:ring-catchup-primary focus:border-transparent outline-none transition"

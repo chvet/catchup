@@ -545,6 +545,7 @@ export default function CaseDetailPage() {
                 beneficiairePrenom={beneficiaire?.prenom || 'Bénéficiaire'}
                 beneficiaireAge={beneficiaire?.age}
                 priseEnChargeStatut={pec?.statut || ''}
+                conseillerId={pec?.conseillerId}
               />
             )}
 

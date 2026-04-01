@@ -809,28 +809,46 @@ export default function ChatApp() {
             <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
               <span className="text-2xl">⚠️</span>
             </div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Nouvelle conversation ?</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Tu es sur(e) ?</h3>
             {referralStatus === 'prise_en_charge' ? (
               <div className="text-sm text-gray-500 mb-5 space-y-2">
                 <p className="font-semibold text-red-600">
-                  Ton accompagnement avec {referralConseillerPrenom || 'ton conseiller'} sera rompu.
+                  Ton accompagnement avec {referralConseillerPrenom || 'ton conseiller'} sera d&eacute;finitivement rompu.
                 </p>
-                <p>
-                  Un message sera envoy&eacute; &agrave; ton conseiller pour l&apos;informer.
-                  Tu pourras toujours refaire une demande plus tard.
+                <ul className="text-left text-xs space-y-1 text-gray-500 mt-2">
+                  <li>&#x2022; Ton conseiller recevra un message de cl&ocirc;ture</li>
+                  <li>&#x2022; Ton historique de conversation sera effac&eacute;</li>
+                  <li>&#x2022; Ton profil et tes r&eacute;ponses au quiz seront r&eacute;initialis&eacute;s</li>
+                </ul>
+                <p className="text-xs mt-2">
+                  Tu pourras refaire une demande d&apos;accompagnement plus tard.
                 </p>
               </div>
             ) : referralStatus === 'en_attente' ? (
               <div className="text-sm text-gray-500 mb-5 space-y-2">
                 <p className="font-semibold text-amber-600">
-                  Ta demande d&apos;accompagnement en attente sera annul&eacute;e.
+                  Ta demande d&apos;accompagnement sera annul&eacute;e.
                 </p>
-                <p>Tu pourras en refaire une plus tard si tu le souhaites.</p>
+                <ul className="text-left text-xs space-y-1 text-gray-500 mt-2">
+                  <li>&#x2022; Ta demande en attente sera supprim&eacute;e</li>
+                  <li>&#x2022; Ton historique de conversation sera effac&eacute;</li>
+                  <li>&#x2022; Ton profil sera r&eacute;initialis&eacute;</li>
+                </ul>
+                <p className="text-xs mt-2">Tu pourras refaire une demande plus tard.</p>
               </div>
             ) : (
-              <p className="text-sm text-gray-500 mb-5">
-                Ta conversation actuelle sera perdue. Si tu veux la garder, inscris-toi d&apos;abord.
-              </p>
+              <div className="text-sm text-gray-500 mb-5 space-y-2">
+                <p>Tout sera effac&eacute; et tu repartiras de z&eacute;ro :</p>
+                <ul className="text-left text-xs space-y-1 text-gray-500">
+                  <li>&#x2022; Ton historique de conversation</li>
+                  <li>&#x2022; Ton profil et tes r&eacute;ponses au quiz</li>
+                </ul>
+                {!authUser && (
+                  <p className="text-xs text-catchup-primary font-medium mt-2">
+                    Inscris-toi d&apos;abord pour sauvegarder ta conversation !
+                  </p>
+                )}
+              </div>
             )}
             <div className="flex flex-col gap-2.5">
               {!authUser && (
@@ -1166,10 +1184,15 @@ export default function ChatApp() {
                   type="password"
                   value={authPassword}
                   onChange={e => { setAuthPassword(e.target.value); setAuthError('') }}
-                  placeholder={authMode === 'signup' ? '6 caracteres minimum' : 'Ton mot de passe'}
+                  placeholder={authMode === 'signup' ? '12 caracteres minimum' : 'Ton mot de passe'}
                   className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-catchup-primary focus:border-transparent outline-none transition text-sm text-gray-800"
                   onKeyDown={e => { if (e.key === 'Enter') handleAuthSubmit() }}
                 />
+                {authMode === 'signup' && (
+                  <p className={`text-[11px] mt-1 ${authPassword.length >= 12 ? 'text-green-600' : authPassword.length > 0 ? 'text-amber-500' : 'text-gray-400'}`}>
+                    {authPassword.length >= 12 ? '\u2713 Mot de passe valide' : `${authPassword.length}/12 caracteres minimum`}
+                  </p>
+                )}
               </div>
             </div>
 
