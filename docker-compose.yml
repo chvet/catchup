@@ -28,6 +28,7 @@ services:
       - GOOGLE_CALENDAR_REDIRECT_URI=https://catchup.jaeprive.fr/api/calendar/google/callback
       - O365_CALENDAR_REDIRECT_URI=https://catchup.jaeprive.fr/api/calendar/outlook/callback
       - VONAGE_API_KEY=${VONAGE_API_KEY}
+      - VONAGE_API_SECRET=${VONAGE_API_SECRET}
       - VONAGE_SMS_FROM=${VONAGE_SMS_FROM:-CatchUp}
     volumes:
       - /mnt/HC_Volume_105238085/catchup-data:/app/data
