@@ -354,8 +354,8 @@ export default function FileActivePage() {
   const [sort, setSort] = useState<SortState>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
-      if (params.get('tab') === 'generique') return { column: 'matchScore' as SortColumn, direction: 'desc' as const }
-      if (params.get('tab') === 'mes_demandes' || params.get('tab') === 'attente') return { column: 'urgence' as SortColumn, direction: 'desc' as const }
+      if (params.get('tab') === 'generique') return { column: 'dateDemande' as SortColumn, direction: 'asc' as const }
+      if (params.get('tab') === 'mes_demandes' || params.get('tab') === 'attente') return { column: 'dateDemande' as SortColumn, direction: 'asc' as const }
     }
     return { column: 'derniereActivite' as SortColumn, direction: 'desc' as const }
   })
@@ -625,7 +625,7 @@ export default function FileActivePage() {
   const tabs: { id: TabId; label: string; count: number }[] = [
     { id: 'mes_accompagnements', label: 'Mes accompagnements', count: tabCounts.mesAccompagnements },
     { id: 'mes_demandes', label: `Demandes ${structureNom}`, count: sourceData.length },
-    { id: 'generique', label: 'Toutes structures', count: generiqueData.length },
+    { id: 'generique', label: 'Autres demandes', count: generiqueData.length },
   ]
 
   const visibleTabs = tabs
@@ -635,9 +635,9 @@ export default function FileActivePage() {
     setActiveTab(tabId)
     setFilters(f => ({ ...f, statut: '' }))
     if (tabId === 'generique') {
-      setSort({ column: 'matchScore', direction: 'desc' })
+      setSort({ column: 'dateDemande', direction: 'asc' })
     } else if (tabId === 'mes_demandes') {
-      setSort({ column: 'urgence', direction: 'desc' })
+      setSort({ column: 'dateDemande', direction: 'asc' })
     } else if (tabId === 'mes_accompagnements') {
       setSort({ column: 'derniereActivite', direction: 'desc' })
     } else {
