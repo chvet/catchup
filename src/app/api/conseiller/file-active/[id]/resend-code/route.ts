@@ -4,7 +4,7 @@
 import { getConseillerFromHeaders, jsonError, jsonSuccess } from '@/lib/api-helpers'
 import { logAudit } from '@/lib/auth'
 import { db } from '@/data/db'
-import { referral, priseEnCharge, codeVerification } from '@/data/schema'
+import { referral, priseEnCharge, codeVerification, conseiller, utilisateur } from '@/data/schema'
 import { eq, and } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { sendPinCode } from '@/lib/sms'
@@ -84,10 +84,17 @@ export async function POST(
       creeLe: now,
     })
 
+    // Récupérer le prénom du conseiller et du bénéficiaire
+    const conseillerForSms = await db.select({ prenom: conseiller.prenom }).from(conseiller).where(eq(conseiller.id, ctx.id))
+    const conseillerPrenom = conseillerForSms[0]?.prenom || undefined
+    const userForSms = await db.select({ prenom: utilisateur.prenom }).from(utilisateur).where(eq(utilisateur.id, ref.utilisateurId))
+    const beneficiairePrenom = userForSms[0]?.prenom || undefined
+
     // Envoyer la notification
     const notifResult = await sendPinCode(ref.moyenContact || '', code, {
       type: 'beneficiaire',
-      conseillerPrenom: ctx.email?.split('@')[0],
+      prenom: beneficiairePrenom,
+      conseillerPrenom,
     })
 
     console.log(`[PIN RESEND] Code renvoyé à ${ref.moyenContact} via ${notifResult.channel}`)

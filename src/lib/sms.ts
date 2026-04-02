@@ -393,11 +393,9 @@ export async function sendPinCode(
   const { type, prenom, conseillerPrenom, structureNom } = options
 
   const host = env.PUBLIC_HOST || 'catchup.jaeprive.fr'
-  // Format Web OTP API : dernière ligne @domain #code pour autofill iOS/Android
-  const otpLine = `\n\n@${host} #${code}`
   const message = type === 'beneficiaire'
-    ? `${prenom ? prenom + ', votre' : 'Votre'} conseiller${conseillerPrenom ? ' ' + conseillerPrenom : ''}${structureNom ? ' (' + structureNom + ')' : ''} vous accompagne sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur ${host}/accompagnement${otpLine}`
-    : `Vous êtes invité(e) à rejoindre un accompagnement sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur ${host}/tiers${otpLine}`
+    ? `${prenom ? prenom + ', votre' : 'Votre'} conseiller${conseillerPrenom ? ' ' + conseillerPrenom : ''}${structureNom ? ' (' + structureNom + ')' : ''} vous accompagne sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur ${host}/accompagnement`
+    : `Vous êtes invité(e) à rejoindre un accompagnement sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur ${host}/tiers`
 
   const subject = type === 'beneficiaire'
     ? `Catch'Up — Votre code d'accès`

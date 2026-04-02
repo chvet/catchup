@@ -198,11 +198,17 @@ export async function POST(
           .set({ notificationEnvoyee: 1, misAJourLe: now })
           .where(eq(priseEnCharge.id, pec.id))
 
+        // Récupérer le prénom du conseiller et du bénéficiaire
+        const conseillerForSms = await db.select({ prenom: conseiller.prenom }).from(conseiller).where(eq(conseiller.id, ctx.id))
+        const conseillerPrenom = conseillerForSms[0]?.prenom || undefined
+        const userForSms = await db.select({ prenom: utilisateur.prenom }).from(utilisateur).where(eq(utilisateur.id, ref.utilisateurId))
+        const beneficiairePrenom = userForSms[0]?.prenom || undefined
+
         // Envoyer le code par SMS/email/console selon la configuration
         const notifResult = await sendPinCode(ref.moyenContact || '', code, {
           type: 'beneficiaire',
-          prenom: undefined, // on n'a pas le prénom ici
-          conseillerPrenom: ctx.email?.split('@')[0],
+          prenom: beneficiairePrenom,
+          conseillerPrenom,
         })
         console.log(`[PIN] Code envoyé à ${ref.moyenContact} via ${notifResult.channel}`)
 
