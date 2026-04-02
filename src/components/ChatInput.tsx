@@ -14,11 +14,9 @@ interface Props {
   inputRef: React.RefObject<HTMLTextAreaElement | null>
   onAppend: (msg: { role: 'user'; content: string }) => void
   onVoiceMessage?: (blob: Blob, duration: number, transcription: string) => void
-  ttsEnabled?: boolean
-  onToggleTts?: () => void
 }
 
-export default function ChatInput({ input, onChange, onSubmit, isLoading, inputRef, onAppend, onVoiceMessage, ttsEnabled, onToggleTts }: Props) {
+export default function ChatInput({ input, onChange, onSubmit, isLoading, inputRef, onAppend, onVoiceMessage }: Props) {
   const formRef = useRef<HTMLFormElement>(null)
   const [transcribing, setTranscribing] = useState(false)
 
@@ -155,26 +153,6 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
             style={{ maxHeight: '100px' }}
             autoFocus
           />
-
-          {/* TTS mute/unmute inside input */}
-          {onToggleTts && (
-            <button
-              type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleTts() }}
-              className={`flex items-center justify-center w-8 h-8 mb-0.5 shrink-0 rounded-full transition-colors ${
-                ttsEnabled ? 'text-catchup-primary bg-catchup-primary/10' : 'text-gray-400'
-              }`}
-              title={ttsEnabled ? 'Désactiver la voix' : 'Activer la voix'}
-            >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {ttsEnabled ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M11 5L6 9H2v6h4l5 4V5z" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                )}
-              </svg>
-            </button>
-          )}
 
           {/* Micro inside input, right side */}
           <div className="flex items-center pr-1 pb-1.5 shrink-0">

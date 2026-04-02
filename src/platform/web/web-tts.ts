@@ -70,7 +70,14 @@ export class WebTTSAdapter implements ITTSAdapter {
   speak(text: string, onEnd?: () => void): void {
     this.stop()
 
-    const clean = text.replace(/<!--.*?-->/g, '').replace(/[*_~`#>]/g, '').trim()
+    // eslint-disable-next-line no-control-regex
+    const emojiRegex = new RegExp('[\\u{1F300}-\\u{1F9FF}\\u{2600}-\\u{26FF}\\u{2700}-\\u{27BF}\\u{FE00}-\\u{FE0F}\\u{200D}\\u{20E3}\\u{E0020}-\\u{E007F}]', 'gu')
+    const clean = text
+      .replace(/<!--.*?-->/g, '')
+      .replace(/[*_~`#>]/g, '')
+      .replace(emojiRegex, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
     if (!clean) { onEnd?.(); return }
 
     this.chunks = splitIntoChunks(clean)
