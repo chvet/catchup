@@ -247,6 +247,9 @@ async function handleLogin(body: { email: string; password: string }) {
     utilisateurId: user.id,
     prenom: user.prenom || '',
     email: user.email || '',
+    telephone: user.telephone || '',
+    age: user.age || null,
+    departement: user.situation || '',
     conversationId: latestConversationId,
     messages: restoredMessages,
     referral: referrals.length > 0 ? {
@@ -343,6 +346,9 @@ async function handleRestore(body: { token: string }) {
     utilisateurId: user.id,
     prenom: user.prenom || '',
     email: user.email || '',
+    telephone: user.telephone || '',
+    age: user.age || null,
+    departement: user.situation || '',
     conversationId: latestConversationId,
     messages: restoredMessages,
     referral: referrals.length > 0 ? {

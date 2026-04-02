@@ -121,7 +121,7 @@ export default function ChatApp() {
 
   // ── Authentification bénéficiaire ──
   const LS_USER_TOKEN = 'catchup_user_token'
-  interface AuthUser { prenom: string; email: string; utilisateurId: string; token: string }
+  interface AuthUser { prenom: string; email: string; telephone?: string; age?: number | null; departement?: string; utilisateurId: string; token: string }
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup')
@@ -501,7 +501,7 @@ export default function ChatApp() {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.ok) {
-          setAuthUser({ prenom: data.prenom, email: data.email, utilisateurId: data.utilisateurId, token })
+          setAuthUser({ prenom: data.prenom, email: data.email, telephone: data.telephone, age: data.age, departement: data.departement, utilisateurId: data.utilisateurId, token })
           if (data.utilisateurId) { setUtilisateurId(data.utilisateurId); saveToLS(LS_USER_ID, data.utilisateurId) }
           if (data.prenom) { try { localStorage.setItem(LS_USER_PRENOM, data.prenom) } catch {} }
           if (data.referral) { setReferralId(data.referral.id); saveToLS(LS_REFERRAL_ID, data.referral.id); setReferralStatus(data.referral.statut) }
@@ -542,7 +542,7 @@ export default function ChatApp() {
 
       // Save token
       localStorage.setItem('catchup_user_token', data.token)
-      setAuthUser({ prenom: data.prenom, email: data.email, utilisateurId: data.utilisateurId, token: data.token })
+      setAuthUser({ prenom: data.prenom, email: data.email, telephone: data.telephone, age: data.age, departement: data.departement, utilisateurId: data.utilisateurId, token: data.token })
 
       // Link IDs
       if (data.utilisateurId) { setUtilisateurId(data.utilisateurId); saveToLS(LS_USER_ID, data.utilisateurId) }
@@ -1353,9 +1353,9 @@ export default function ChatApp() {
         urgency={referralUrgency}
         prenomSuggested={beneficiaireInfo?.prenom || profile.name || authUser?.prenom || undefined}
         emailSuggested={beneficiaireInfo?.typeContact === 'email' ? beneficiaireInfo.moyenContact : authUser?.email || undefined}
-        telephoneSuggested={beneficiaireInfo?.typeContact === 'telephone' ? beneficiaireInfo.moyenContact : undefined}
-        ageSuggested={beneficiaireInfo?.age || undefined}
-        departementSuggested={beneficiaireInfo?.departement || undefined}
+        telephoneSuggested={beneficiaireInfo?.typeContact === 'telephone' ? beneficiaireInfo.moyenContact : authUser?.telephone || undefined}
+        ageSuggested={beneficiaireInfo?.age || authUser?.age || undefined}
+        departementSuggested={beneficiaireInfo?.departement || authUser?.departement || undefined}
         structureSlug={structureInfo?.slug}
         onClose={() => {
           setShowReferralModal(false)
