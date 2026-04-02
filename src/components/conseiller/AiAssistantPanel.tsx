@@ -23,14 +23,29 @@ const QUICK_PROMPTS = [
   'Signaux de fragilite ?',
 ]
 
+const LS_AI_HISTORY_KEY = 'catchup_conseiller_ai_history'
+
 export default function AiAssistantPanel({ context }: AiAssistantPanelProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<AiMessage[]>([])
+  const [messages, setMessages] = useState<AiMessage[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem(LS_AI_HISTORY_KEY)
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Persister les messages dans localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      try { localStorage.setItem(LS_AI_HISTORY_KEY, JSON.stringify(messages.slice(-50))) } catch { /* ignore */ }
+    }
+  }, [messages])
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -64,6 +79,7 @@ export default function AiAssistantPanel({ context }: AiAssistantPanelProps) {
   const handleClear = useCallback(() => {
     setMessages([])
     setInput('')
+    try { localStorage.removeItem(LS_AI_HISTORY_KEY) } catch { /* ignore */ }
   }, [])
 
   const handleSend = useCallback(async (text?: string) => {

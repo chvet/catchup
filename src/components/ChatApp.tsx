@@ -602,10 +602,22 @@ export default function ChatApp() {
 
   const toggleTts = () => {
     setTtsEnabled(prev => {
-      if (prev) tts?.stop()
+      if (prev) {
+        tts?.stop()
+        setSpeakingMsgId(null)
+      }
       return !prev
     })
   }
+
+  // Arrêter l'audio si ttsEnabled passe à false (sécurité)
+  useEffect(() => {
+    if (!ttsEnabled) {
+      tts?.stop()
+      setSpeakingMsgId(null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ttsEnabled])
 
   // Reset conversation : efface messages, profil, suggestions mais garde le streak et les badges
   const [showResetConfirm, setShowResetConfirm] = useState(false)
@@ -1321,8 +1333,8 @@ export default function ChatApp() {
       <ReferralModal
         isOpen={showReferralModal}
         urgency={referralUrgency}
-        prenomSuggested={beneficiaireInfo?.prenom || profile.name || undefined}
-        emailSuggested={beneficiaireInfo?.typeContact === 'email' ? beneficiaireInfo.moyenContact : undefined}
+        prenomSuggested={beneficiaireInfo?.prenom || profile.name || authUser?.prenom || undefined}
+        emailSuggested={beneficiaireInfo?.typeContact === 'email' ? beneficiaireInfo.moyenContact : authUser?.email || undefined}
         telephoneSuggested={beneficiaireInfo?.typeContact === 'telephone' ? beneficiaireInfo.moyenContact : undefined}
         ageSuggested={beneficiaireInfo?.age || undefined}
         departementSuggested={beneficiaireInfo?.departement || undefined}
