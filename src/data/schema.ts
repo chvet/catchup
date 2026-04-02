@@ -1,11 +1,11 @@
-// Schema Drizzle complet — Catch'Up
+// Schema Drizzle complet — Catch'Up (PostgreSQL)
 // Tables bénéficiaire + Espace Conseiller
 
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
+import { pgTable, text, integer, real } from 'drizzle-orm/pg-core'
 
 // === TABLES BÉNÉFICIAIRE ===
 
-export const utilisateur = sqliteTable('utilisateur', {
+export const utilisateur = pgTable('utilisateur', {
   id: text('id').primaryKey(),
   prenom: text('prenom'),
   email: text('email').unique(),
@@ -28,7 +28,7 @@ export const utilisateur = sqliteTable('utilisateur', {
   supprimeLe: text('supprime_le'),
 })
 
-export const conversation = sqliteTable('conversation', {
+export const conversation = pgTable('conversation', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().references(() => utilisateur.id),
   titre: text('titre'),
@@ -41,7 +41,7 @@ export const conversation = sqliteTable('conversation', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const message = sqliteTable('message', {
+export const message = pgTable('message', {
   id: text('id').primaryKey(),
   conversationId: text('conversation_id').notNull().references(() => conversation.id),
   role: text('role').notNull(),
@@ -54,7 +54,7 @@ export const message = sqliteTable('message', {
   horodatage: text('horodatage').notNull(),
 })
 
-export const profilRiasec = sqliteTable('profil_riasec', {
+export const profilRiasec = pgTable('profil_riasec', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().unique().references(() => utilisateur.id),
   r: integer('r').default(0),
@@ -74,7 +74,7 @@ export const profilRiasec = sqliteTable('profil_riasec', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const instantaneProfil = sqliteTable('instantane_profil', {
+export const instantaneProfil = pgTable('instantane_profil', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().references(() => utilisateur.id),
   conversationId: text('conversation_id').notNull().references(() => conversation.id),
@@ -89,7 +89,7 @@ export const instantaneProfil = sqliteTable('instantane_profil', {
   horodatage: text('horodatage').notNull(),
 })
 
-export const indiceConfiance = sqliteTable('indice_confiance', {
+export const indiceConfiance = pgTable('indice_confiance', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().unique().references(() => utilisateur.id),
   scoreGlobal: real('score_global').default(0),
@@ -103,7 +103,7 @@ export const indiceConfiance = sqliteTable('indice_confiance', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const referral = sqliteTable('referral', {
+export const referral = pgTable('referral', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().references(() => utilisateur.id),
   conversationId: text('conversation_id').notNull().references(() => conversation.id),
@@ -129,7 +129,7 @@ export const referral = sqliteTable('referral', {
   recontacteLe: text('recontacte_le'),
 })
 
-export const evenementQuiz = sqliteTable('evenement_quiz', {
+export const evenementQuiz = pgTable('evenement_quiz', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').references(() => utilisateur.id),
   reponses: text('reponses').notNull(),
@@ -142,7 +142,7 @@ export const evenementQuiz = sqliteTable('evenement_quiz', {
   horodatage: text('horodatage').notNull(),
 })
 
-export const sourceCaptation = sqliteTable('source_captation', {
+export const sourceCaptation = pgTable('source_captation', {
   id: text('id').primaryKey(),
   code: text('code').notNull().unique(),
   type: text('type').notNull(),
@@ -155,7 +155,7 @@ export const sourceCaptation = sqliteTable('source_captation', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const sessionMagicLink = sqliteTable('session_magic_link', {
+export const sessionMagicLink = pgTable('session_magic_link', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().references(() => utilisateur.id),
   email: text('email').notNull(),
@@ -168,7 +168,7 @@ export const sessionMagicLink = sqliteTable('session_magic_link', {
 
 // === TABLES ESPACE CONSEILLER ===
 
-export const structure = sqliteTable('structure', {
+export const structure = pgTable('structure', {
   id: text('id').primaryKey(),
   nom: text('nom').notNull(),
   slug: text('slug').unique(),
@@ -194,7 +194,7 @@ export const structure = sqliteTable('structure', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const conseiller = sqliteTable('conseiller', {
+export const conseiller = pgTable('conseiller', {
   id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
   motDePasse: text('mot_de_passe'),
@@ -209,7 +209,7 @@ export const conseiller = sqliteTable('conseiller', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const priseEnCharge = sqliteTable('prise_en_charge', {
+export const priseEnCharge = pgTable('prise_en_charge', {
   id: text('id').primaryKey(),
   referralId: text('referral_id').notNull().references(() => referral.id),
   conseillerId: text('conseiller_id').notNull().references(() => conseiller.id),
@@ -226,7 +226,7 @@ export const priseEnCharge = sqliteTable('prise_en_charge', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const sessionConseiller = sqliteTable('session_conseiller', {
+export const sessionConseiller = pgTable('session_conseiller', {
   id: text('id').primaryKey(),
   conseillerId: text('conseiller_id').notNull().references(() => conseiller.id),
   jeton: text('jeton').notNull().unique(),
@@ -235,7 +235,7 @@ export const sessionConseiller = sqliteTable('session_conseiller', {
   creeLe: text('cree_le').notNull(),
 })
 
-export const evenementAudit = sqliteTable('evenement_audit', {
+export const evenementAudit = pgTable('evenement_audit', {
   id: text('id').primaryKey(),
   conseillerId: text('conseiller_id'),
   action: text('action').notNull(),
@@ -248,7 +248,7 @@ export const evenementAudit = sqliteTable('evenement_audit', {
 
 // === TABLES MESSAGERIE DIRECTE ===
 
-export const messageDirect = sqliteTable('message_direct', {
+export const messageDirect = pgTable('message_direct', {
   id: text('id').primaryKey(),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
   expediteurType: text('expediteur_type').notNull(), // 'beneficiaire' | 'conseiller' | 'tiers'
@@ -262,7 +262,7 @@ export const messageDirect = sqliteTable('message_direct', {
 // === TABLES ACCOMPAGNEMENT GROUPE (tiers, consentement, journal, bris de glace) ===
 
 // Tiers intervenant — profil d'une personne externe invitée par le conseiller
-export const tiersIntervenant = sqliteTable('tiers_intervenant', {
+export const tiersIntervenant = pgTable('tiers_intervenant', {
   id: text('id').primaryKey(),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
   nom: text('nom').notNull(),
@@ -276,7 +276,7 @@ export const tiersIntervenant = sqliteTable('tiers_intervenant', {
 })
 
 // Participant conversation — qui est présent dans un accompagnement
-export const participantConversation = sqliteTable('participant_conversation', {
+export const participantConversation = pgTable('participant_conversation', {
   id: text('id').primaryKey(),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
   participantType: text('participant_type').notNull(), // 'conseiller' | 'beneficiaire' | 'tiers'
@@ -287,7 +287,7 @@ export const participantConversation = sqliteTable('participant_conversation', {
 })
 
 // Demande de consentement — double approbation pour ajouter un tiers
-export const demandeConsentement = sqliteTable('demande_consentement', {
+export const demandeConsentement = pgTable('demande_consentement', {
   id: text('id').primaryKey(),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
   tiersId: text('tiers_id').notNull().references(() => tiersIntervenant.id),
@@ -302,7 +302,7 @@ export const demandeConsentement = sqliteTable('demande_consentement', {
 })
 
 // Journal des événements — traçabilité complète pour le conseiller référent
-export const evenementJournal = sqliteTable('evenement_journal', {
+export const evenementJournal = pgTable('evenement_journal', {
   id: text('id').primaryKey(),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
   type: text('type').notNull(), // 'message_envoye' | 'participant_rejoint' | 'participant_quitte' | 'consentement_demande' | 'consentement_accepte' | 'consentement_refuse' | 'video_proposee' | 'video_acceptee' | 'video_refusee' | 'rdv_planifie' | 'bris_de_glace' | 'tiers_invite' | 'tiers_revoque'
@@ -316,7 +316,7 @@ export const evenementJournal = sqliteTable('evenement_journal', {
 })
 
 // Rendez-vous — planification de RDV entre conseiller/tiers et bénéficiaire
-export const rendezVous = sqliteTable('rendez_vous', {
+export const rendezVous = pgTable('rendez_vous', {
   id: text('id').primaryKey(),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
   titre: text('titre').notNull(),
@@ -338,7 +338,7 @@ export const rendezVous = sqliteTable('rendez_vous', {
 })
 
 // Bris de glace — accès d'urgence du conseiller aux échanges tiers ↔ bénéficiaire
-export const brisDeGlace = sqliteTable('bris_de_glace', {
+export const brisDeGlace = pgTable('bris_de_glace', {
   id: text('id').primaryKey(),
   conseillerId: text('conseiller_id').notNull().references(() => conseiller.id),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
@@ -350,7 +350,7 @@ export const brisDeGlace = sqliteTable('bris_de_glace', {
 
 // === PUSH NOTIFICATIONS ===
 
-export const pushSubscription = sqliteTable('push_subscription', {
+export const pushSubscription = pgTable('push_subscription', {
   id: text('id').primaryKey(),
   type: text('type').notNull(), // 'conseiller' | 'beneficiaire'
   userId: text('user_id').notNull(), // conseillerId or utilisateurId
@@ -364,7 +364,7 @@ export const pushSubscription = sqliteTable('push_subscription', {
 
 // === ENQUÊTE DE SATISFACTION ===
 
-export const enqueteSatisfaction = sqliteTable('enquete_satisfaction', {
+export const enqueteSatisfaction = pgTable('enquete_satisfaction', {
   id: text('id').primaryKey(),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
   utilisateurId: text('utilisateur_id').notNull(),
@@ -385,7 +385,7 @@ export const enqueteSatisfaction = sqliteTable('enquete_satisfaction', {
 
 // === RAPPELS AUTOMATIQUES ===
 
-export const rappel = sqliteTable('rappel', {
+export const rappel = pgTable('rappel', {
   id: text('id').primaryKey(),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
   type: text('type').notNull(), // 'beneficiaire_inactif' | 'conseiller_alerte'
@@ -397,7 +397,7 @@ export const rappel = sqliteTable('rappel', {
 
 // === CAMPAGNES (objectifs par structure) ===
 
-export const campagne = sqliteTable('campagne', {
+export const campagne = pgTable('campagne', {
   id: text('id').primaryKey(),
   structureId: text('structure_id').notNull().references(() => structure.id),
   slug: text('slug'), // slug permanent pour QR code (unique par structure)
@@ -413,7 +413,7 @@ export const campagne = sqliteTable('campagne', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const campagneAssignation = sqliteTable('campagne_assignation', {
+export const campagneAssignation = pgTable('campagne_assignation', {
   id: text('id').primaryKey(),
   campagneId: text('campagne_id').notNull().references(() => campagne.id),
   conseillerId: text('conseiller_id').notNull().references(() => conseiller.id),
@@ -422,7 +422,7 @@ export const campagneAssignation = sqliteTable('campagne_assignation', {
 
 // === CONNEXIONS CALENDRIER (Google / Outlook OAuth2) ===
 
-export const calendarConnection = sqliteTable('calendar_connection', {
+export const calendarConnection = pgTable('calendar_connection', {
   id: text('id').primaryKey(),
   type: text('type').notNull(), // 'conseiller' | 'beneficiaire'
   userId: text('user_id').notNull(),
@@ -437,7 +437,7 @@ export const calendarConnection = sqliteTable('calendar_connection', {
 
 // === VÉRIFICATION / AUTHENTIFICATION ===
 
-export const codeVerification = sqliteTable('code_verification', {
+export const codeVerification = pgTable('code_verification', {
   id: text('id').primaryKey(),
   referralId: text('referral_id').notNull().references(() => referral.id),
   utilisateurId: text('utilisateur_id').notNull(),
@@ -451,7 +451,7 @@ export const codeVerification = sqliteTable('code_verification', {
 
 // === SUIVI D'ACTIVITÉS (CEJ) ===
 
-export const categorieActivite = sqliteTable('categorie_activite', {
+export const categorieActivite = pgTable('categorie_activite', {
   id: text('id').primaryKey(),
   code: text('code').notNull().unique(),
   label: text('label').notNull(),
@@ -461,7 +461,7 @@ export const categorieActivite = sqliteTable('categorie_activite', {
   actif: integer('actif').default(1),
 })
 
-export const declarationActivite = sqliteTable('declaration_activite', {
+export const declarationActivite = pgTable('declaration_activite', {
   id: text('id').primaryKey(),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
   utilisateurId: text('utilisateur_id').notNull().references(() => utilisateur.id),
@@ -480,7 +480,7 @@ export const declarationActivite = sqliteTable('declaration_activite', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const objectifHebdomadaire = sqliteTable('objectif_hebdomadaire', {
+export const objectifHebdomadaire = pgTable('objectif_hebdomadaire', {
   id: text('id').primaryKey(),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
   semaine: text('semaine').notNull(), // lundi ISO
@@ -492,7 +492,7 @@ export const objectifHebdomadaire = sqliteTable('objectif_hebdomadaire', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const alerteDecrochage = sqliteTable('alerte_decrochage', {
+export const alerteDecrochage = pgTable('alerte_decrochage', {
   id: text('id').primaryKey(),
   priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
   conseillerId: text('conseiller_id').notNull().references(() => conseiller.id),

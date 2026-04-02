@@ -2,9 +2,30 @@
 // 10 structures, 10 conseillers, 20 bénéficiaires avec conversations réalistes
 // Usage : npx tsx scripts/seed.ts
 
-import { createClient } from '@libsql/client'
+import { Pool } from 'pg'
 import { v4 as uuidv4 } from 'uuid'
 import bcrypt from 'bcryptjs'
+
+// Adapter : imite l'API libsql pour minimiser les changements dans le seed
+function createPgClient() {
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL || 'postgres://catchup:CatchUp2026Pg!@localhost:5432/catchup',
+  })
+  return {
+    async execute(input: string | { sql: string; args?: unknown[] }) {
+      if (typeof input === 'string') {
+        await pool.query(input)
+        return { rows: [] }
+      }
+      // Remplacer les ? par $1, $2, ...
+      let idx = 0
+      const pgSql = input.sql.replace(/\?/g, () => `$${++idx}`)
+      const result = await pool.query(pgSql, input.args || [])
+      return { rows: result.rows }
+    },
+    async end() { await pool.end() },
+  }
+}
 
 // ── Données réalistes ───────────────────────────────────────────────
 
@@ -451,210 +472,30 @@ function msgTimestamps(baseHoursAgo: number, count: number): string[] {
 // ── Seed principal ──────────────────────────────────────────────────
 
 async function seed() {
-  const client = createClient({ url: process.env.TURSO_DATABASE_URL || 'file:/app/data/local.db' })
+  const client = createPgClient()
 
   console.log('=== Seed complet Catch\'Up ===\n')
 
-  // === DROP ALL TABLES ===
-  console.log('[1/6] Suppression des tables existantes...')
-  const tablesToDrop = [
+  // === VIDER LES TABLES (schema créé par drizzle-kit push) ===
+  console.log('[1/6] Vidage des tables existantes...')
+  const tablesToTruncate = [
+    'alerte_decrochage', 'objectif_hebdomadaire', 'declaration_activite', 'categorie_activite',
     'push_subscription',
     'bris_de_glace', 'rendez_vous', 'evenement_journal',
     'demande_consentement', 'participant_conversation', 'tiers_intervenant',
-    'message_direct', 'prise_en_charge', 'session_conseiller', 'evenement_audit',
-    'code_verification', 'referral', 'indice_confiance', 'profil_riasec',
+    'message_direct', 'enquete_satisfaction', 'rappel',
+    'campagne_assignation', 'campagne',
+    'prise_en_charge', 'session_conseiller', 'evenement_audit',
+    'code_verification', 'calendar_connection',
+    'referral', 'indice_confiance', 'profil_riasec',
     'instantane_profil', 'message', 'conversation', 'evenement_quiz',
     'source_captation', 'session_magic_link', 'conseiller', 'structure', 'utilisateur',
   ]
-  for (const t of tablesToDrop) {
-    await client.execute(`DROP TABLE IF EXISTS ${t}`)
+  for (const t of tablesToTruncate) {
+    try { await client.execute(`TRUNCATE TABLE "${t}" CASCADE`) } catch { /* table might not exist yet */ }
   }
 
-  // === CREATE ALL TABLES ===
-  console.log('[2/6] Creation des tables...')
-
-  await client.execute(`CREATE TABLE utilisateur (
-    id TEXT PRIMARY KEY, prenom TEXT, email TEXT UNIQUE, email_verifie INTEGER DEFAULT 0,
-    telephone TEXT, age INTEGER, situation TEXT, code_parrainage TEXT UNIQUE,
-    parraine_par TEXT, source TEXT, source_detail TEXT, plateforme TEXT DEFAULT 'web',
-    preferences TEXT, cree_le TEXT NOT NULL, mis_a_jour_le TEXT NOT NULL,
-    derniere_visite TEXT, supprime_le TEXT
-  )`)
-
-  await client.execute(`CREATE TABLE conversation (
-    id TEXT PRIMARY KEY, utilisateur_id TEXT NOT NULL REFERENCES utilisateur(id),
-    titre TEXT, statut TEXT DEFAULT 'active', origine TEXT DEFAULT 'direct',
-    nb_messages INTEGER DEFAULT 0, phase TEXT DEFAULT 'accroche',
-    duree_secondes INTEGER DEFAULT 0, cree_le TEXT NOT NULL, mis_a_jour_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE message (
-    id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversation(id),
-    role TEXT NOT NULL, contenu TEXT NOT NULL, contenu_brut TEXT, url_audio TEXT,
-    fragilite_detectee INTEGER DEFAULT 0, niveau_fragilite TEXT,
-    profil_extrait INTEGER DEFAULT 0, horodatage TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE profil_riasec (
-    id TEXT PRIMARY KEY, utilisateur_id TEXT NOT NULL UNIQUE REFERENCES utilisateur(id),
-    r INTEGER DEFAULT 0, i INTEGER DEFAULT 0, a INTEGER DEFAULT 0,
-    s INTEGER DEFAULT 0, e INTEGER DEFAULT 0, c INTEGER DEFAULT 0,
-    dimensions_dominantes TEXT, traits TEXT, interets TEXT, forces TEXT,
-    suggestion TEXT, source TEXT DEFAULT 'conversation', est_stable INTEGER DEFAULT 0,
-    coherence_signaux TEXT DEFAULT 'mixte', mis_a_jour_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE instantane_profil (
-    id TEXT PRIMARY KEY, utilisateur_id TEXT NOT NULL REFERENCES utilisateur(id),
-    conversation_id TEXT NOT NULL REFERENCES conversation(id),
-    index_message INTEGER NOT NULL, r INTEGER DEFAULT 0, i INTEGER DEFAULT 0,
-    a INTEGER DEFAULT 0, s INTEGER DEFAULT 0, e INTEGER DEFAULT 0, c INTEGER DEFAULT 0,
-    coherence_signaux TEXT, horodatage TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE indice_confiance (
-    id TEXT PRIMARY KEY, utilisateur_id TEXT NOT NULL UNIQUE REFERENCES utilisateur(id),
-    score_global REAL DEFAULT 0, niveau TEXT DEFAULT 'debut',
-    volume REAL DEFAULT 0, stabilite REAL DEFAULT 0,
-    differenciation REAL DEFAULT 0, coherence REAL DEFAULT 0,
-    nb_messages INTEGER DEFAULT 0, nb_instantanes INTEGER DEFAULT 0,
-    mis_a_jour_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE referral (
-    id TEXT PRIMARY KEY, utilisateur_id TEXT NOT NULL REFERENCES utilisateur(id),
-    conversation_id TEXT NOT NULL REFERENCES conversation(id),
-    priorite TEXT NOT NULL, niveau_detection INTEGER NOT NULL,
-    motif TEXT, resume_conversation TEXT, moyen_contact TEXT, type_contact TEXT,
-    statut TEXT DEFAULT 'en_attente', source TEXT DEFAULT 'generique',
-    webhook_envoye INTEGER DEFAULT 0,
-    webhook_reponse TEXT, relance_envoyee INTEGER DEFAULT 0,
-    structure_suggeree_id TEXT, localisation TEXT, genre TEXT, age_beneficiaire INTEGER,
-    cree_le TEXT NOT NULL, mis_a_jour_le TEXT NOT NULL, recontacte_le TEXT
-  )`)
-
-  await client.execute(`CREATE TABLE evenement_quiz (
-    id TEXT PRIMARY KEY, utilisateur_id TEXT REFERENCES utilisateur(id),
-    reponses TEXT NOT NULL, resultat TEXT NOT NULL, duree_ms INTEGER,
-    code_parrainage TEXT, source_prescripteur TEXT,
-    a_partage INTEGER DEFAULT 0, a_continue_chat INTEGER DEFAULT 0,
-    horodatage TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE source_captation (
-    id TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE, type TEXT NOT NULL, nom TEXT,
-    nb_visites INTEGER DEFAULT 0, nb_quiz_completes INTEGER DEFAULT 0,
-    nb_chats_ouverts INTEGER DEFAULT 0, nb_emails_collectes INTEGER DEFAULT 0,
-    cree_le TEXT NOT NULL, mis_a_jour_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE session_magic_link (
-    id TEXT PRIMARY KEY, utilisateur_id TEXT NOT NULL REFERENCES utilisateur(id),
-    email TEXT NOT NULL, jeton TEXT NOT NULL UNIQUE,
-    utilise INTEGER DEFAULT 0, expire_le TEXT NOT NULL,
-    cree_le TEXT NOT NULL, utilise_le TEXT
-  )`)
-
-  await client.execute(`CREATE TABLE structure (
-    id TEXT PRIMARY KEY, nom TEXT NOT NULL, slug TEXT UNIQUE, type TEXT NOT NULL,
-    departements TEXT NOT NULL, regions TEXT, age_min INTEGER DEFAULT 16,
-    age_max INTEGER DEFAULT 25, specialites TEXT, genre_preference TEXT,
-    capacite_max INTEGER DEFAULT 50, webhook_url TEXT, parcoureo_id TEXT,
-    actif INTEGER DEFAULT 1, cree_le TEXT NOT NULL, mis_a_jour_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE conseiller (
-    id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, mot_de_passe TEXT,
-    prenom TEXT NOT NULL, nom TEXT NOT NULL, role TEXT DEFAULT 'conseiller',
-    structure_id TEXT REFERENCES structure(id), actif INTEGER DEFAULT 1,
-    derniere_connexion TEXT, cree_le TEXT NOT NULL, mis_a_jour_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE prise_en_charge (
-    id TEXT PRIMARY KEY, referral_id TEXT NOT NULL REFERENCES referral(id),
-    conseiller_id TEXT NOT NULL REFERENCES conseiller(id),
-    structure_id TEXT NOT NULL REFERENCES structure(id),
-    statut TEXT DEFAULT 'nouvelle', notes TEXT,
-    score_matching REAL, raison_matching TEXT, assignee_manuellement INTEGER DEFAULT 0,
-    premiere_action_le TEXT, terminee_le TEXT, notification_envoyee INTEGER DEFAULT 0,
-    cree_le TEXT NOT NULL, mis_a_jour_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE session_conseiller (
-    id TEXT PRIMARY KEY, conseiller_id TEXT NOT NULL REFERENCES conseiller(id),
-    jeton TEXT NOT NULL UNIQUE, expire_le TEXT NOT NULL,
-    revoque INTEGER DEFAULT 0, cree_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE evenement_audit (
-    id TEXT PRIMARY KEY, conseiller_id TEXT, action TEXT NOT NULL,
-    cible_type TEXT, cible_id TEXT, details TEXT, ip TEXT, horodatage TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE message_direct (
-    id TEXT PRIMARY KEY, prise_en_charge_id TEXT NOT NULL REFERENCES prise_en_charge(id),
-    expediteur_type TEXT NOT NULL, expediteur_id TEXT NOT NULL,
-    contenu TEXT NOT NULL, conversation_type TEXT DEFAULT 'direct',
-    lu INTEGER DEFAULT 0, horodatage TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE tiers_intervenant (
-    id TEXT PRIMARY KEY, prise_en_charge_id TEXT NOT NULL REFERENCES prise_en_charge(id),
-    nom TEXT NOT NULL, prenom TEXT NOT NULL, telephone TEXT NOT NULL,
-    role TEXT NOT NULL, invite_par_id TEXT NOT NULL REFERENCES conseiller(id),
-    statut TEXT DEFAULT 'en_attente', cree_le TEXT NOT NULL, mis_a_jour_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE participant_conversation (
-    id TEXT PRIMARY KEY, prise_en_charge_id TEXT NOT NULL REFERENCES prise_en_charge(id),
-    participant_type TEXT NOT NULL, participant_id TEXT NOT NULL,
-    actif INTEGER DEFAULT 1, rejoint_le TEXT NOT NULL, quitte_le TEXT
-  )`)
-
-  await client.execute(`CREATE TABLE demande_consentement (
-    id TEXT PRIMARY KEY, prise_en_charge_id TEXT NOT NULL REFERENCES prise_en_charge(id),
-    tiers_id TEXT NOT NULL REFERENCES tiers_intervenant(id),
-    demandeur_id TEXT NOT NULL, statut TEXT DEFAULT 'en_attente',
-    conseiller_approuve INTEGER DEFAULT 0, conseiller_approuve_le TEXT,
-    beneficiaire_approuve INTEGER DEFAULT 0, beneficiaire_approuve_le TEXT,
-    cree_le TEXT NOT NULL, mis_a_jour_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE evenement_journal (
-    id TEXT PRIMARY KEY, prise_en_charge_id TEXT NOT NULL REFERENCES prise_en_charge(id),
-    type TEXT NOT NULL, acteur_type TEXT NOT NULL, acteur_id TEXT NOT NULL,
-    cible_type TEXT, cible_id TEXT, resume TEXT, details TEXT,
-    horodatage TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE rendez_vous (
-    id TEXT PRIMARY KEY, prise_en_charge_id TEXT NOT NULL REFERENCES prise_en_charge(id),
-    titre TEXT NOT NULL, description TEXT, date_heure TEXT NOT NULL,
-    duree_minutes INTEGER DEFAULT 30, lieu TEXT, lien_visio TEXT,
-    statut TEXT DEFAULT 'planifie', organisateur_type TEXT NOT NULL,
-    organisateur_id TEXT NOT NULL, participants TEXT,
-    rappel_envoye INTEGER DEFAULT 0, cree_le TEXT NOT NULL, mis_a_jour_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE bris_de_glace (
-    id TEXT PRIMARY KEY, conseiller_id TEXT NOT NULL REFERENCES conseiller(id),
-    prise_en_charge_id TEXT NOT NULL REFERENCES prise_en_charge(id),
-    tiers_id TEXT NOT NULL REFERENCES tiers_intervenant(id),
-    justification TEXT NOT NULL, ip TEXT, horodatage TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE code_verification (
-    id TEXT PRIMARY KEY, referral_id TEXT NOT NULL REFERENCES referral(id),
-    utilisateur_id TEXT NOT NULL, code TEXT NOT NULL, token TEXT UNIQUE,
-    verifie INTEGER DEFAULT 0, tentatives INTEGER DEFAULT 0,
-    expire_le TEXT NOT NULL, cree_le TEXT NOT NULL
-  )`)
-
-  await client.execute(`CREATE TABLE push_subscription (
-    id TEXT PRIMARY KEY, type TEXT NOT NULL, user_id TEXT NOT NULL,
-    endpoint TEXT NOT NULL, keys_p256dh TEXT NOT NULL, keys_auth TEXT NOT NULL,
-    cree_le TEXT NOT NULL
-  )`)
+  console.log('[2/6] Tables prêtes')
 
   const now = new Date().toISOString()
 
@@ -898,6 +739,7 @@ async function seed() {
   console.log('  test-token-{prenom} (ex: test-token-lucas, test-token-emma)')
   console.log('  Page : /accompagnement\n')
 
+  await client.end()
   process.exit(0)
 }
 

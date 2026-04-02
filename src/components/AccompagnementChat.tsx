@@ -249,6 +249,9 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
         }
         const msg: DirectMessage = data.message || data
         if (!msg.id) return
+        // Couper l'indicateur de frappe dès qu'un message arrive
+        setConseillerTyping(false)
+        if (typingTimeoutRef.current) { clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = null }
         setMessages(prev => {
           if (prev.some(m => m.id === msg.id)) return prev
           return [...prev, msg]

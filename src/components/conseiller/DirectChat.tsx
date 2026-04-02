@@ -201,6 +201,8 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   const [resending, setResending] = useState(false)
   const [resendSuccess, setResendSuccess] = useState(false)
   const [connected, setConnected] = useState(false)
+  const [beneficiaireTyping, setBeneficiaireTyping] = useState(false)
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
 
@@ -266,10 +268,21 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
     es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        // Le SSE envoie { type: 'connected' } ou { type: 'message', message: {...} }
         if (data.type === 'connected') return
+
+        // Indicateur de frappe du beneficiaire
+        if (data.type === 'typing') {
+          setBeneficiaireTyping(true)
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+          typingTimeoutRef.current = setTimeout(() => setBeneficiaireTyping(false), 3000)
+          return
+        }
+
         const msg: DirectMessage = data.message || data
         if (!msg.id) return
+        // Couper l'indicateur de frappe des qu'un message arrive
+        setBeneficiaireTyping(false)
+        if (typingTimeoutRef.current) { clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = null }
         setMessages(prev => {
           if (prev.some(m => m.id === msg.id)) return prev
           return [...prev, msg]
@@ -1001,6 +1014,17 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
             </div>
           )
         })}
+        {/* Indicateur de frappe du beneficiaire */}
+        {beneficiaireTyping && (
+          <div className="flex items-center gap-2 px-6 py-2">
+            <div className="bg-gray-100 rounded-2xl px-4 py-2 flex items-center gap-1">
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            <span className="text-xs text-gray-400">{beneficiairePrenom} écrit…</span>
+          </div>
+        )}
         <div ref={chatEndRef} />
       </div>
 

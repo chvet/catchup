@@ -1,15 +1,36 @@
 services:
+  # ═══ PostgreSQL ═══
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: catchup
+      POSTGRES_USER: catchup
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CatchUp2026Pg!}
+    volumes:
+      - /mnt/HC_Volume_105238085/catchup-pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catchup"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ═══ App Catch'Up (catchup.jaeprive.fr) ═══
   catchup:
     build: .
     restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
     env_file:
       - .env
     ports:
       - "3002:3000"
     environment:
+      - DATABASE_URL=postgres://catchup:${POSTGRES_PASSWORD:-CatchUp2026Pg!}@postgres:5432/catchup
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - TURSO_DATABASE_URL=file:/app/data/local.db
       - JWT_SECRET=${JWT_SECRET:-catchup-prod-secret-2026}
       - PRO_HOST=pro.catchup.jaeprive.fr
       - PUBLIC_HOST=catchup.jaeprive.fr
@@ -39,4 +60,5 @@ services:
       retries: 3
 
 # Données sur le volume Hetzner 1 TO :
-# - catchup-data → /mnt/HC_Volume_105238085/catchup-data/local.db
+# - catchup-pgdata → /mnt/HC_Volume_105238085/catchup-pgdata (PostgreSQL)
+# - catchup-data → /mnt/HC_Volume_105238085/catchup-data (uploads, fichiers)

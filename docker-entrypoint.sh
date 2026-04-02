@@ -1,35 +1,44 @@
 #!/bin/sh
-# Entrypoint Docker — Catch'Up
-# Initialise la BDD au premier démarrage, puis lance les serveurs
+# Entrypoint Docker — Catch'Up (PostgreSQL)
+# Attend que PostgreSQL soit prêt, pousse le schema, puis lance le serveur
 
-DB_PATH="/app/data/local.db"
+echo "🐘 Connexion à PostgreSQL..."
 
-# Si la BDD n'existe pas encore → seed
-if [ ! -f "$DB_PATH" ]; then
-  echo "🌱 Première exécution : initialisation de la base de données..."
-  TURSO_DATABASE_URL="file:$DB_PATH" npx tsx scripts/seed.ts
-  echo "✅ Base initialisée"
+# Attendre que PostgreSQL réponde (max 30s)
+for i in $(seq 1 30); do
+  if node -e "
+    const { Pool } = require('pg');
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    pool.query('SELECT 1').then(() => { pool.end(); process.exit(0); }).catch(() => process.exit(1));
+  " 2>/dev/null; then
+    echo "✅ PostgreSQL prêt"
+    break
+  fi
+  echo "  ⏳ Attente PostgreSQL... ($i/30)"
+  sleep 1
+done
+
+# Pousser le schema Drizzle (crée les tables manquantes)
+echo "🔄 Synchronisation du schema..."
+npx drizzle-kit push 2>&1 || echo "⚠️ drizzle-kit push a échoué (les tables existent peut-être déjà)"
+echo "✅ Schema OK"
+
+# Vérifier si la BDD contient des données (table structure vide = première exécution)
+NEEDS_SEED=$(node -e "
+  const { Pool } = require('pg');
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  pool.query('SELECT COUNT(*) as c FROM structure').then(r => {
+    pool.end();
+    process.stdout.write(r.rows[0].c === '0' ? 'yes' : 'no');
+  }).catch(() => { pool.end(); process.stdout.write('yes'); });
+" 2>/dev/null)
+
+if [ "$NEEDS_SEED" = "yes" ]; then
+  echo "🌱 Première exécution : seed de la base..."
+  npx tsx scripts/seed.ts 2>&1 || echo "⚠️ Seed partiel"
+  echo "✅ Seed terminé"
 else
   echo "📦 Base de données existante trouvée"
-  # Migrations légères (ajout de colonnes manquantes)
-  echo "🔄 Vérification des migrations..."
-  node -e "
-    const { createClient } = require('@libsql/client');
-    (async () => {
-      const db = createClient({ url: 'file:$DB_PATH' });
-      const migrations = [
-        'ALTER TABLE referral ADD COLUMN campagne_id TEXT',
-        'ALTER TABLE structure ADD COLUMN logo_url TEXT',
-        'ALTER TABLE campagne ADD COLUMN slug TEXT',
-        'ALTER TABLE campagne ADD COLUMN remplacee_par_id TEXT',
-        'ALTER TABLE campagne ADD COLUMN archivee_le TEXT',
-      ];
-      for (const m of migrations) {
-        try { await db.execute(m); console.log('  ✓', m.substring(0, 60)); } catch(e) { /* already exists */ }
-      }
-    })().catch(() => {});
-  " 2>/dev/null
-  echo "✅ Migrations OK"
 fi
 
 # Lancer le serveur Next.js

@@ -13,7 +13,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN mkdir -p /app/data && touch /app/data/local.db
+RUN mkdir -p /app/data
 RUN chmod +x node_modules/.bin/* && npm run build
 
 # --- Runner ---
@@ -25,7 +25,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Créer le dossier data pour la BDD SQLite (volume monté en prod)
+# Créer le dossier data pour les uploads (volume monté en prod)
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 RUN mkdir -p /home/nextjs/.npm && chown nextjs:nodejs /home/nextjs/.npm
 
