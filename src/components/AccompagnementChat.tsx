@@ -2,11 +2,13 @@
 
 // Chat direct bénéficiaire ↔ conseiller (mobile-first)
 // SSE pour la réception temps réel + POST pour l'envoi
-// Supporte: texte, documents, rendez-vous
+// Supporte: texte, documents, rendez-vous, visio WebRTC
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import RdvCard from './RdvCard'
+
+const VisioCall = dynamic(() => import('@/components/VisioCall'), { ssr: false })
 import PushNotificationManager from './PushNotificationManager'
 import OnlineDot from './OnlineDot'
 import VoiceRecorder from './VoiceRecorder'
@@ -101,7 +103,13 @@ interface VoiceContent {
   transcription?: string
 }
 
-type StructuredContent = DocumentContent | RdvContent | RuptureContent | SystemContent | VoiceContent
+interface VisioContent {
+  type: 'visio'
+  sessionId: string
+  status: string
+}
+
+type StructuredContent = DocumentContent | RdvContent | RuptureContent | SystemContent | VoiceContent | VisioContent
 
 function parseMessageContent(contenu: string | null | undefined): StructuredContent | null {
   if (!contenu || typeof contenu !== 'string') return null
@@ -146,6 +154,10 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Visio state
+  const [incomingCall, setIncomingCall] = useState<{ sessionId: string } | null>(null)
+  const [visioSession, setVisioSession] = useState<{ sessionId: string } | null>(null)
 
   const [error, setError] = useState<string | null>(null)
   const [conseillerTyping, setConseillerTyping] = useState(false)
@@ -241,8 +253,12 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
           if (prev.some(m => m.id === msg.id)) return prev
           return [...prev, msg]
         })
-        // Détecter les messages de rupture en temps réel
+        // Détecter les appels visio entrants
         const parsedMsg = parseMessageContent(msg.contenu)
+        if (parsedMsg && parsedMsg.type === 'visio' && (parsedMsg as { status?: string }).status === 'ringing') {
+          setIncomingCall({ sessionId: (parsedMsg as { sessionId: string }).sessionId })
+        }
+        // Détecter les messages de rupture en temps réel
         if (parsedMsg && parsedMsg.type === 'rupture') {
           setRuptured(true)
           setRuptureInfo(parsedMsg as RuptureContent)
@@ -433,6 +449,26 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
     setVoiceTranscribing(false)
   }, [token])
 
+  // Accepter un appel visio
+  const handleAcceptVisio = useCallback(() => {
+    if (!incomingCall) return
+    setVisioSession({ sessionId: incomingCall.sessionId })
+    setIncomingCall(null)
+  }, [incomingCall])
+
+  // Refuser un appel visio
+  const handleDeclineVisio = useCallback(async () => {
+    if (!incomingCall) return
+    try {
+      await fetch('/api/visio/signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'decline', sessionId: incomingCall.sessionId, from: 'beneficiaire' }),
+      })
+    } catch { /* */ }
+    setIncomingCall(null)
+  }, [incomingCall])
+
   // Réponse à un RDV proposé
   const handleRdvResponse = useCallback(async (rdvMsgId: string, action: 'accepter' | 'refuser', motif?: string) => {
     try {
@@ -513,6 +549,17 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
                 T&eacute;l&eacute;charger
               </a>
             </div>
+          </div>
+        )
+      }
+
+      case 'visio': {
+        return (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Appel vid&eacute;o
           </div>
         )
       }
@@ -645,6 +692,43 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
   return (
     <div className="flex flex-col h-full bg-white overflow-x-hidden">
       <PushNotificationManager type="beneficiaire" />
+
+      {/* Appel visio entrant */}
+      {incomingCall && !visioSession && (
+        <div className="relative z-20 bg-gradient-to-r from-green-500 to-emerald-600 px-4 py-4 animate-pulse">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 text-white">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Appel entrant</p>
+                <p className="text-xs text-white/80">{conseillerPrenom} vous appelle</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleDeclineVisio}
+                className="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg active:bg-red-600"
+              >
+                <svg className="w-5 h-5 rotate-[135deg]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+              </button>
+              <button
+                onClick={handleAcceptVisio}
+                className="w-10 h-10 rounded-full bg-white text-green-600 flex items-center justify-center shadow-lg active:bg-green-50"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bandeau enquete de satisfaction */}
       {priseEnChargeStatut === 'terminee' && surveyChecked && !surveyCompleted && !showSurvey && (
@@ -881,6 +965,15 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
             </button>
           </div>
         </div>
+      )}
+      {/* Overlay visio */}
+      {visioSession && (
+        <VisioCall
+          sessionId={visioSession.sessionId}
+          role="beneficiaire"
+          peerName={conseillerPrenom || 'Conseiller'}
+          onEnd={() => { setVisioSession(null); setIncomingCall(null) }}
+        />
       )}
     </div>
   )

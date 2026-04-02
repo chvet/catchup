@@ -2,10 +2,13 @@
 
 // Composant de chat direct conseiller <-> beneficiaire (cote conseiller)
 // Utilise SSE (Server-Sent Events) pour la reception temps reel + POST pour l'envoi
-// Integre : envoi de documents, planification de RDV
+// Integre : envoi de documents, planification de RDV, visio WebRTC
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import RdvCard from '@/components/RdvCard'
+
+const VisioCall = dynamic(() => import('@/components/VisioCall'), { ssr: false })
 import PlanifierRdvModal from '@/components/conseiller/PlanifierRdvModal'
 import OnlineDot from '@/components/OnlineDot'
 import VoiceRecorder from '@/components/VoiceRecorder'
@@ -76,7 +79,13 @@ interface VoicePayload {
   transcription?: string
 }
 
-type StructuredPayload = DocumentPayload | RdvPayload | RupturePayload | SystemPayload | VoicePayload
+interface VisioPayload {
+  type: 'visio'
+  sessionId: string
+  status: string
+}
+
+type StructuredPayload = DocumentPayload | RdvPayload | RupturePayload | SystemPayload | VoicePayload | VisioPayload
 
 // --- Helpers ---
 
@@ -202,6 +211,10 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
 
   // RDV modal state
   const [rdvModalOpen, setRdvModalOpen] = useState(false)
+
+  // Visio state
+  const [visioSession, setVisioSession] = useState<{ sessionId: string } | null>(null)
+  const [visioLoading, setVisioLoading] = useState(false)
 
   // Rupture modal state
   const [ruptureModalOpen, setRuptureModalOpen] = useState(false)
@@ -513,6 +526,38 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
     setRdvReminderLoading(false)
   }, [referralId, rdvReminderLoading, latestRdv])
 
+  // Lancer un appel visio
+  const handleStartVisio = useCallback(async () => {
+    if (visioLoading || visioSession) return
+    setVisioLoading(true)
+    try {
+      // 1. Créer la session de signaling
+      const res = await fetch('/api/visio/signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', priseEnChargeId: referralId, conseillerId }),
+      })
+      const { sessionId } = await res.json()
+      if (!sessionId) throw new Error('Pas de sessionId')
+
+      // 2. Envoyer un message structuré dans le chat
+      await fetch(`/api/conseiller/file-active/${referralId}/direct-messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contenu: JSON.stringify({ type: 'visio', sessionId, status: 'ringing' }),
+        }),
+      })
+
+      // 3. Ouvrir le composant visio
+      setVisioSession({ sessionId })
+    } catch (err) {
+      console.error('Erreur lancement visio:', err)
+      alert('Impossible de lancer l\'appel')
+    }
+    setVisioLoading(false)
+  }, [referralId, conseillerId, visioLoading, visioSession])
+
   // Callback quand un RDV est créé via le modal
   const handleRdvCreated = useCallback((rdv: { id: string; messageId?: string; titre: string; dateDebut: string; dateFin: string; googleUrl: string; icsUrl: string }) => {
     // Ajouter le message RDV localement dans le chat avec le vrai id du message en base
@@ -597,6 +642,16 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
     switch (parsed.type) {
       case 'document':
         return <DocumentCard doc={parsed} />
+
+      case 'visio':
+        return (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Appel vidéo
+          </div>
+        )
 
       case 'rdv':
         return (
@@ -963,6 +1018,25 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
             </span>
           </button>
 
+          {/* Visio */}
+          <button
+            onClick={handleStartVisio}
+            disabled={visioLoading || !!visioSession}
+            className="group relative p-2 rounded-lg text-gray-400 hover:text-catchup-primary hover:bg-catchup-primary/5 transition-colors disabled:opacity-50"
+            title="Appel vidéo"
+          >
+            {visioLoading ? (
+              <div className="w-5 h-5 border-2 border-catchup-primary border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            )}
+            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] text-white bg-gray-800 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Appel vidéo
+            </span>
+          </button>
+
           {/* RDV */}
           <button
             onClick={() => setRdvModalOpen(true)}
@@ -1096,6 +1170,16 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
         onClose={() => setRdvModalOpen(false)}
         onCreated={handleRdvCreated}
       />
+
+      {/* Overlay visio */}
+      {visioSession && (
+        <VisioCall
+          sessionId={visioSession.sessionId}
+          role="conseiller"
+          peerName={beneficiairePrenom || 'Bénéficiaire'}
+          onEnd={() => setVisioSession(null)}
+        />
+      )}
     </div>
   )
 }
