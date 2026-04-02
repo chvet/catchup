@@ -48,6 +48,8 @@ async function sendSmsVonage(telephone: string, message: string): Promise<Notifi
   const apiSecret = process.env.VONAGE_API_SECRET
   const from = process.env.VONAGE_SMS_FROM || 'CatchUp'
 
+  console.log(`[SMS DEBUG] apiKey=${apiKey}, secretLen=${apiSecret?.length}, secretHash=${apiSecret ? Buffer.from(apiSecret).toString('base64').slice(0, 10) : 'null'}, from=${from}`)
+
   if (!apiKey || !apiSecret) {
     return { sent: false, channel: 'sms', error: 'Vonage credentials missing' }
   }
