@@ -22,6 +22,16 @@ const AVATAR_BY_GENRE: Record<string, string> = {
   F: '/avatar-femme.svg',
 }
 
+function EqBars() {
+  return (
+    <span className="inline-flex items-end gap-[2px] h-3 ml-0.5">
+      <span className="w-[2px] bg-catchup-primary rounded-full animate-eq-1" />
+      <span className="w-[2px] bg-catchup-primary rounded-full animate-eq-2" />
+      <span className="w-[2px] bg-catchup-primary rounded-full animate-eq-3" />
+    </span>
+  )
+}
+
 export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, voiceData, genre }: Props) {
   const isUser = message.role === 'user'
   const msgDate = message.createdAt ? new Date(message.createdAt as string | number | Date) : new Date()
@@ -36,7 +46,7 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
         </div>
       )}
 
-      <div className="max-w-[85%] md:max-w-[65%] group relative min-w-0">
+      <div className="max-w-[85%] md:max-w-[65%] min-w-0">
         <div
           className={`msg-bubble rounded-2xl px-3.5 py-2.5 shadow-sm ${
             isUser
@@ -55,7 +65,7 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
               {message.content}
             </p>
           )}
-          <div className={`flex items-center mt-0.5 ${isUser ? 'justify-end' : 'justify-start'}`}>
+          <div className={`flex items-center mt-0.5 gap-2 ${isUser ? 'justify-end' : 'justify-between'}`}>
             <span className={`text-[10px] ${isUser ? 'text-white/50' : 'text-gray-400'}`}>
               {time}
             </span>
@@ -64,30 +74,35 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
                 <path d="M12.354 4.354a.5.5 0 00-.708-.708L5 10.293 2.354 7.646a.5.5 0 10-.708.708l3 3a.5.5 0 00.708 0l7-7z"/>
               </svg>
             )}
+            {!isUser && !voiceData && (
+              <button
+                onClick={onSpeak}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] transition-all duration-200
+                  focus-visible:ring-2 focus-visible:ring-catchup-primary focus-visible:outline-none
+                  ${isSpeaking
+                    ? 'bg-catchup-primary/10 text-catchup-primary font-medium'
+                    : 'text-gray-400 hover:text-catchup-primary hover:bg-gray-50'
+                  }`}
+                title={isSpeaking ? 'Arreter' : 'Ecouter'}
+                aria-label={isSpeaking ? 'Arreter la lecture' : 'Ecouter le message'}
+              >
+                {isSpeaking ? (
+                  <>
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                      <rect x="6" y="4" width="4" height="16" rx="1" />
+                      <rect x="14" y="4" width="4" height="16" rx="1" />
+                    </svg>
+                    <EqBars />
+                  </>
+                ) : (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M11 5L6 9H2v6h4l5 4V5z" />
+                  </svg>
+                )}
+              </button>
+            )}
           </div>
         </div>
-
-        {!isUser && (
-          <button
-            onClick={onSpeak}
-            className={`absolute -right-9 top-1.5 p-1.5 rounded-full transition-all duration-200
-              focus-visible:ring-2 focus-visible:ring-catchup-primary focus-visible:outline-none
-              ${isSpeaking
-                ? 'opacity-100 bg-catchup-primary text-white shadow-md'
-                : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-catchup-primary hover:bg-white hover:shadow-sm'
-              }`}
-            title={isSpeaking ? 'Arrêter' : 'Écouter'}
-            aria-label={isSpeaking ? 'Arrêter la lecture' : 'Écouter le message'}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {isSpeaking ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M11 5L6 9H2v6h4l5 4V5z" />
-              )}
-            </svg>
-          </button>
-        )}
       </div>
 
       {isUser && (
@@ -99,3 +114,5 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
     </div>
   )
 }
+
+export { EqBars }

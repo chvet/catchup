@@ -83,6 +83,23 @@ html, body {
 }
 .animate-slideDown { animation: slideDown 0.3s ease-out; }
 
+/* TTS equalizer bars */
+@keyframes eq-bar-1 {
+  0%, 100% { height: 4px; }
+  50% { height: 12px; }
+}
+@keyframes eq-bar-2 {
+  0%, 100% { height: 8px; }
+  50% { height: 4px; }
+}
+@keyframes eq-bar-3 {
+  0%, 100% { height: 6px; }
+  50% { height: 11px; }
+}
+.animate-eq-1 { animation: eq-bar-1 0.8s ease-in-out infinite; }
+.animate-eq-2 { animation: eq-bar-2 0.6s ease-in-out infinite 0.15s; }
+.animate-eq-3 { animation: eq-bar-3 0.7s ease-in-out infinite 0.3s; }
+
 /* RGAA accessibility mode */
 .rgaa-mode * {
   font-size: 118% !important;

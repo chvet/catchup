@@ -7,6 +7,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import RdvCard from './RdvCard'
+import { WebTTSAdapter } from '@/platform/web/web-tts'
+import { EqBars } from '@/components/MessageBubble'
 
 const VisioCall = dynamic(() => import('@/components/VisioCall'), { ssr: false })
 import PushNotificationManager from './PushNotificationManager'
@@ -161,6 +163,33 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
 
   const [error, setError] = useState<string | null>(null)
   const [conseillerTyping, setConseillerTyping] = useState(false)
+
+  // TTS
+  const ttsRef = useRef<WebTTSAdapter | null>(null)
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !ttsRef.current) {
+      ttsRef.current = new WebTTSAdapter()
+      ttsRef.current.init()
+    }
+  }, [])
+
+  const handleSpeak = useCallback((msgId: string, text: string) => {
+    const tts = ttsRef.current
+    if (!tts) return
+    tts.unlock()
+    if (speakingMsgId === msgId) {
+      tts.stop()
+      setSpeakingMsgId(null)
+    } else {
+      tts.stop()
+      setSpeakingMsgId(msgId)
+      setTimeout(() => {
+        tts.speak(text, () => setSpeakingMsgId(null))
+      }, 150)
+    }
+  }, [speakingMsgId])
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [ruptured, setRuptured] = useState(false)
   const [ruptureInfo, setRuptureInfo] = useState<RuptureContent | null>(null)
@@ -855,12 +884,37 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
                       <p className="text-[10px] text-catchup-primary/70 mb-0.5 ml-1">{conseillerPrenom}</p>
                     )}
                     {renderMessageContent(msg, isMine)}
-                    <div className={`flex items-center gap-1 mt-0.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`flex items-center gap-1 mt-0.5 ${isMine ? 'justify-end' : 'justify-between'}`}>
                       <span className="text-[10px] text-gray-400">
                         {time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        {isMine && (
+                          <span className="ml-1">{msg.lu ? '\u2713\u2713' : '\u2713'}</span>
+                        )}
                       </span>
-                      {isMine && (
-                        <span className="text-[10px] text-gray-400">{msg.lu ? '\u2713\u2713' : '\u2713'}</span>
+                      {!isCard && (
+                        <button
+                          onClick={() => handleSpeak(msg.id, msg.contenu)}
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] transition-all duration-200
+                            ${speakingMsgId === msg.id
+                              ? 'bg-catchup-primary/10 text-catchup-primary font-medium'
+                              : 'text-gray-400 hover:text-catchup-primary hover:bg-gray-50'
+                            }`}
+                          title={speakingMsgId === msg.id ? 'Arreter' : 'Ecouter'}
+                        >
+                          {speakingMsgId === msg.id ? (
+                            <>
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                <rect x="6" y="4" width="4" height="16" rx="1" />
+                                <rect x="14" y="4" width="4" height="16" rx="1" />
+                              </svg>
+                              <EqBars />
+                            </>
+                          ) : (
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M11 5L6 9H2v6h4l5 4V5z" />
+                            </svg>
+                          )}
+                        </button>
                       )}
                     </div>
                   </div>

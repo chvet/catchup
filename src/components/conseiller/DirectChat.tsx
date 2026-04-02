@@ -7,6 +7,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import RdvCard from '@/components/RdvCard'
+import { WebTTSAdapter } from '@/platform/web/web-tts'
+import { EqBars } from '@/components/MessageBubble'
 
 const VisioCall = dynamic(() => import('@/components/VisioCall'), { ssr: false })
 import PlanifierRdvModal from '@/components/conseiller/PlanifierRdvModal'
@@ -205,6 +207,33 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
+
+  // TTS state
+  const ttsRef = useRef<WebTTSAdapter | null>(null)
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !ttsRef.current) {
+      ttsRef.current = new WebTTSAdapter()
+      ttsRef.current.init()
+    }
+  }, [])
+
+  const handleSpeak = useCallback((msgId: string, text: string) => {
+    const tts = ttsRef.current
+    if (!tts) return
+    tts.unlock()
+    if (speakingMsgId === msgId) {
+      tts.stop()
+      setSpeakingMsgId(null)
+    } else {
+      tts.stop()
+      setSpeakingMsgId(msgId)
+      setTimeout(() => {
+        tts.speak(text, () => setSpeakingMsgId(null))
+      }, 150)
+    }
+  }, [speakingMsgId])
 
   // Upload state
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1001,12 +1030,37 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
               <div className={`flex ${isConseiller ? 'justify-end' : 'justify-start'}`}>
                 <div className={isStructured ? 'max-w-[85%] md:max-w-[70%]' : 'max-w-[85%] md:max-w-[75%]'}>
                   {renderMessageContent(msg)}
-                  <div className={`flex items-center gap-1 mt-0.5 ${isConseiller ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex items-center gap-1 mt-0.5 ${isConseiller ? 'justify-end' : 'justify-between'}`}>
                     <span className="text-[10px] text-gray-400">
                       {formatTime(time)}
+                      {isConseiller && (
+                        <span className="ml-1">{msg.lu ? '✓✓' : '✓'}</span>
+                      )}
                     </span>
-                    {isConseiller && (
-                      <span className="text-[10px] text-gray-400">{msg.lu ? '✓✓' : '✓'}</span>
+                    {!isStructured && (
+                      <button
+                        onClick={() => handleSpeak(msg.id, msg.contenu)}
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] transition-all duration-200
+                          ${speakingMsgId === msg.id
+                            ? 'bg-catchup-primary/10 text-catchup-primary font-medium'
+                            : 'text-gray-400 hover:text-catchup-primary hover:bg-gray-50'
+                          }`}
+                        title={speakingMsgId === msg.id ? 'Arreter' : 'Ecouter'}
+                      >
+                        {speakingMsgId === msg.id ? (
+                          <>
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                              <rect x="6" y="4" width="4" height="16" rx="1" />
+                              <rect x="14" y="4" width="4" height="16" rx="1" />
+                            </svg>
+                            <EqBars />
+                          </>
+                        ) : (
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M11 5L6 9H2v6h4l5 4V5z" />
+                          </svg>
+                        )}
+                      </button>
                     )}
                   </div>
                 </div>
