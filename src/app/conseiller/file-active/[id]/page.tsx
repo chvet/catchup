@@ -80,6 +80,16 @@ interface CaseDetail {
   }[]
   attente: { heures: number; label: string }
   distance: { km: number; label: string } | null
+  historique: {
+    referralId: string
+    statut: string | null
+    priorite: string
+    motif: string | null
+    creeLe: string
+    conversationId: string
+    nbMessages: number | null
+    phase: string | null
+  }[] | null
 }
 
 interface ConversationMessage {
@@ -264,7 +274,7 @@ export default function CaseDetailPage() {
     )
   }
 
-  const { referral: ref, beneficiaire, profil, confiance, conversation: conv, priseEnCharge: pec, matching, attente, distance } = data
+  const { referral: ref, beneficiaire, profil, confiance, conversation: conv, priseEnCharge: pec, matching, attente, distance, historique } = data
 
   const riasecData = profil ? [
     { dim: 'R', label: 'Réaliste', score: profil.r },
@@ -414,6 +424,50 @@ export default function CaseDetailPage() {
                   >
                     💬 Consulter l&apos;historique complet de la conversation
                   </button>
+                )}
+
+                {/* Historique des demandes précédentes */}
+                {historique && historique.length > 0 && (
+                  <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <h4 className="text-sm font-semibold text-amber-800 mb-2">
+                      Demandes précédentes ({historique.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {historique.map((h) => (
+                        <Link
+                          key={h.referralId}
+                          href={`/conseiller/file-active/${h.referralId}`}
+                          className="flex items-center justify-between p-2 bg-white rounded-lg border border-amber-100 hover:border-amber-300 transition-colors text-sm"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${
+                              h.statut === 'rupture' ? 'bg-red-400' :
+                              h.statut === 'terminee' ? 'bg-gray-400' :
+                              h.statut === 'prise_en_charge' ? 'bg-green-400' :
+                              'bg-amber-400'
+                            }`} />
+                            <span className="text-gray-700">
+                              {new Date(h.creeLe).toLocaleDateString('fr-FR')}
+                            </span>
+                            <span className="text-gray-400">
+                              {h.nbMessages ?? 0} msg
+                            </span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            h.statut === 'rupture' ? 'bg-red-100 text-red-700' :
+                            h.statut === 'terminee' ? 'bg-gray-100 text-gray-600' :
+                            h.statut === 'prise_en_charge' ? 'bg-green-100 text-green-700' :
+                            'bg-amber-100 text-amber-700'
+                          }`}>
+                            {h.statut === 'prise_en_charge' ? 'accompagné' :
+                             h.statut === 'rupture' ? 'rupture' :
+                             h.statut === 'terminee' ? 'terminé' :
+                             h.statut || 'en attente'}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {/* Carte de localisation */}

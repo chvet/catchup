@@ -87,6 +87,13 @@ async function handleSignup(body: {
       })
       .where(eq(utilisateur.id, existing[0].id))
 
+    // Dedup : transférer la conversation courante vers le compte existant si différent
+    if (conversationId && utilisateurId && utilisateurId !== existing[0].id) {
+      await db.update(conversation)
+        .set({ utilisateurId: existing[0].id })
+        .where(eq(conversation.id, conversationId))
+    }
+
     return Response.json({
       ok: true,
       token: sessionToken,

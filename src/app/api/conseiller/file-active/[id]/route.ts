@@ -5,7 +5,7 @@ import { getConseillerFromHeaders, jsonError, jsonSuccess } from '@/lib/api-help
 import { logAudit } from '@/lib/auth'
 import { db } from '@/data/db'
 import { referral, utilisateur, profilRiasec, indiceConfiance, conversation, priseEnCharge, structure, conseiller, codeVerification } from '@/data/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and, desc, ne } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { sendPinCode } from '@/lib/sms'
 import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
@@ -111,6 +111,27 @@ export async function GET(
 
     const matchingResults = matcherStructures(criteria, structuresData)
 
+    // Historique : autres referrals du même bénéficiaire (déduplication)
+    const historique = await db
+      .select({
+        referralId: referral.id,
+        statut: referral.statut,
+        priorite: referral.priorite,
+        motif: referral.motif,
+        creeLe: referral.creeLe,
+        conversationId: referral.conversationId,
+        nbMessages: conversation.nbMessages,
+        phase: conversation.phase,
+      })
+      .from(referral)
+      .leftJoin(conversation, eq(conversation.id, referral.conversationId))
+      .where(and(
+        eq(referral.utilisateurId, ref.utilisateurId),
+        ne(referral.id, id)
+      ))
+      .orderBy(desc(referral.creeLe))
+      .limit(10)
+
     // Audit
     await logAudit(ctx.id, 'view_profile', 'referral', id)
 
@@ -181,6 +202,7 @@ export async function GET(
         heures: attenteHeures,
         label: attenteHeures < 1 ? '< 1h' : attenteHeures < 24 ? `${attenteHeures}h` : `${Math.round(attenteHeures / 24)}j`,
       },
+      historique: historique.length > 0 ? historique : null,
     })
   } catch (error) {
     console.error('[File Active Detail]', error)

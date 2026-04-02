@@ -36,12 +36,56 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date().toISOString()
+    let resolvedUserId = utilisateurId
 
-    // 1. S'assurer que l'utilisateur existe (upsert)
-    const existingUser = await db.select({ id: utilisateur.id }).from(utilisateur).where(eq(utilisateur.id, utilisateurId))
+    // 1. Déduplication : chercher si un utilisateur existe déjà avec le même email ou téléphone
+    if (moyenContact) {
+      const contactFilter = typeContact === 'email'
+        ? eq(utilisateur.email, moyenContact.toLowerCase().trim())
+        : eq(utilisateur.telephone, moyenContact.trim())
+
+      const duplicateUser = await db.select().from(utilisateur)
+        .where(and(contactFilter, sql`${utilisateur.id} != ${utilisateurId}`))
+        .limit(1)
+
+      if (duplicateUser.length > 0) {
+        const existingUserId = duplicateUser[0].id
+        console.log(`[Dedup] Bénéficiaire reconnu: ${moyenContact} → fusionné avec ${existingUserId}`)
+
+        // Transférer la conversation courante vers le compte existant
+        if (conversationId) {
+          await db.update(conversation)
+            .set({ utilisateurId: existingUserId, misAJourLe: now })
+            .where(eq(conversation.id, conversationId))
+        }
+
+        // Mettre à jour le profil existant avec les nouvelles infos
+        const updateData: Record<string, unknown> = { misAJourLe: now }
+        if (prenom) updateData.prenom = prenom
+        if (age) updateData.age = age
+        if (departement) { updateData.situation = departement; updateData.source = departement }
+        if (typeContact === 'telephone' && moyenContact) updateData.telephone = moyenContact
+        if (typeContact === 'email' && moyenContact) updateData.email = moyenContact.toLowerCase().trim()
+        updateData.derniereVisite = now
+        await db.update(utilisateur).set(updateData).where(eq(utilisateur.id, existingUserId))
+
+        // Supprimer le compte anonyme dupliqué (s'il n'a pas d'autres conversations)
+        const otherConvs = await db.select({ id: conversation.id }).from(conversation)
+          .where(eq(conversation.utilisateurId, utilisateurId))
+          .limit(1)
+        if (otherConvs.length === 0) {
+          await db.delete(utilisateur).where(eq(utilisateur.id, utilisateurId)).catch(() => {})
+        }
+
+        resolvedUserId = existingUserId
+      }
+    }
+
+    // 2. S'assurer que l'utilisateur existe (upsert)
+    const existingUser = await db.select({ id: utilisateur.id }).from(utilisateur).where(eq(utilisateur.id, resolvedUserId))
     if (existingUser.length === 0) {
       await db.insert(utilisateur).values({
-        id: utilisateurId,
+        id: resolvedUserId,
         prenom: prenom || null,
         age: age || null,
         email: typeContact === 'email' ? moyenContact : null,
@@ -61,12 +105,12 @@ export async function POST(request: NextRequest) {
       if (typeContact === 'telephone' && moyenContact) updateData.telephone = moyenContact
       if (typeContact === 'email' && moyenContact) {
         const existingEmail = await db.select({ id: utilisateur.id }).from(utilisateur)
-          .where(and(eq(utilisateur.email, moyenContact), sql`${utilisateur.id} != ${utilisateurId}`))
+          .where(and(eq(utilisateur.email, moyenContact), sql`${utilisateur.id} != ${resolvedUserId}`))
         if (existingEmail.length === 0) {
           updateData.email = moyenContact
         }
       }
-      await db.update(utilisateur).set(updateData).where(eq(utilisateur.id, utilisateurId))
+      await db.update(utilisateur).set(updateData).where(eq(utilisateur.id, resolvedUserId))
     }
 
     // 1b. S'assurer que la conversation existe
@@ -74,7 +118,7 @@ export async function POST(request: NextRequest) {
     if (existingConv.length === 0) {
       await db.insert(conversation).values({
         id: conversationId,
-        utilisateurId,
+        utilisateurId: resolvedUserId,
         titre: 'Conversation ' + (prenom || 'Bénéficiaire'),
         statut: 'active',
         nbMessages: 0,
@@ -198,7 +242,7 @@ export async function POST(request: NextRequest) {
     const profil = await db
       .select()
       .from(profilRiasec)
-      .where(eq(profilRiasec.utilisateurId, utilisateurId))
+      .where(eq(profilRiasec.utilisateurId, resolvedUserId))
       .limit(1)
 
     const riasecDominant: string[] = profil[0]?.dimensionsDominantes
@@ -231,7 +275,7 @@ export async function POST(request: NextRequest) {
       .innerJoin(priseEnCharge, eq(priseEnCharge.referralId, referral.id))
       .where(
         and(
-          eq(referral.utilisateurId, utilisateurId),
+          eq(referral.utilisateurId, resolvedUserId),
           eq(priseEnCharge.statut, 'prise_en_charge')
         )
       )
@@ -268,7 +312,7 @@ export async function POST(request: NextRequest) {
       })
 
       // Log journal
-      await logJournal(active.pecId, 'rupture_beneficiaire', 'systeme', utilisateurId,
+      await logJournal(active.pecId, 'rupture_beneficiaire', 'systeme', resolvedUserId,
         'Le bénéficiaire a initié une nouvelle demande. L\'accompagnement précédent est clôturé.',
         { details: { nouvelleConversationId: conversationId } }
       )
@@ -279,7 +323,7 @@ export async function POST(request: NextRequest) {
     const referralSource = structureSlug ? 'sourcee' : 'generique'
     await db.insert(referral).values({
       id: referralId,
-      utilisateurId,
+      utilisateurId: resolvedUserId,
       conversationId,
       priorite,
       niveauDetection,
