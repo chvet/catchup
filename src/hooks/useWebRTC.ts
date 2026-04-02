@@ -6,16 +6,16 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  // TURN relay en fallback (pour NAT symétriques / 4G)
+  // TURN relay dédié sur notre serveur (pour NAT symétriques / 4G)
   {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
+    urls: 'turn:catchup.jaeprive.fr:3478',
+    username: 'catchup',
+    credential: 'CatchUp2024Turn!',
   },
   {
-    urls: 'turn:openrelay.metered.ca:443',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
+    urls: 'turn:catchup.jaeprive.fr:3478?transport=tcp',
+    username: 'catchup',
+    credential: 'CatchUp2024Turn!',
   },
 ]
 
