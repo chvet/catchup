@@ -2,14 +2,14 @@
 // S'ajoute aux données existantes, ne supprime rien
 // Usage : npx tsx scripts/seed-extended.ts
 
-import { createClient } from '@libsql/client'
-import { drizzle } from 'drizzle-orm/libsql'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { Pool } from 'pg'
 import { v4 as uuidv4 } from 'uuid'
 import bcrypt from 'bcryptjs'
 import * as schema from '../src/data/schema'
 
-const client = createClient({ url: process.env.TURSO_DATABASE_URL || 'file:local.db' })
-const db = drizzle(client, { schema })
+const pool = new Pool({ connectionString: process.env.DATABASE_URL || 'postgres://catchup:CatchUp2026Pg!@localhost:5432/catchup' })
+const db = drizzle(pool, { schema })
 
 const hash = (pw: string) => bcrypt.hashSync(pw, 12)
 const now = () => new Date().toISOString()

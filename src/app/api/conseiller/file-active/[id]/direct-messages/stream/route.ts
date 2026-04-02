@@ -3,8 +3,9 @@
 
 import { getConseillerFromHeaders, jsonError } from '@/lib/api-helpers'
 import { db } from '@/data/db'
-import { priseEnCharge, messageDirect } from '@/data/schema'
+import { priseEnCharge, messageDirect, referral } from '@/data/schema'
 import { eq, and, gt } from 'drizzle-orm'
+import { isTyping } from '@/lib/heartbeat-store'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -34,6 +35,10 @@ export async function GET(
     const pec = pecs[0]
     const priseEnChargeId = pec.id
 
+    // Trouver l'utilisateurId du beneficiaire via le referral
+    const refs = await db.select().from(referral).where(eq(referral.id, pec.referralId))
+    const beneficiaireUserId = refs.length > 0 ? refs[0].utilisateurId : null
+
     const encoder = new TextEncoder()
     let lastCheck = new Date().toISOString()
     let alive = true
@@ -45,7 +50,7 @@ export async function GET(
           encoder.encode(`data: ${JSON.stringify({ type: 'connected', priseEnChargeId })}\n\n`)
         )
 
-        // Intervalle de poll : toutes les 1 seconde
+        // Intervalle de poll : toutes les 500ms pour reactivite typing
         const pollInterval = setInterval(async () => {
           if (!alive) {
             clearInterval(pollInterval)
@@ -75,11 +80,18 @@ export async function GET(
                 )
               }
             }
+
+            // Verifier si le beneficiaire est en train d'ecrire
+            if (beneficiaireUserId && isTyping(beneficiaireUserId)) {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ type: 'typing', beneficiaireId: beneficiaireUserId })}\n\n`)
+              )
+            }
           } catch (error) {
             console.error('[SSE Poll Error]', error)
             // Ne pas fermer le stream sur une erreur de poll isolee
           }
-        }, 1000)
+        }, 500)
 
         // Heartbeat toutes les 15 secondes
         const heartbeatInterval = setInterval(() => {

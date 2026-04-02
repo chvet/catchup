@@ -13,6 +13,7 @@ import BrisDeGlaceModal from '@/components/conseiller/BrisDeGlaceModal'
 import OnlineDot from '@/components/OnlineDot'
 import { useIsOnline } from '@/hooks/useOnlineStatus'
 import dynamic from 'next/dynamic'
+import ActivitesTab from '@/components/conseiller/ActivitesTab'
 import { getDepartmentCoords } from '@/lib/geo-departments'
 import type { MapMarker } from '@/components/MapView'
 
@@ -79,6 +80,16 @@ interface CaseDetail {
   }[]
   attente: { heures: number; label: string }
   distance: { km: number; label: string } | null
+  historique: {
+    referralId: string
+    statut: string | null
+    priorite: string
+    motif: string | null
+    creeLe: string
+    conversationId: string
+    nbMessages: number | null
+    phase: string | null
+  }[] | null
 }
 
 interface ConversationMessage {
@@ -116,7 +127,7 @@ const PHASE_LABELS: Record<string, string> = {
   action: 'Action',
 }
 
-type TabType = 'resume' | 'conversation' | 'accompagnement' | 'profil' | 'notes' | 'journal'
+type TabType = 'resume' | 'conversation' | 'accompagnement' | 'activites' | 'profil' | 'notes' | 'journal'
 
 interface TiersInfo {
   id: string
@@ -139,7 +150,7 @@ export default function CaseDetailPage() {
   const [statusUpdating, setStatusUpdating] = useState(false)
   const searchParams = useSearchParams()
   const initialTab = searchParams.get('tab') as TabType | null
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab && ['resume','conversation','accompagnement','profil','notes','journal'].includes(initialTab) ? initialTab : 'resume')
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab && ['resume','conversation','accompagnement','activites','profil','notes','journal'].includes(initialTab) ? initialTab : 'resume')
 
   // État pour l'historique de conversation (chargement à la demande)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
@@ -263,7 +274,7 @@ export default function CaseDetailPage() {
     )
   }
 
-  const { referral: ref, beneficiaire, profil, confiance, conversation: conv, priseEnCharge: pec, matching, attente, distance } = data
+  const { referral: ref, beneficiaire, profil, confiance, conversation: conv, priseEnCharge: pec, matching, attente, distance, historique } = data
 
   const riasecData = profil ? [
     { dim: 'R', label: 'Réaliste', score: profil.r },
@@ -279,6 +290,7 @@ export default function CaseDetailPage() {
     { key: 'resume', label: 'Résumé', icon: '📋' },
     { key: 'conversation', label: 'Historique IA', icon: '🤖', badge: conv ? `${conv.nbMessages}` : undefined },
     { key: 'accompagnement', label: 'Accompagnement', icon: '💬', badge: isPrisEnCharge ? '●' : undefined },
+    { key: 'activites', label: 'Activites', icon: '📊' },
     { key: 'profil', label: 'Profil RIASEC', icon: '🎯' },
     { key: 'notes', label: 'Notes', icon: '📝', badge: notes.length > 0 ? `${notes.length}` : undefined },
     { key: 'journal', label: 'Journal', icon: '📋' },
@@ -414,6 +426,50 @@ export default function CaseDetailPage() {
                   </button>
                 )}
 
+                {/* Historique des demandes précédentes */}
+                {historique && historique.length > 0 && (
+                  <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <h4 className="text-sm font-semibold text-amber-800 mb-2">
+                      Demandes précédentes ({historique.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {historique.map((h) => (
+                        <Link
+                          key={h.referralId}
+                          href={`/conseiller/file-active/${h.referralId}`}
+                          className="flex items-center justify-between p-2 bg-white rounded-lg border border-amber-100 hover:border-amber-300 transition-colors text-sm"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${
+                              h.statut === 'rupture' ? 'bg-red-400' :
+                              h.statut === 'terminee' ? 'bg-gray-400' :
+                              h.statut === 'prise_en_charge' ? 'bg-green-400' :
+                              'bg-amber-400'
+                            }`} />
+                            <span className="text-gray-700">
+                              {new Date(h.creeLe).toLocaleDateString('fr-FR')}
+                            </span>
+                            <span className="text-gray-400">
+                              {h.nbMessages ?? 0} msg
+                            </span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            h.statut === 'rupture' ? 'bg-red-100 text-red-700' :
+                            h.statut === 'terminee' ? 'bg-gray-100 text-gray-600' :
+                            h.statut === 'prise_en_charge' ? 'bg-green-100 text-green-700' :
+                            'bg-amber-100 text-amber-700'
+                          }`}>
+                            {h.statut === 'prise_en_charge' ? 'accompagné' :
+                             h.statut === 'rupture' ? 'rupture' :
+                             h.statut === 'terminee' ? 'terminé' :
+                             h.statut || 'en attente'}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Carte de localisation */}
                 {ref.localisation && getDepartmentCoords(ref.localisation) && (() => {
                   const benefCoords = getDepartmentCoords(ref.localisation!)!
@@ -547,6 +603,13 @@ export default function CaseDetailPage() {
                 priseEnChargeStatut={pec?.statut || ''}
                 conseillerId={pec?.conseillerId}
               />
+            )}
+
+            {/* ═══ ONGLET ACTIVITÉS ═══ */}
+            {activeTab === 'activites' && (
+              <div className="p-6">
+                <ActivitesTab referralId={id} />
+              </div>
             )}
 
             {/* ═══ ONGLET PROFIL RIASEC ═══ */}

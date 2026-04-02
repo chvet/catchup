@@ -19,8 +19,14 @@ export async function GET(request: Request) {
     const now = new Date()
     const debutMois = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
-    // Filtre structure
+    // Filtre selon le rôle
     const isSuperAdmin = hasRole(ctx, 'super_admin')
+    const isAdmin = hasRole(ctx, 'admin_structure')
+    const isSimpleConseiller = !isSuperAdmin && !isAdmin
+
+    // Pour un conseiller simple : ne voir que ses propres dossiers
+    // Pour un admin_structure : voir toute sa structure
+    // Pour un super_admin : voir tout
     const structureFilter = isSuperAdmin
       ? undefined
       : ctx.structureId
@@ -33,6 +39,11 @@ export async function GET(request: Request) {
     const pecStructureFilter = !isSuperAdmin && ctx.structureId
       ? eq(priseEnCharge.structureId, ctx.structureId)
       : undefined
+
+    // Filtre conseiller simple : uniquement ses propres PEC
+    const pecConseillerFilter = isSimpleConseiller
+      ? eq(priseEnCharge.conseillerId, ctx.id)
+      : pecStructureFilter
 
     const baseWhere = and(
       gte(referral.creeLe, depuis),
@@ -57,10 +68,10 @@ export async function GET(request: Request) {
       .where(baseWhere)
       .groupBy(referral.priorite)
 
-    // Prises en charge
+    // Prises en charge (conseiller simple = ses PEC, admin = structure, super = tout)
     const pecWhere = and(
       gte(priseEnCharge.creeLe, depuis),
-      pecStructureFilter
+      pecConseillerFilter
     )
 
     const pecStats = await db
@@ -88,14 +99,14 @@ export async function GET(request: Request) {
       .where(and(
         gte(priseEnCharge.termineeLe, debutMois),
         eq(priseEnCharge.statut, 'terminee'),
-        pecStructureFilter
+        pecConseillerFilter
       ))
 
     // Temps d'attente moyen (en heures)
     const tempsAttente = await db
       .select({
         avgHeures: sql<number>`AVG(
-          CAST((julianday(${priseEnCharge.premiereActionLe}) - julianday(${referral.creeLe})) * 24 AS REAL)
+          EXTRACT(EPOCH FROM (${priseEnCharge.premiereActionLe}::timestamp - ${referral.creeLe}::timestamp)) / 3600
         )`,
       })
       .from(priseEnCharge)
@@ -103,7 +114,7 @@ export async function GET(request: Request) {
       .where(and(
         gte(priseEnCharge.creeLe, depuis),
         sql`${priseEnCharge.premiereActionLe} IS NOT NULL`,
-        pecStructureFilter
+        pecConseillerFilter
       ))
 
     // Urgences en cours (non terminées)
@@ -116,7 +127,7 @@ export async function GET(request: Request) {
         structureFilter
       ))
 
-    // Capacité structure
+    // Capacité structure (toujours structure-wide, même pour conseiller simple)
     let capaciteInfo = null
     if (ctx.structureId) {
       const structures = await db
@@ -191,7 +202,7 @@ export async function GET(request: Request) {
         .innerJoin(priseEnCharge, eq(enqueteSatisfaction.priseEnChargeId, priseEnCharge.id))
         .where(and(
           eq(enqueteSatisfaction.completee, 1),
-          pecStructureFilter
+          pecConseillerFilter
         ))
 
       if (satResult[0]?.count > 0) {
