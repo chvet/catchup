@@ -273,6 +273,22 @@ export default function AccompagnementPage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Code de vérification (6 chiffres)
             </label>
+            {/* Input caché pour autocomplete iOS/Android (Web OTP API) */}
+            <input
+              type="text"
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              className="sr-only"
+              aria-hidden="true"
+              tabIndex={-1}
+              onChange={e => {
+                const val = e.target.value.replace(/\D/g, '').slice(0, 6)
+                if (val.length === 6) {
+                  setCode(val.split(''))
+                  inputRefs.current[5]?.focus()
+                }
+              }}
+            />
             <div className="flex gap-2 justify-center" onPaste={handlePaste}>
               {code.map((digit, i) => (
                 <input
@@ -280,6 +296,7 @@ export default function AccompagnementPage() {
                   ref={el => { inputRefs.current[i] = el }}
                   type="text"
                   inputMode="numeric"
+                  autoComplete={i === 0 ? 'one-time-code' : 'off'}
                   maxLength={1}
                   value={digit}
                   onChange={e => handleCodeChange(i, e.target.value)}

@@ -1002,6 +1002,21 @@ export default function ChatApp() {
                     {/* Code PIN 6 chiffres */}
                     <div className="mb-4">
                       <label className="block text-xs font-medium text-gray-600 mb-2">Code de vérification (6 chiffres)</label>
+                      <input
+                        type="text"
+                        autoComplete="one-time-code"
+                        inputMode="numeric"
+                        className="sr-only"
+                        aria-hidden="true"
+                        tabIndex={-1}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 6)
+                          if (val.length === 6) {
+                            setPinCode(val.split(''))
+                            pinInputRefs.current[5]?.focus()
+                          }
+                        }}
+                      />
                       <div className="flex gap-2 justify-center" onPaste={handlePinPaste}>
                         {pinCode.map((digit, i) => (
                           <input
@@ -1009,6 +1024,7 @@ export default function ChatApp() {
                             ref={el => { pinInputRefs.current[i] = el }}
                             type="text"
                             inputMode="numeric"
+                            autoComplete={i === 0 ? 'one-time-code' : 'off'}
                             maxLength={1}
                             value={digit}
                             onChange={e => handlePinCodeChange(i, e.target.value)}
