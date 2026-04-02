@@ -13,6 +13,7 @@ import BrisDeGlaceModal from '@/components/conseiller/BrisDeGlaceModal'
 import OnlineDot from '@/components/OnlineDot'
 import { useIsOnline } from '@/hooks/useOnlineStatus'
 import dynamic from 'next/dynamic'
+import ActivitesTab from '@/components/conseiller/ActivitesTab'
 import { getDepartmentCoords } from '@/lib/geo-departments'
 import type { MapMarker } from '@/components/MapView'
 
@@ -116,7 +117,7 @@ const PHASE_LABELS: Record<string, string> = {
   action: 'Action',
 }
 
-type TabType = 'resume' | 'conversation' | 'accompagnement' | 'profil' | 'notes' | 'journal'
+type TabType = 'resume' | 'conversation' | 'accompagnement' | 'activites' | 'profil' | 'notes' | 'journal'
 
 interface TiersInfo {
   id: string
@@ -139,7 +140,7 @@ export default function CaseDetailPage() {
   const [statusUpdating, setStatusUpdating] = useState(false)
   const searchParams = useSearchParams()
   const initialTab = searchParams.get('tab') as TabType | null
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab && ['resume','conversation','accompagnement','profil','notes','journal'].includes(initialTab) ? initialTab : 'resume')
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab && ['resume','conversation','accompagnement','activites','profil','notes','journal'].includes(initialTab) ? initialTab : 'resume')
 
   // État pour l'historique de conversation (chargement à la demande)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
@@ -279,6 +280,7 @@ export default function CaseDetailPage() {
     { key: 'resume', label: 'Résumé', icon: '📋' },
     { key: 'conversation', label: 'Historique IA', icon: '🤖', badge: conv ? `${conv.nbMessages}` : undefined },
     { key: 'accompagnement', label: 'Accompagnement', icon: '💬', badge: isPrisEnCharge ? '●' : undefined },
+    { key: 'activites', label: 'Activites', icon: '📊' },
     { key: 'profil', label: 'Profil RIASEC', icon: '🎯' },
     { key: 'notes', label: 'Notes', icon: '📝', badge: notes.length > 0 ? `${notes.length}` : undefined },
     { key: 'journal', label: 'Journal', icon: '📋' },
@@ -547,6 +549,13 @@ export default function CaseDetailPage() {
                 priseEnChargeStatut={pec?.statut || ''}
                 conseillerId={pec?.conseillerId}
               />
+            )}
+
+            {/* ═══ ONGLET ACTIVITÉS ═══ */}
+            {activeTab === 'activites' && (
+              <div className="p-6">
+                <ActivitesTab referralId={id} />
+              </div>
             )}
 
             {/* ═══ ONGLET PROFIL RIASEC ═══ */}

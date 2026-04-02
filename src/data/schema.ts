@@ -448,3 +448,61 @@ export const codeVerification = sqliteTable('code_verification', {
   expireLe: text('expire_le').notNull(),
   creeLe: text('cree_le').notNull(),
 })
+
+// === SUIVI D'ACTIVITÉS (CEJ) ===
+
+export const categorieActivite = sqliteTable('categorie_activite', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  label: text('label').notNull(),
+  icone: text('icone'),
+  couleur: text('couleur'),
+  ordre: integer('ordre').default(0),
+  actif: integer('actif').default(1),
+})
+
+export const declarationActivite = sqliteTable('declaration_activite', {
+  id: text('id').primaryKey(),
+  priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
+  utilisateurId: text('utilisateur_id').notNull().references(() => utilisateur.id),
+  categorieCode: text('categorie_code').notNull(),
+  description: text('description'),
+  dureeMinutes: integer('duree_minutes').notNull(),
+  dateSemaine: text('date_semaine').notNull(), // lundi ISO de la semaine
+  dateActivite: text('date_activite').notNull(),
+  source: text('source').default('manuel'), // 'manuel' | 'chat_auto'
+  messageDirectId: text('message_direct_id'),
+  statut: text('statut').default('en_attente'), // 'en_attente' | 'validee' | 'refusee'
+  valideePar: text('validee_par'),
+  valideLe: text('valide_le'),
+  commentaireConseiller: text('commentaire_conseiller'),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const objectifHebdomadaire = sqliteTable('objectif_hebdomadaire', {
+  id: text('id').primaryKey(),
+  priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
+  semaine: text('semaine').notNull(), // lundi ISO
+  cibleHeures: real('cible_heures').notNull(),
+  cibleRecommandeeIA: real('cible_recommandee_ia'),
+  ajusteParConseiller: integer('ajuste_par_conseiller').default(0),
+  commentaire: text('commentaire'),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const alerteDecrochage = sqliteTable('alerte_decrochage', {
+  id: text('id').primaryKey(),
+  priseEnChargeId: text('prise_en_charge_id').notNull().references(() => priseEnCharge.id),
+  conseillerId: text('conseiller_id').notNull().references(() => conseiller.id),
+  type: text('type').notNull(), // 'activite_baisse' | 'silence_prolonge' | 'ton_negatif' | 'objectif_non_atteint'
+  severite: text('severite').notNull(), // 'info' | 'attention' | 'critique'
+  signaux: text('signaux'), // JSON array
+  resumeIA: text('resume_ia'),
+  lue: integer('lue').default(0),
+  traitee: integer('traitee').default(0),
+  actionPrise: text('action_prise'),
+  creeLe: text('cree_le').notNull(),
+  traiteeLe: text('traitee_le'),
+})
