@@ -400,12 +400,15 @@ export const rappel = sqliteTable('rappel', {
 export const campagne = sqliteTable('campagne', {
   id: text('id').primaryKey(),
   structureId: text('structure_id').notNull().references(() => structure.id),
+  slug: text('slug'), // slug permanent pour QR code (unique par structure)
   designation: text('designation').notNull(),
   quantiteObjectif: integer('quantite_objectif').notNull(),
   uniteOeuvre: text('unite_oeuvre').notNull(), // 'Bénéficiaire(s)', 'Lead(s)', 'CA', custom...
   dateDebut: text('date_debut').notNull(),
   dateFin: text('date_fin').notNull(),
   statut: text('statut').default('active'), // active | terminee | archivee
+  remplaceeParId: text('remplacee_par_id'), // FK vers la campagne qui l'a remplacée
+  archiveeLe: text('archivee_le'),
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),
 })

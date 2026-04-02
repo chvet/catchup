@@ -174,9 +174,26 @@ export default function ChatApp() {
     const cParam = params.get('c') || ''
 
     // 2. Si trouvé, persister dans localStorage et nettoyer l'URL
+    // Le paramètre c peut être un UUID (ancien format) ou un slug (nouveau format)
+    const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+
     if (cParam) {
-      localStorage.setItem(LS_CAMPAGNE_ID, cParam)
-      setCampagneId(cParam)
+      if (isUuid(cParam)) {
+        // Ancien format : UUID direct
+        localStorage.setItem(LS_CAMPAGNE_ID, cParam)
+        setCampagneId(cParam)
+      } else {
+        // Nouveau format : slug → résoudre vers l'ID de la campagne active
+        fetch(`/api/campagne/resolve?slug=${encodeURIComponent(cParam)}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (data?.campagneId) {
+              localStorage.setItem(LS_CAMPAGNE_ID, data.campagneId)
+              setCampagneId(data.campagneId)
+            }
+          })
+          .catch(() => { /* slug non résolu — on continue sans campagne */ })
+      }
     } else {
       const savedCampagne = localStorage.getItem(LS_CAMPAGNE_ID) || ''
       if (savedCampagne) setCampagneId(savedCampagne)

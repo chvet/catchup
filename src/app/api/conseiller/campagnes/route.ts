@@ -70,12 +70,15 @@ export async function GET(request: Request) {
 
         return {
           id: c.id,
+          slug: c.slug,
           designation: c.designation,
           quantiteObjectif: c.quantiteObjectif,
           uniteOeuvre: c.uniteOeuvre,
           dateDebut: c.dateDebut,
           dateFin: c.dateFin,
           statut: c.statut,
+          remplaceeParId: c.remplaceeParId,
+          archiveeLe: c.archiveeLe,
           avancement,
           pourcentage,
           conseillers: assignations.map(a => ({
@@ -130,9 +133,27 @@ export async function POST(request: Request) {
     const now = new Date().toISOString()
     const campagneId = uuidv4()
 
+    // Générer un slug unique à partir de la désignation
+    const baseSlug = designation
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 40)
+    // Vérifier unicité et ajouter suffix si nécessaire
+    let slug = baseSlug
+    let suffix = 0
+    while (true) {
+      const existing2 = await db.select({ id: campagne.id }).from(campagne).where(eq(campagne.slug, slug))
+      if (existing2.length === 0) break
+      suffix++
+      slug = `${baseSlug}-${suffix}`
+    }
+
     await db.insert(campagne).values({
       id: campagneId,
       structureId,
+      slug,
       designation,
       quantiteObjectif: parseInt(quantiteObjectif, 10),
       uniteOeuvre,
@@ -155,7 +176,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return jsonSuccess({ id: campagneId }, 201)
+    return jsonSuccess({ id: campagneId, slug }, 201)
   } catch (error) {
     console.error('[Campagnes POST]', error)
     return jsonError('Erreur serveur', 500)

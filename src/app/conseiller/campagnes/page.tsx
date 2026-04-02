@@ -11,15 +11,20 @@ interface CampagneConseiller {
 
 interface Campagne {
   id: string
+  slug: string | null
   designation: string
   quantiteObjectif: number
   uniteOeuvre: string
   dateDebut: string
   dateFin: string
   statut: string
+  remplaceeParId: string | null
+  archiveeLe: string | null
   avancement: number
   pourcentage: number
   conseillers: CampagneConseiller[]
+  creeLe: string
+  misAJourLe: string
 }
 
 interface StructureConseiller {
@@ -50,6 +55,21 @@ export default function CampagnesPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [showReplaceModal, setShowReplaceModal] = useState<string | null>(null) // campagneId à remplacer
+  const [replacing, setReplacing] = useState(false)
+  const [showArchives, setShowArchives] = useState(false)
+
+  // Form state pour "Remplacer"
+  const [replaceForm, setReplaceForm] = useState({
+    designation: '',
+    quantiteObjectif: '',
+    uniteOeuvre: UNITES_OEUVRE[0],
+    uniteCustom: '',
+    dateDebut: new Date().toISOString().split('T')[0],
+    dateFin: '',
+    conseillerIds: [] as string[],
+    selectAll: false,
+  })
 
   // Form state
   const [form, setForm] = useState({
@@ -175,6 +195,68 @@ export default function CampagnesPage() {
     })
   }
 
+  const openReplace = (c: Campagne) => {
+    setShowReplaceModal(c.id)
+    setReplaceForm({
+      designation: '',
+      quantiteObjectif: String(c.quantiteObjectif),
+      uniteOeuvre: UNITES_OEUVRE.includes(c.uniteOeuvre) ? c.uniteOeuvre : 'custom',
+      uniteCustom: UNITES_OEUVRE.includes(c.uniteOeuvre) ? '' : c.uniteOeuvre,
+      dateDebut: new Date().toISOString().split('T')[0],
+      dateFin: '',
+      conseillerIds: c.conseillers.map(cc => cc.id),
+      selectAll: c.conseillers.length === conseillers.length && conseillers.length > 0,
+    })
+  }
+
+  const handleReplace = async () => {
+    if (!showReplaceModal || replacing) return
+    setReplacing(true)
+    const unite = replaceForm.uniteOeuvre === 'custom' ? replaceForm.uniteCustom : replaceForm.uniteOeuvre
+    try {
+      const res = await fetch(`/api/conseiller/campagnes/${showReplaceModal}/remplacer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          designation: replaceForm.designation,
+          quantiteObjectif: replaceForm.quantiteObjectif,
+          uniteOeuvre: unite,
+          dateDebut: replaceForm.dateDebut,
+          dateFin: replaceForm.dateFin,
+          conseillerIds: replaceForm.conseillerIds,
+        }),
+      })
+      if (res.ok) {
+        setShowReplaceModal(null)
+        fetchCampagnes()
+      } else {
+        const err = await res.json()
+        alert(err.error || 'Erreur')
+      }
+    } catch { alert('Erreur de connexion') }
+    setReplacing(false)
+  }
+
+  const toggleReplaceConseiller = (id: string) => {
+    setReplaceForm(f => {
+      const ids = f.conseillerIds.includes(id)
+        ? f.conseillerIds.filter(i => i !== id)
+        : [...f.conseillerIds, id]
+      return { ...f, conseillerIds: ids, selectAll: ids.length === conseillers.length }
+    })
+  }
+
+  const toggleReplaceAll = () => {
+    setReplaceForm(f => {
+      const all = !f.selectAll
+      return { ...f, selectAll: all, conseillerIds: all ? conseillers.map(c => c.id) : [] }
+    })
+  }
+
+  // Séparer campagnes actives et archivées
+  const activeCampagnes = campagnes.filter(c => c.statut !== 'archivee')
+  const archivedCampagnes = campagnes.filter(c => c.statut === 'archivee')
+
   const progressColor = (pct: number, dateFin: string) => {
     const daysLeft = (new Date(dateFin).getTime() - Date.now()) / 86400000
     if (pct >= 100) return 'bg-green-500'
@@ -192,23 +274,25 @@ export default function CampagnesPage() {
     return `${days}j restants`
   }
 
-  const getCampagneUrl = (campagneId: string) => {
+  const getCampagneUrl = (c: Campagne) => {
     if (!structureSlug) return null
-    return `https://catchup.jaeprive.fr/?s=${structureSlug}&c=${campagneId}`
+    // Utiliser le slug (permanent) si disponible, sinon l'ID
+    const identifier = c.slug || c.id
+    return `https://catchup.jaeprive.fr/?s=${structureSlug}&c=${identifier}`
   }
 
-  const getQrCodeUrl = (campagneId: string, size = 200) => {
-    const url = getCampagneUrl(campagneId)
+  const getQrCodeUrl = (c: Campagne, size = 200) => {
+    const url = getCampagneUrl(c)
     if (!url) return null
     return `/api/qrcode?data=${encodeURIComponent(url)}&size=${size}&v=2`
   }
 
-  const handleCopyLink = async (campagneId: string) => {
-    const url = getCampagneUrl(campagneId)
+  const handleCopyLink = async (c: Campagne) => {
+    const url = getCampagneUrl(c)
     if (!url) return
     try {
       await navigator.clipboard.writeText(url)
-      setCopiedId(campagneId)
+      setCopiedId(c.id)
       setTimeout(() => setCopiedId(null), 2000)
     } catch {
       // Fallback
@@ -218,27 +302,28 @@ export default function CampagnesPage() {
       ta.select()
       document.execCommand('copy')
       document.body.removeChild(ta)
-      setCopiedId(campagneId)
+      setCopiedId(c.id)
       setTimeout(() => setCopiedId(null), 2000)
     }
   }
 
-  const handleDownloadQR = (campagneId: string, designation: string) => {
-    const qrUrl = getQrCodeUrl(campagneId, 400)
+  const handleDownloadQR = (c: Campagne) => {
+    const qrUrl = getQrCodeUrl(c, 400)
     if (!qrUrl) return
     const a = document.createElement('a')
     a.href = qrUrl
-    a.download = `qr-campagne-${designation.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}.svg`
+    a.download = `qr-campagne-${c.designation.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}.svg`
     a.target = '_blank'
     a.click()
   }
 
-  const handlePrintQR = (campagneId: string, designation: string) => {
-    const qrUrl = getQrCodeUrl(campagneId, 300)
-    const campagneUrl = getCampagneUrl(campagneId)
+  const handlePrintQR = (c: Campagne) => {
+    const qrUrl = getQrCodeUrl(c, 300)
+    const campagneUrl = getCampagneUrl(c)
     if (!qrUrl || !campagneUrl) return
     const w = window.open('', '_blank', 'width=500,height=700')
     if (!w) return
+    const designation = c.designation
     w.document.write(`
       <html><head><title>QR Code — ${designation}</title>
       <style>body{font-family:system-ui,sans-serif;text-align:center;padding:40px 20px}
@@ -271,20 +356,30 @@ export default function CampagnesPage() {
           <h1 className="text-2xl font-bold text-gray-800">Campagnes</h1>
           <p className="text-sm text-gray-500">Definissez des objectifs pour votre equipe (max 3)</p>
         </div>
-        <button
-          onClick={openCreate}
-          disabled={campagnes.filter(c => c.statut !== 'archivee').length >= 3}
-          className="px-4 py-2.5 bg-catchup-primary text-white text-sm font-medium rounded-xl hover:bg-catchup-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          + Nouvelle campagne
-        </button>
+        <div className="flex items-center gap-2">
+          {archivedCampagnes.length > 0 && (
+            <button
+              onClick={() => setShowArchives(!showArchives)}
+              className="px-3 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              {showArchives ? 'Masquer archives' : `Archives (${archivedCampagnes.length})`}
+            </button>
+          )}
+          <button
+            onClick={openCreate}
+            disabled={activeCampagnes.length >= 3}
+            className="px-4 py-2.5 bg-catchup-primary text-white text-sm font-medium rounded-xl hover:bg-catchup-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            + Nouvelle campagne
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="w-8 h-8 border-2 border-gray-300 border-t-catchup-primary rounded-full animate-spin" />
         </div>
-      ) : campagnes.length === 0 ? (
+      ) : activeCampagnes.length === 0 && !showArchives ? (
         <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
           <div className="w-16 h-16 bg-catchup-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-catchup-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -299,7 +394,7 @@ export default function CampagnesPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {campagnes.map(c => (
+          {activeCampagnes.map(c => (
             <div key={c.id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -308,8 +403,18 @@ export default function CampagnesPage() {
                     {new Date(c.dateDebut).toLocaleDateString('fr-FR')} — {new Date(c.dateFin).toLocaleDateString('fr-FR')}
                     <span className="ml-2 font-medium">{daysLabel(c.dateFin)}</span>
                   </p>
+                  {c.slug && (
+                    <p className="text-[10px] text-indigo-500 mt-0.5 font-mono">slug: {c.slug}</p>
+                  )}
                 </div>
                 <div className="flex gap-1.5">
+                  <button
+                    onClick={() => openReplace(c)}
+                    title="Remplacer (archiver et creer une nouvelle avec le meme QR code)"
+                    className="p-1.5 text-gray-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  </button>
                   <button onClick={() => openEdit(c)} className="p-1.5 text-gray-400 hover:text-catchup-primary rounded-lg hover:bg-gray-50 transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </button>
@@ -356,7 +461,7 @@ export default function CampagnesPage() {
                     {/* QR code preview */}
                     <div className="shrink-0">
                       <img
-                        src={getQrCodeUrl(c.id, 200) || ''}
+                        src={getQrCodeUrl(c, 200) || ''}
                         alt={`QR Code ${c.designation}`}
                         width={100}
                         height={100}
@@ -365,10 +470,12 @@ export default function CampagnesPage() {
                     </div>
                     {/* Actions */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-500 mb-2">QR Code de cette campagne</p>
+                      <p className="text-xs text-gray-500 mb-2">
+                        QR Code permanent{c.slug ? ` (slug: ${c.slug})` : ''}
+                      </p>
                       <div className="flex flex-wrap gap-1.5">
                         <button
-                          onClick={() => handleCopyLink(c.id)}
+                          onClick={() => handleCopyLink(c)}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                         >
                           {copiedId === c.id ? (
@@ -378,14 +485,14 @@ export default function CampagnesPage() {
                           )}
                         </button>
                         <button
-                          onClick={() => handleDownloadQR(c.id, c.designation)}
+                          onClick={() => handleDownloadQR(c)}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                           Telecharger
                         </button>
                         <button
-                          onClick={() => handlePrintQR(c.id, c.designation)}
+                          onClick={() => handlePrintQR(c)}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
@@ -395,7 +502,7 @@ export default function CampagnesPage() {
                       {/* Partage réseaux sociaux */}
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         <a
-                          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getCampagneUrl(c.id) || '')}&quote=${encodeURIComponent(`Decouvre Catch'Up, ton guide d'orientation professionnelle !`)}`}
+                          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getCampagneUrl(c) || '')}&quote=${encodeURIComponent(`Decouvre Catch'Up, ton guide d'orientation professionnelle !`)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-[#1877F2] text-white rounded-lg hover:bg-[#1877F2]/90 transition-colors"
@@ -404,7 +511,7 @@ export default function CampagnesPage() {
                           Facebook
                         </a>
                         <a
-                          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(getCampagneUrl(c.id) || '')}`}
+                          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(getCampagneUrl(c) || '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-[#0A66C2] text-white rounded-lg hover:bg-[#0A66C2]/90 transition-colors"
@@ -413,7 +520,7 @@ export default function CampagnesPage() {
                           LinkedIn
                         </a>
                         <a
-                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(getCampagneUrl(c.id) || '')}&text=${encodeURIComponent(`Decouvre Catch'Up, ton guide d'orientation !`)}`}
+                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(getCampagneUrl(c) || '')}&text=${encodeURIComponent(`Decouvre Catch'Up, ton guide d'orientation !`)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
@@ -422,7 +529,7 @@ export default function CampagnesPage() {
                           X
                         </a>
                         <a
-                          href={`https://wa.me/?text=${encodeURIComponent(`Decouvre Catch'Up pour ton orientation ! ${getCampagneUrl(c.id)}`)}`}
+                          href={`https://wa.me/?text=${encodeURIComponent(`Decouvre Catch'Up pour ton orientation ! ${getCampagneUrl(c)}`)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-[#25D366] text-white rounded-lg hover:bg-[#25D366]/90 transition-colors"
@@ -431,7 +538,7 @@ export default function CampagnesPage() {
                           WhatsApp
                         </a>
                         <a
-                          href={`mailto:?subject=${encodeURIComponent(`Catch'Up — Orientation professionnelle`)}&body=${encodeURIComponent(`Bonjour,\n\nDecouvrez Catch'Up, la plateforme d'orientation professionnelle.\n\nAccedez directement : ${getCampagneUrl(c.id)}\n\nBonne decouverte !`)}`}
+                          href={`mailto:?subject=${encodeURIComponent(`Catch'Up — Orientation professionnelle`)}&body=${encodeURIComponent(`Bonjour,\n\nDecouvrez Catch'Up, la plateforme d'orientation professionnelle.\n\nAccedez directement : ${getCampagneUrl(c)}\n\nBonne decouverte !`)}`}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                         >
                           <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
@@ -439,7 +546,7 @@ export default function CampagnesPage() {
                         </a>
                       </div>
                       <p className="text-[10px] text-gray-400 mt-1.5 truncate">
-                        {getCampagneUrl(c.id)}
+                        {getCampagneUrl(c)}
                       </p>
                     </div>
                   </div>
@@ -447,6 +554,60 @@ export default function CampagnesPage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Archives */}
+      {showArchives && archivedCampagnes.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold text-gray-600 mb-3 flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+            Campagnes archivees
+          </h2>
+          <div className="space-y-3">
+            {archivedCampagnes.map(c => (
+              <div key={c.id} className="bg-gray-50 rounded-xl border border-gray-200 p-4 opacity-75">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-medium text-gray-600">{c.designation}</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(c.dateDebut).toLocaleDateString('fr-FR')} — {new Date(c.dateFin).toLocaleDateString('fr-FR')}
+                    </p>
+                    {c.archiveeLe && (
+                      <p className="text-[10px] text-amber-600 mt-0.5">
+                        Archivee le {new Date(c.archiveeLe).toLocaleDateString('fr-FR')}
+                      </p>
+                    )}
+                  </div>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-200 text-gray-600">
+                    Archivee
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">{c.avancement} / {c.quantiteObjectif} {c.uniteOeuvre}</span>
+                    <span className="font-semibold text-gray-600">{c.pourcentage}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mt-1">
+                    <div
+                      className="h-full rounded-full bg-gray-400"
+                      style={{ width: `${c.pourcentage}%` }}
+                    />
+                  </div>
+                </div>
+                {c.conseillers.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                    <span className="text-[10px] text-gray-400">Assignes :</span>
+                    {c.conseillers.map(cc => (
+                      <span key={cc.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-gray-200 text-gray-500">
+                        {cc.prenom} {cc.nom?.[0]}.
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -577,6 +738,143 @@ export default function CampagnesPage() {
                   className="px-5 py-2 bg-catchup-primary text-white text-sm font-medium rounded-lg hover:bg-catchup-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {saving ? 'Enregistrement...' : editingId ? 'Modifier' : 'Creer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Remplacer */}
+      {showReplaceModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowReplaceModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-800">Remplacer la campagne</h2>
+                  <p className="text-xs text-gray-500">Le QR code et le lien restent identiques</p>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <p className="text-xs text-amber-800">
+                  L&apos;ancienne campagne sera archivee avec ses statistiques. La nouvelle campagne heritera du meme slug et QR code.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nouvelle designation</label>
+                  <input
+                    type="text"
+                    value={replaceForm.designation}
+                    onChange={e => setReplaceForm(f => ({ ...f, designation: e.target.value }))}
+                    placeholder="Ex: Objectif T3 2026"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Objectif (quantite)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={replaceForm.quantiteObjectif}
+                      onChange={e => setReplaceForm(f => ({ ...f, quantiteObjectif: e.target.value }))}
+                      placeholder="50"
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unite d&apos;oeuvre</label>
+                    <select
+                      value={replaceForm.uniteOeuvre}
+                      onChange={e => setReplaceForm(f => ({ ...f, uniteOeuvre: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                    >
+                      {UNITES_OEUVRE.map(u => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                      <option value="custom">Autre (personnalise)...</option>
+                    </select>
+                  </div>
+                </div>
+
+                {replaceForm.uniteOeuvre === 'custom' && (
+                  <input
+                    type="text"
+                    value={replaceForm.uniteCustom}
+                    onChange={e => setReplaceForm(f => ({ ...f, uniteCustom: e.target.value }))}
+                    placeholder="Unite personnalisee..."
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date de debut</label>
+                    <input
+                      type="date"
+                      value={replaceForm.dateDebut}
+                      onChange={e => setReplaceForm(f => ({ ...f, dateDebut: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
+                    <input
+                      type="date"
+                      value={replaceForm.dateFin}
+                      onChange={e => setReplaceForm(f => ({ ...f, dateFin: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Conseillers assignes</label>
+                  <label className="flex items-center gap-2 mb-2 px-3 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={replaceForm.selectAll}
+                      onChange={toggleReplaceAll}
+                      className="rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Tous les conseillers ({conseillers.length})</span>
+                  </label>
+                  <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-200 rounded-lg p-2">
+                    {conseillers.map(cc => (
+                      <label key={cc.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={replaceForm.conseillerIds.includes(cc.id)}
+                          onChange={() => toggleReplaceConseiller(cc.id)}
+                          className="rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+                        />
+                        <span className="text-sm text-gray-700">{cc.prenom} {cc.nom}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button
+                  onClick={() => setShowReplaceModal(null)}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleReplace}
+                  disabled={replacing || !replaceForm.designation || !replaceForm.quantiteObjectif || !replaceForm.dateFin}
+                  className="px-5 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {replacing ? 'Remplacement...' : 'Remplacer et archiver'}
                 </button>
               </div>
             </div>

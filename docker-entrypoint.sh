@@ -20,6 +20,9 @@ else
       const migrations = [
         'ALTER TABLE referral ADD COLUMN campagne_id TEXT',
         'ALTER TABLE structure ADD COLUMN logo_url TEXT',
+        'ALTER TABLE campagne ADD COLUMN slug TEXT',
+        'ALTER TABLE campagne ADD COLUMN remplacee_par_id TEXT',
+        'ALTER TABLE campagne ADD COLUMN archivee_le TEXT',
       ];
       for (const m of migrations) {
         try { await db.execute(m); console.log('  ✓', m.substring(0, 60)); } catch(e) { /* already exists */ }
