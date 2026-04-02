@@ -6,6 +6,17 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
+  // TURN relay en fallback (pour NAT symétriques / 4G)
+  {
+    urls: 'turn:openrelay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
 ]
 
 interface UseWebRTCOptions {
@@ -93,9 +104,11 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
     // Recevoir les tracks distants
     const remoteMediaStream = new MediaStream()
     pc.ontrack = (event) => {
+      console.log('[WebRTC] ontrack:', event.track.kind, event.streams.length)
       event.streams[0]?.getTracks().forEach(track => {
         if (!remoteMediaStream.getTracks().find(t => t.id === track.id)) {
           remoteMediaStream.addTrack(track)
+          console.log('[WebRTC] Added remote track:', track.kind, track.id)
         }
       })
       setRemoteStream(new MediaStream(remoteMediaStream.getTracks()))
@@ -110,10 +123,19 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
 
     pc.onconnectionstatechange = () => {
       const state = pc.connectionState
+      console.log('[WebRTC] connectionState:', state)
       if (state === 'connected') setConnected(true)
       if (state === 'disconnected' || state === 'failed' || state === 'closed') {
         if (!cleanedUpRef.current) onRemoteHangupRef.current?.()
       }
+    }
+
+    pc.oniceconnectionstatechange = () => {
+      console.log('[WebRTC] iceConnectionState:', pc.iceConnectionState)
+    }
+
+    pc.onsignalingstatechange = () => {
+      console.log('[WebRTC] signalingState:', pc.signalingState)
     }
 
     // 3. Écouter les signaux de l'autre partie via SSE
@@ -123,6 +145,7 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
     es.onmessage = async (event) => {
       try {
         const signal = JSON.parse(event.data)
+        console.log('[WebRTC] Signal reçu:', signal.type, 'from:', signal.from)
 
         switch (signal.type) {
           case 'accept': {
