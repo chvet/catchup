@@ -931,8 +931,9 @@ export default function ChatApp() {
         {/* ── Accompagnement actif : chat conseiller en principal ── */}
         {referralStatus === 'prise_en_charge' ? (
           <div className="flex-1 flex flex-col">
-            {accompSession ? (
+            {accompSession && accompSession.referralId === referralId ? (
               <AccompagnementChat
+                key={accompSession.referralId}
                 token={accompSession.token}
                 referralId={accompSession.referralId}
                 conseillerId={accompSession.conseillerId}
