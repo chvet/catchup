@@ -1370,11 +1370,12 @@ export default function ChatApp() {
           {!showIaBubble && (
             <button
               onClick={() => setShowIaBubble(true)}
-              className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-catchup-primary to-catchup-secondary text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center"
-              title="Catch'Up IA"
+              className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center animate-scale-in"
+              title="Assistant IA"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/favicon-catchup.png?v=3" alt="IA" className="w-8 h-8 object-contain" />
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+              </svg>
             </button>
           )}
 
@@ -1389,15 +1390,16 @@ export default function ChatApp() {
 
               <div className="fixed z-50 bottom-6 right-6 sm:bottom-6 sm:right-6 inset-x-3 sm:inset-x-auto top-20 sm:top-auto sm:w-[380px] sm:h-[520px] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-scale-in">
                 {/* Header */}
-                <div className="px-4 py-3 bg-gradient-to-r from-catchup-primary to-catchup-secondary flex-shrink-0">
+                <div className="px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 flex-shrink-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/favicon-catchup.png?v=3" alt="IA" className="w-5 h-5 object-contain" />
+                      <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                        </svg>
                       </div>
                       <div>
-                        <h3 className="text-sm font-semibold text-white">{brandConfig.appName} IA</h3>
+                        <h3 className="text-sm font-semibold text-white">Assistant IA</h3>
                         <p className="text-[10px] text-white/70">Ton assistant orientation</p>
                       </div>
                     </div>
@@ -1417,9 +1419,10 @@ export default function ChatApp() {
                 <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 chat-scroll bg-gray-50">
                   {messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                      <div className="w-12 h-12 rounded-full bg-catchup-primary/10 flex items-center justify-center mb-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/favicon-catchup.png?v=3" alt="" className="w-7 h-7 object-contain" />
+                      <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center mb-3">
+                        <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                        </svg>
                       </div>
                       <p className="text-sm font-medium text-gray-700 mb-1">Comment puis-je t&apos;aider ?</p>
                       <p className="text-xs text-gray-400">
@@ -1431,8 +1434,8 @@ export default function ChatApp() {
                       <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
                           msg.role === 'user'
-                            ? 'bg-catchup-primary text-white rounded-br-md'
-                            : 'bg-white text-gray-800 rounded-bl-md shadow-sm border border-gray-100'
+                            ? 'bg-indigo-600 text-white rounded-br-md'
+                            : 'bg-gray-100 text-gray-800 rounded-bl-md'
                         }`}>
                           <div className="whitespace-pre-wrap">{cleanMessageContent(msg.content)}</div>
                         </div>
@@ -1471,12 +1474,12 @@ export default function ChatApp() {
                       onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSubmitWithFragility(e as any)}
                       placeholder="Demande-moi..."
                       disabled={isLoading}
-                      className="flex-1 px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-catchup-primary focus:border-transparent focus:bg-white outline-none transition disabled:opacity-50"
+                      className="flex-1 px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-400 focus:border-transparent focus:bg-white outline-none transition disabled:opacity-50"
                     />
                     <button
                       onClick={(e) => handleSubmitWithFragility(e as any)}
                       disabled={!input.trim() || isLoading}
-                      className="px-3 py-2.5 bg-catchup-primary text-white rounded-xl text-sm hover:bg-catchup-primary/90 disabled:opacity-30 transition-colors"
+                      className="px-3 py-2.5 bg-indigo-600 text-white rounded-xl text-sm hover:bg-indigo-700 disabled:opacity-30 transition-colors"
                     >
                       {isLoading ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
