@@ -8,7 +8,6 @@ import { rendezVous, priseEnCharge, referral, utilisateur, messageDirect, calend
 import { eq, and, gte, lte, asc } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { logJournal } from '@/lib/journal'
-import { createDailyRoom } from '@/lib/jitsi'
 import {
   ensureValidToken,
   createGoogleCalendarEvent,
@@ -138,11 +137,7 @@ export async function POST(request: Request) {
 
     const referralId = pecs[0].referralId
 
-    // Si lieu === 'visio' et pas de lien, générer automatiquement
-    let finalLienVisio = lienVisio || null
-    if (lieu === 'visio' && !finalLienVisio) {
-      finalLienVisio = await createDailyRoom(priseEnChargeId)
-    }
+    const finalLienVisio = lienVisio || null
 
     const now = new Date().toISOString()
     const rdvId = uuidv4()
@@ -185,7 +180,7 @@ export async function POST(request: Request) {
         lienVisio: finalLienVisio,
         statut: 'propose',
         proposePar: ctx.id,
-        googleUrl: `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titre)}&dates=${new Date(dateHeure).toISOString().replace(/[-:]/g, '').replace('.000', '')}/${new Date(new Date(dateHeure).getTime() + (dureeMinutes || 30) * 60000).toISOString().replace(/[-:]/g, '').replace('.000', '')}&details=${encodeURIComponent(description || 'Rendez-vous Catch\'Up')}&location=${encodeURIComponent(lieu === 'visio' ? (finalLienVisio || 'Visioconférence') : (lieu || ''))}`,
+        googleUrl: `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titre)}&dates=${new Date(dateHeure).toISOString().replace(/[-:]/g, '').replace('.000', '')}/${new Date(new Date(dateHeure).getTime() + (dureeMinutes || 30) * 60000).toISOString().replace(/[-:]/g, '').replace('.000', '')}&details=${encodeURIComponent(description || 'Rendez-vous Catch\'Up')}&location=${encodeURIComponent(lieu || '')}`,
         icsUrl: `/api/conseiller/file-active/${referralId}/rdv/${rdvId}/ics`,
       }),
       conversationType: 'direct',
@@ -226,8 +221,7 @@ export async function POST(request: Request) {
         description: description || "Rendez-vous Catch'Up",
         startTime: dateHeure,
         endTime,
-        location: lieu === 'visio' ? (finalLienVisio || 'Visioconference') : (lieu || undefined),
-        videoLink: finalLienVisio || undefined,
+        location: lieu || undefined,
       }
 
       for (const conn of connections) {

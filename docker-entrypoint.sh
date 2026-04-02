@@ -32,15 +32,6 @@ else
   echo "✅ Migrations OK"
 fi
 
-# Lancer le serveur WebSocket de visio en arrière-plan (optionnel)
-if [ -f "src/visio/server.ts" ]; then
-  echo "📹 Démarrage du serveur visio (port 3003)..."
-  node src/visio/server.js &
-  sleep 1
-else
-  echo "⏭️ Serveur visio non trouvé, utilisation de Daily.co"
-fi
-
 # Lancer le serveur Next.js
 echo "🚀 Démarrage de Catch'Up..."
 exec node server.js

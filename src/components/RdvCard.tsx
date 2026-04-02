@@ -113,7 +113,7 @@ export default function RdvCard({ rdv, viewerType, onAccept, onDecline, onResend
           <p className="text-sm text-gray-600">{formatDateFr(dateDebut)}</p>
           {lieu && (
             <p className="text-xs text-gray-400 mt-0.5">
-              {lieu === 'visio' ? '📹 Visioconférence' : `📍 ${lieu}`}
+              📍 {lieu}
             </p>
           )}
         </div>

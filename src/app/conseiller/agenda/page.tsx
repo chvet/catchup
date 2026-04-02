@@ -14,7 +14,7 @@ interface Rdv {
   titre: string
   dateHeure: string
   dureeMinutes: number
-  lieu: 'visio' | 'presentiel'
+  lieu: string
   lienVisio?: string
   statut: 'confirme' | 'en_attente' | 'annule'
   beneficiaire: Beneficiaire
@@ -128,7 +128,7 @@ function generateIcsUrl(rdv: Rdv): string {
     `DTEND:${fmt(end)}`,
     `SUMMARY:${rdv.titre}`,
     `DESCRIPTION:RDV avec ${rdv.beneficiaire.prenom}`,
-    `LOCATION:${rdv.lieu === 'visio' ? 'Visioconférence' : 'Présentiel'}`,
+    `LOCATION:${rdv.lieu || 'A définir'}`,
     'END:VEVENT',
     'END:VCALENDAR',
   ].join('\r\n')
@@ -144,7 +144,7 @@ function generateGoogleCalUrl(rdv: Rdv): string {
     text: rdv.titre,
     dates: `${fmt(start)}/${fmt(end)}`,
     details: `RDV avec ${rdv.beneficiaire.prenom}`,
-    location: rdv.lieu === 'visio' ? 'Visioconférence' : 'Présentiel',
+    location: rdv.lieu || 'A définir',
   })
   return `https://calendar.google.com/calendar/event?${params.toString()}`
 }
@@ -238,10 +238,6 @@ export default function AgendaPage() {
 
   const semaineRdvs = rdvs.filter(r => r.statut !== 'annule')
 
-  const visioAVenir = rdvs.filter(r => {
-    const d = new Date(r.dateHeure)
-    return d > new Date() && r.lieu === 'visio' && r.statut === 'confirme'
-  })
 
   // Sauvegarder une note
   const sauvegarderNote = async () => {
@@ -367,17 +363,6 @@ export default function AgendaPage() {
           <div>
             <p className="text-lg font-bold text-gray-900">{semaineRdvs.length}</p>
             <p className="text-xs text-gray-500">Cette semaine</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
-            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-lg font-bold text-gray-900">{visioAVenir.length}</p>
-            <p className="text-xs text-gray-500">Visio à venir</p>
           </div>
         </div>
       </div>
@@ -543,20 +528,9 @@ function VueJour({
                     </div>
                     <div className="flex items-center gap-3 mt-1">
                       <span className="text-xs text-gray-500">{rdv.beneficiaire.prenom}</span>
-                      <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${
-                        rdv.lieu === 'visio' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
-                      }`}>
-                        {rdv.lieu === 'visio' ? (
-                          <>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                            Visio
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                            Présentiel
-                          </>
-                        )}
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-600">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        {rdv.lieu || 'Présentiel'}
                       </span>
                       <span className="text-[10px] text-gray-400">{rdv.dureeMinutes} min</span>
                     </div>
@@ -712,8 +686,8 @@ function VueListe({
             className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#6C63FF]"
           >
             <option value="tous">Tous</option>
-            <option value="visio">Visio</option>
-            <option value="presentiel">Présentiel</option>
+            <option value="confirme">Confirmés</option>
+            <option value="en_attente">En attente</option>
           </select>
         </div>
         <span className="text-xs text-gray-400 ml-auto">{rdvs.length} résultat{rdvs.length > 1 ? 's' : ''}</span>
@@ -761,10 +735,8 @@ function VueListe({
                     <span className="text-[10px] text-gray-400 ml-1">({rdv.beneficiaire.age} ans)</span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                      rdv.lieu === 'visio' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
-                    }`}>
-                      {rdv.lieu === 'visio' ? 'Visio' : 'Présentiel'}
+                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-green-50 text-green-600">
+                      {rdv.lieu || 'Présentiel'}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -879,17 +851,11 @@ function DetailSidebar({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              rdv.lieu === 'visio' ? 'bg-blue-50' : 'bg-green-50'
-            }`}>
-              {rdv.lieu === 'visio' ? (
-                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-              ) : (
-                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              )}
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-green-50">
+              <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </div>
             <p className="text-xs text-gray-700">
-              {rdv.lieu === 'visio' ? 'Visioconférence' : 'En présentiel'}
+              {rdv.lieu || 'Lieu à définir'}
             </p>
           </div>
         </div>
@@ -910,18 +876,6 @@ function DetailSidebar({
 
         {/* Boutons d'action */}
         <div className="space-y-2">
-          {rdv.lieu === 'visio' && rdv.lienVisio && rdv.statut !== 'annule' && (
-            <a
-              href={rdv.lienVisio}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-[#6C63FF] text-white rounded-lg text-sm font-medium hover:bg-[#5B54E6] transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-              Lancer la visio
-            </a>
-          )}
-
           <div className="grid grid-cols-2 gap-2">
             <a
               href={generateGoogleCalUrl(rdv)}
@@ -991,7 +945,7 @@ function CreateRdvModal({
     date: new Date().toISOString().slice(0, 10),
     heure: '09:00',
     duree: '30',
-    lieu: 'visio' as 'visio' | 'presentiel',
+    lieu: '',
     description: '',
     beneficiaireId: '',
   })
@@ -1115,30 +1069,13 @@ function CreateRdvModal({
             </div>
             <div>
               <label className="text-xs font-medium text-gray-700 block mb-1">Lieu</label>
-              <div className="flex bg-gray-100 rounded-lg p-0.5">
-                <button
-                  type="button"
-                  onClick={() => updateForm('lieu', 'visio')}
-                  className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors ${
-                    form.lieu === 'visio'
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-500'
-                  }`}
-                >
-                  Visio
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateForm('lieu', 'presentiel')}
-                  className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors ${
-                    form.lieu === 'presentiel'
-                      ? 'bg-white text-green-600 shadow-sm'
-                      : 'text-gray-500'
-                  }`}
-                >
-                  Présentiel
-                </button>
-              </div>
+              <input
+                type="text"
+                value={form.lieu}
+                onChange={e => updateForm('lieu', e.target.value)}
+                placeholder="Adresse du rendez-vous"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#6C63FF]/30 focus:border-[#6C63FF] text-gray-700 placeholder:text-gray-300"
+              />
             </div>
           </div>
 

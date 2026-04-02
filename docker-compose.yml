@@ -7,7 +7,6 @@ services:
       - .env
     ports:
       - "3002:3000"
-      - "3003:3003"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - TURSO_DATABASE_URL=file:/app/data/local.db
@@ -20,8 +19,6 @@ services:
       - O365_TENANT_ID=${O365_TENANT_ID}
       - O365_CLIENT_ID=${O365_CLIENT_ID}
       - O365_CLIENT_SECRET=${O365_CLIENT_SECRET}
-      - VISIO_WS_URL=wss://visio.catchup.jaeprive.fr
-      - VISIO_PORT=3003
       - TOKEN_DAILY_LIMIT=200000
       - TOKEN_MONTHLY_LIMIT=2000000
       - PARCOUREO_API_URL=${PARCOUREO_API_URL:-}

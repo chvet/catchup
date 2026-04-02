@@ -429,13 +429,13 @@ export async function sendPinCode(
  */
 export async function sendRdvNotification(
   contact: string,
-  rdvInfo: { titre: string; date: string; lieu: string; lienVisio?: string }
+  rdvInfo: { titre: string; date: string; lieu: string }
 ): Promise<NotificationResult> {
   const dateFormatted = new Date(rdvInfo.date).toLocaleString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
   })
 
-  const message = `Rappel Catch'Up : ${rdvInfo.titre}\n${dateFormatted}\n${rdvInfo.lieu === 'visio' && rdvInfo.lienVisio ? `Lien visio : ${rdvInfo.lienVisio}` : `Lieu : ${rdvInfo.lieu}`}`
+  const message = `Rappel Catch'Up : ${rdvInfo.titre}\n${dateFormatted}\nLieu : ${rdvInfo.lieu || 'A définir'}`
 
   if (NOTIFICATION_MODE === 'console') {
     return sendConsole(contact, message)

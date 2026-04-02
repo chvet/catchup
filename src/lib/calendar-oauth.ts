@@ -9,7 +9,6 @@ export interface CalendarEvent {
   startTime: string // ISO 8601
   endTime: string   // ISO 8601
   location?: string
-  videoLink?: string
   attendees?: string[] // email addresses
 }
 
@@ -135,9 +134,6 @@ export async function createGoogleCalendarEvent(accessToken: string, event: Cale
 
   if (event.description) body.description = event.description
   if (event.location) body.location = event.location
-  if (event.videoLink) {
-    body.description = `${event.description || ''}\n\nLien visio : ${event.videoLink}`.trim()
-  }
   if (event.attendees?.length) {
     body.attendees = event.attendees.map(email => ({ email }))
   }
@@ -279,13 +275,10 @@ export async function createOutlookCalendarEvent(accessToken: string, event: Cal
     subject: event.title,
     start: { dateTime: event.startTime, timeZone: 'Europe/Paris' },
     end: { dateTime: event.endTime, timeZone: 'Europe/Paris' },
-    isOnlineMeeting: !!event.videoLink,
+    isOnlineMeeting: false,
   }
 
-  let bodyContent = event.description || ''
-  if (event.videoLink) {
-    bodyContent += `\n\nLien visio : ${event.videoLink}`
-  }
+  const bodyContent = event.description || ''
   if (bodyContent.trim()) {
     body.body = { contentType: 'Text', content: bodyContent.trim() }
   }

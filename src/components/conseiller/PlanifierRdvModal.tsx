@@ -155,7 +155,7 @@ export default function PlanifierRdvModal({
               type="text"
               value={lieu}
               onChange={e => setLieu(e.target.value)}
-              placeholder="Adresse ou lien visio"
+              placeholder="Adresse du rendez-vous"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-catchup-primary outline-none"
             />
           </div>

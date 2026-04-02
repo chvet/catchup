@@ -27,11 +27,11 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
     "img-src 'self' data: blob: https://api.qrserver.com https://*.tile.openstreetmap.org",
     // Fonts : self
     "font-src 'self' data:",
-    // Connexions API : self + visio WebSocket + OpenAI (chat IA)
-    "connect-src 'self' https://api.openai.com wss://visio.catchup.jaeprive.fr ws://localhost:3003 https://geo.api.gouv.fr https://api-adresse.data.gouv.fr",
-    // Frames : self uniquement (visio intégrée en composant React)
+    // Connexions API : self + OpenAI (chat IA)
+    "connect-src 'self' https://api.openai.com https://geo.api.gouv.fr https://api-adresse.data.gouv.fr",
+    // Frames : self uniquement
     "frame-src 'self'",
-    // Media : self + blob (visio audio/video playback)
+    // Media : self + blob (TTS audio playback)
     "media-src 'self' blob:",
     // Objets/embeds : aucun (bloque Flash, PDF embeds, etc.)
     "object-src 'none'",
@@ -59,7 +59,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
 
   // ── Permissions-Policy — Désactive les fonctionnalités navigateur inutilisées ──
-  // (limite la surface d'attaque : pas de géoloc, pas de micro sauf visio, etc.)
+  // (limite la surface d'attaque : pas de géoloc, etc.)
   response.headers.set(
     'Permissions-Policy',
     'camera=(self), microphone=(self), geolocation=(self), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'

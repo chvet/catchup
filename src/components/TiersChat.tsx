@@ -2,10 +2,9 @@
 
 // Chat direct tiers ↔ bénéficiaire (mobile-first)
 // SSE pour la réception temps réel + POST pour l'envoi
-// Supporte: texte, documents, appels vidéo (lecture seule), rendez-vous (lecture seule)
+// Supporte: texte, documents, rendez-vous (lecture seule)
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import VideoCallCard from './VideoCallCard'
 import RdvCard from './RdvCard'
 
 interface DirectMessage {
@@ -33,14 +32,6 @@ interface DocumentContent {
   priseEnChargeId?: string
 }
 
-interface VideoContent {
-  type: 'video'
-  appelVideoId: string
-  statut: string
-  jitsiUrl: string
-  proposePar: string
-}
-
 interface RdvContent {
   type: 'rdv'
   id: string
@@ -52,7 +43,7 @@ interface RdvContent {
   icsUrl: string
 }
 
-type StructuredContent = DocumentContent | VideoContent | RdvContent
+type StructuredContent = DocumentContent | RdvContent
 
 function parseMessageContent(contenu: string | null | undefined): StructuredContent | null {
   if (!contenu || typeof contenu !== 'string') return null
@@ -294,23 +285,6 @@ export default function TiersChat({ token, beneficiairePrenom }: TiersChatProps)
               </a>
             </div>
           </div>
-        )
-      }
-
-      case 'video': {
-        const video = structured as VideoContent
-        // Tiers: lecture seule, pas de boutons accepter/refuser
-        return (
-          <VideoCallCard
-            proposal={{
-              id: video.appelVideoId,
-              statut: video.statut,
-              jitsiUrl: video.jitsiUrl,
-              proposePar: video.proposePar,
-            }}
-            viewerType="tiers"
-            viewerId=""
-          />
         )
       }
 

@@ -2,10 +2,9 @@
 
 // Composant de chat direct conseiller <-> beneficiaire (cote conseiller)
 // Utilise SSE (Server-Sent Events) pour la reception temps reel + POST pour l'envoi
-// Integre : envoi de documents, appels video (Jitsi), planification de RDV
+// Integre : envoi de documents, planification de RDV
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import VideoCallCard from '@/components/VideoCallCard'
 import RdvCard from '@/components/RdvCard'
 import PlanifierRdvModal from '@/components/conseiller/PlanifierRdvModal'
 import { useTypingSignal } from '@/hooks/useTypingSignal'
@@ -37,14 +36,6 @@ interface DocumentPayload {
   url: string
 }
 
-interface VideoPayload {
-  type: 'video'
-  id: string
-  statut: string
-  jitsiUrl: string
-  proposePar: string
-}
-
 interface RdvPayload {
   type: 'rdv'
   id: string
@@ -56,7 +47,7 @@ interface RdvPayload {
   icsUrl: string
 }
 
-type StructuredPayload = DocumentPayload | VideoPayload | RdvPayload
+type StructuredPayload = DocumentPayload | RdvPayload
 
 // --- Helpers ---
 
@@ -154,9 +145,6 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
 
   // RDV modal state
   const [rdvModalOpen, setRdvModalOpen] = useState(false)
-
-  // Video call loading state
-  const [videoLoading, setVideoLoading] = useState(false)
 
   // Charger les messages initiaux
   useEffect(() => {
@@ -300,34 +288,6 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
     setUploadProgress(0)
   }, [referralId])
 
-  // Proposer un appel vidéo
-  const handleProposeVideo = useCallback(async () => {
-    if (videoLoading) return
-    setVideoLoading(true)
-
-    try {
-      const res = await fetch(`/api/conseiller/file-active/${referralId}/video`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'proposer' }),
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        if (data.message) {
-          setMessages(prev => {
-            if (prev.some(m => m.id === data.message.id)) return prev
-            return [...prev, data.message]
-          })
-        }
-      }
-    } catch (err) {
-      console.error('Erreur proposition visio', err)
-    }
-
-    setVideoLoading(false)
-  }, [referralId, videoLoading])
-
   // Callback quand un RDV est créé via le modal
   const handleRdvCreated = useCallback((rdv: { id: string; titre: string; dateDebut: string; dateFin: string; googleUrl: string; icsUrl: string }) => {
     // Le message sera ajouté via SSE, mais on peut aussi l'ajouter localement
@@ -357,20 +317,6 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
     switch (parsed.type) {
       case 'document':
         return <DocumentCard doc={parsed} />
-
-      case 'video':
-        return (
-          <VideoCallCard
-            proposal={{
-              id: parsed.id,
-              statut: parsed.statut,
-              jitsiUrl: parsed.jitsiUrl,
-              proposePar: parsed.proposePar,
-            }}
-            viewerType="conseiller"
-            viewerId={msg.expediteurId}
-          />
-        )
 
       case 'rdv':
         return (
@@ -534,24 +480,6 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
             </span>
           </button>
 
-          {/* Visio */}
-          <button
-            onClick={handleProposeVideo}
-            disabled={videoLoading}
-            className="group relative p-2 rounded-lg text-gray-400 hover:text-catchup-primary hover:bg-catchup-primary/5 transition-colors disabled:opacity-50"
-            title="Proposer un appel vidéo"
-          >
-            {videoLoading ? (
-              <div className="w-5 h-5 border-2 border-catchup-primary border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-            )}
-            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] text-white bg-gray-800 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Appel vidéo
-            </span>
-          </button>
 
           {/* RDV */}
           <button

@@ -246,10 +246,6 @@ export default function MesRendezVous({ token }: MesRendezVousProps) {
         {upcoming.map(rdv => {
           const min = minutesUntil(rdv.dateHeure)
           const isImminent = min >= 0 && min <= 60
-          const canJoin = rdv.lienVisio &&
-            rdv.statut === 'confirme' &&
-            min >= -5 && min <= 15
-          const isVisio = !!rdv.lienVisio
           const statutBadge = getStatutBadge(rdv)
 
           return (
@@ -292,22 +288,13 @@ export default function MesRendezVous({ token }: MesRendezVousProps) {
 
                 {/* Badges row */}
                 <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                  {isVisio ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-catchup-primary/10 text-catchup-primary">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                      Visio
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      {rdv.lieu || 'En présentiel'}
-                    </span>
-                  )}
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {rdv.lieu || 'En présentiel'}
+                  </span>
 
                   {statutBadge && (
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statutBadge.classes}`}>
@@ -315,21 +302,6 @@ export default function MesRendezVous({ token }: MesRendezVousProps) {
                     </span>
                   )}
                 </div>
-
-                {/* Join button for imminent visio */}
-                {canJoin && (
-                  <a
-                    href={rdv.lienVisio!}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors shadow-sm mb-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Rejoindre la visio
-                  </a>
-                )}
 
                 {/* Calendar links */}
                 <div className="flex gap-2">

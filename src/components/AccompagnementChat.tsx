@@ -2,11 +2,10 @@
 
 // Chat direct bénéficiaire ↔ conseiller (mobile-first)
 // SSE pour la réception temps réel + POST pour l'envoi
-// Supporte: texte, documents, appels vidéo, rendez-vous
+// Supporte: texte, documents, rendez-vous
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import VideoCallCard from './VideoCallCard'
 import RdvCard from './RdvCard'
 import PushNotificationManager from './PushNotificationManager'
 import OnlineDot from './OnlineDot'
@@ -65,14 +64,6 @@ interface DocumentContent {
   priseEnChargeId?: string
 }
 
-interface VideoContent {
-  type: 'video'
-  appelVideoId: string
-  statut: string
-  jitsiUrl: string
-  proposePar: string
-}
-
 interface RdvContent {
   type: 'rdv'
   id: string
@@ -110,17 +101,13 @@ interface VoiceContent {
   transcription?: string
 }
 
-type StructuredContent = DocumentContent | VideoContent | RdvContent | RuptureContent | SystemContent | VoiceContent
+type StructuredContent = DocumentContent | RdvContent | RuptureContent | SystemContent | VoiceContent
 
 function parseMessageContent(contenu: string | null | undefined): StructuredContent | null {
   if (!contenu || typeof contenu !== 'string') return null
   try {
     const parsed = JSON.parse(contenu)
     if (parsed && typeof parsed === 'object' && parsed.type) {
-      // Normaliser : le JSON stocké utilise "id" mais l'interface attend "appelVideoId"
-      if (parsed.type === 'video' && parsed.id && !parsed.appelVideoId) {
-        parsed.appelVideoId = parsed.id
-      }
       return parsed as StructuredContent
     }
   } catch {
@@ -446,52 +433,6 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
     setVoiceTranscribing(false)
   }, [token])
 
-  // Réponse à un appel vidéo
-  const handleVideoResponse = useCallback(async (appelVideoId: string, action: 'accepter' | 'refuser') => {
-    try {
-      const res = await fetch('/api/accompagnement/video/reponse', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ messageId: appelVideoId, action }),
-      })
-
-      if (res.ok) {
-        const responseData = await res.json()
-        // Mettre à jour le statut du message vidéo localement
-        setMessages(prev => prev.map(msg => {
-          if (msg.id === appelVideoId) {
-            // Mettre à jour le JSON stocké dans contenu
-            try {
-              const parsed = JSON.parse(msg.contenu)
-              parsed.statut = action === 'accepter' ? 'acceptee' : 'refusee'
-              return { ...msg, contenu: JSON.stringify(parsed) }
-            } catch {
-              return msg
-            }
-          }
-          return msg
-        }))
-
-        // Si accepté, ouvrir directement la visio sur mobile
-        if (action === 'accepter' && responseData.jitsiUrl) {
-          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-          if (isMobile) {
-            // Append beneficiary role and name to the visio URL
-            const visioUrl = new URL(responseData.jitsiUrl, window.location.origin)
-            visioUrl.searchParams.set('role', 'beneficiaire')
-            if (beneficiairePrenom) visioUrl.searchParams.set('name', beneficiairePrenom)
-            window.open(visioUrl.toString(), '_blank', 'noopener,noreferrer')
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Erreur réponse vidéo', err)
-    }
-  }, [token])
-
   // Réponse à un RDV proposé
   const handleRdvResponse = useCallback(async (rdvMsgId: string, action: 'accepter' | 'refuser', motif?: string) => {
     try {
@@ -573,25 +514,6 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
               </a>
             </div>
           </div>
-        )
-      }
-
-      case 'video': {
-        const video = structured as VideoContent
-        return (
-          <VideoCallCard
-            proposal={{
-              id: msg.id,
-              statut: video.statut,
-              jitsiUrl: video.jitsiUrl,
-              proposePar: video.proposePar,
-            }}
-            viewerType="beneficiaire"
-            viewerId={msg.expediteurType === 'beneficiaire' ? msg.expediteurId : ''}
-            viewerName={beneficiairePrenom}
-            onAccept={(id) => handleVideoResponse(id, 'accepter')}
-            onDecline={(id) => handleVideoResponse(id, 'refuser')}
-          />
         )
       }
 
