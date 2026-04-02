@@ -1311,12 +1311,25 @@ export default function ChatApp() {
         }}
         onSubmit={async (data) => {
           try {
+            // Générer les IDs si pas encore de conversation
+            let cId = conversationId
+            let uId = utilisateurId
+            if (!cId) {
+              cId = crypto.randomUUID()
+              setConversationId(cId)
+              saveToLS(LS_CONVERSATION_ID, cId)
+            }
+            if (!uId) {
+              uId = crypto.randomUUID()
+              setUtilisateurId(uId)
+              saveToLS(LS_USER_ID, uId)
+            }
             const res = await fetch('/api/referrals', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                conversationId,
-                utilisateurId,
+                conversationId: cId,
+                utilisateurId: uId,
                 prenom: data.prenom,
                 moyenContact: data.moyenContact,
                 typeContact: data.typeContact,
