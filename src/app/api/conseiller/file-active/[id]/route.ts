@@ -4,9 +4,10 @@
 import { getConseillerFromHeaders, jsonError, jsonSuccess } from '@/lib/api-helpers'
 import { logAudit } from '@/lib/auth'
 import { db } from '@/data/db'
-import { referral, utilisateur, profilRiasec, indiceConfiance, conversation, priseEnCharge, structure, conseiller } from '@/data/schema'
+import { referral, utilisateur, profilRiasec, indiceConfiance, conversation, priseEnCharge, structure, conseiller, codeVerification } from '@/data/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
+import { sendPinCode } from '@/lib/sms'
 import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
 import { DEPARTMENT_COORDS } from '@/lib/geo-departments'
 
@@ -246,6 +247,45 @@ export async function POST(
     const conseillerRows = await db.select({ prenom: conseiller.prenom }).from(conseiller).where(eq(conseiller.id, ctx.id))
     const conseillerPrenom = conseillerRows[0]?.prenom || 'Votre conseiller'
     notifyBeneficiaireAccepted(ref.utilisateurId, conseillerPrenom).catch(() => {})
+
+    // Envoyer le code PIN par SMS au bénéficiaire
+    try {
+      const randomBytes = new Uint32Array(1)
+      crypto.getRandomValues(randomBytes)
+      const code = String(100000 + (randomBytes[0] % 900000))
+      const token = uuidv4()
+      const expireLe = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+
+      await db.insert(codeVerification).values({
+        id: uuidv4(),
+        referralId: id,
+        utilisateurId: ref.utilisateurId,
+        code,
+        token,
+        verifie: 0,
+        tentatives: 0,
+        expireLe,
+        creeLe: now,
+      })
+
+      // Marquer la notification comme envoyée
+      await db
+        .update(priseEnCharge)
+        .set({ notificationEnvoyee: 1, misAJourLe: now })
+        .where(eq(priseEnCharge.id, pecId))
+
+      const userForSms = await db.select({ prenom: utilisateur.prenom }).from(utilisateur).where(eq(utilisateur.id, ref.utilisateurId))
+      const beneficiairePrenom = userForSms[0]?.prenom || undefined
+
+      const notifResult = await sendPinCode(ref.moyenContact || '', code, {
+        type: 'beneficiaire',
+        prenom: beneficiairePrenom,
+        conseillerPrenom,
+      })
+      console.log(`[PIN] Code envoyé à ${ref.moyenContact} via ${notifResult.channel} (prise en charge)`)
+    } catch (smsErr) {
+      console.error('[PIN] Erreur envoi SMS prise en charge:', smsErr)
+    }
 
     return jsonSuccess({ id: pecId, message: 'Prise en charge créée' }, 201)
   } catch (error) {
