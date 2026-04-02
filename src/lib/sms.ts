@@ -22,7 +22,11 @@
 
 import nodemailer from 'nodemailer'
 
-const NOTIFICATION_MODE = process.env.NOTIFICATION_MODE || (process.env.NODE_ENV === 'production' ? 'email' : 'console')
+// Utiliser une indirection pour empêcher Next.js d'inliner les process.env au build time
+// En standalone mode, Next.js remplace env.XXX par la valeur connue au build
+const env = process['env'] as Record<string, string | undefined>
+
+const NOTIFICATION_MODE = env.NOTIFICATION_MODE || (env.NODE_ENV === 'production' ? 'email' : 'console')
 
 interface NotificationResult {
   sent: boolean
@@ -44,9 +48,9 @@ function formatPhoneFR(telephone: string): string {
 
 // ─── Envoi par SMS (Vonage API) ───
 async function sendSmsVonage(telephone: string, message: string): Promise<NotificationResult> {
-  const apiKey = process.env.VONAGE_API_KEY
-  const apiSecret = process.env.VONAGE_API_SECRET
-  const from = process.env.VONAGE_SMS_FROM || 'CatchUp'
+  const apiKey = env.VONAGE_API_KEY
+  const apiSecret = env.VONAGE_API_SECRET
+  const from = env.VONAGE_SMS_FROM || 'CatchUp'
 
   console.log(`[SMS DEBUG] apiKey=${apiKey}, secretLen=${apiSecret?.length}, secretHash=${apiSecret ? Buffer.from(apiSecret).toString('base64').slice(0, 10) : 'null'}, from=${from}`)
 
@@ -89,10 +93,10 @@ async function sendSmsVonage(telephone: string, message: string): Promise<Notifi
 
 // ─── Envoi par SMS (OVH API — fallback) ───
 async function sendSmsOvh(telephone: string, message: string): Promise<NotificationResult> {
-  const account = process.env.OVH_SMS_ACCOUNT
-  const login = process.env.OVH_SMS_LOGIN
-  const password = process.env.OVH_SMS_PASSWORD
-  const sender = process.env.OVH_SMS_SENDER || 'CatchUp'
+  const account = env.OVH_SMS_ACCOUNT
+  const login = env.OVH_SMS_LOGIN
+  const password = env.OVH_SMS_PASSWORD
+  const sender = env.OVH_SMS_SENDER || 'CatchUp'
 
   if (!account || !login || !password) {
     console.warn('[SMS] OVH credentials manquantes, fallback email')
@@ -142,9 +146,9 @@ async function sendSms(telephone: string, message: string): Promise<Notification
 let cachedO365Token: { token: string; expiresAt: number } | null = null
 
 async function getO365Token(): Promise<string | null> {
-  const tenantId = process.env.O365_TENANT_ID
-  const clientId = process.env.O365_CLIENT_ID
-  const clientSecret = process.env.O365_CLIENT_SECRET
+  const tenantId = env.O365_TENANT_ID
+  const clientId = env.O365_CLIENT_ID
+  const clientSecret = env.O365_CLIENT_SECRET
 
   if (!tenantId || !clientId || !clientSecret) return null
 
@@ -187,7 +191,7 @@ async function getO365Token(): Promise<string | null> {
 
 // ─── Envoi par Email via Office 365 (Microsoft Graph API) ───
 async function sendEmailO365(to: string, subject: string, body: string): Promise<NotificationResult> {
-  const senderEmail = process.env.O365_SENDER_EMAIL || process.env.SMTP_FROM
+  const senderEmail = env.O365_SENDER_EMAIL || env.SMTP_FROM
   if (!senderEmail) {
     return { sent: false, channel: 'email', error: 'O365_SENDER_EMAIL or SMTP_FROM not set' }
   }
@@ -249,11 +253,11 @@ async function sendEmailO365(to: string, subject: string, body: string): Promise
 
 // ─── Envoi par Email SMTP direct (Office 365 / nodemailer) ───
 async function sendEmailSmtp(to: string, subject: string, body: string): Promise<NotificationResult> {
-  const smtpHost = process.env.SMTP_HOST
-  const smtpPort = parseInt(process.env.SMTP_PORT || '587')
-  const smtpUser = process.env.SMTP_USER
-  const smtpPass = process.env.SMTP_PASS
-  const smtpFrom = process.env.SMTP_FROM || smtpUser || 'noreply@fondation-jae.org'
+  const smtpHost = env.SMTP_HOST
+  const smtpPort = parseInt(env.SMTP_PORT || '587')
+  const smtpUser = env.SMTP_USER
+  const smtpPass = env.SMTP_PASS
+  const smtpFrom = env.SMTP_FROM || smtpUser || 'noreply@fondation-jae.org'
 
   if (!smtpHost || !smtpUser || !smtpPass) {
     return { sent: false, channel: 'email', error: 'SMTP not configured' }
@@ -302,7 +306,7 @@ async function sendEmailSmtp(to: string, subject: string, body: string): Promise
 // ─── Envoi par Email (chaîne de fallback : SMTP → Graph API → Brevo → console) ───
 async function sendEmail(to: string, subject: string, body: string): Promise<NotificationResult> {
   // 1. SMTP direct (Office 365 ou autre) — le plus simple
-  const smtpConfigured = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS
+  const smtpConfigured = env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS
   if (smtpConfigured) {
     const result = await sendEmailSmtp(to, subject, body)
     if (result.sent) return result
@@ -310,7 +314,7 @@ async function sendEmail(to: string, subject: string, body: string): Promise<Not
   }
 
   // 2. Office 365 Graph API
-  const o365Configured = process.env.O365_TENANT_ID && process.env.O365_CLIENT_ID && process.env.O365_CLIENT_SECRET
+  const o365Configured = env.O365_TENANT_ID && env.O365_CLIENT_ID && env.O365_CLIENT_SECRET
   if (o365Configured) {
     const result = await sendEmailO365(to, subject, body)
     if (result.sent) return result
@@ -318,8 +322,8 @@ async function sendEmail(to: string, subject: string, body: string): Promise<Not
   }
 
   // 3. Brevo (ex-Sendinblue)
-  const brevoKey = process.env.BREVO_API_KEY
-  const smtpFrom = process.env.SMTP_FROM || process.env.O365_SENDER_EMAIL || 'noreply@fondation-jae.org'
+  const brevoKey = env.BREVO_API_KEY
+  const smtpFrom = env.SMTP_FROM || env.O365_SENDER_EMAIL || 'noreply@fondation-jae.org'
   if (brevoKey) {
     try {
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -388,7 +392,7 @@ export async function sendPinCode(
 ): Promise<NotificationResult> {
   const { type, prenom, conseillerPrenom, structureNom } = options
 
-  const host = process.env.PUBLIC_HOST || 'catchup.jaeprive.fr'
+  const host = env.PUBLIC_HOST || 'catchup.jaeprive.fr'
   const message = type === 'beneficiaire'
     ? `${prenom ? prenom + ', votre' : 'Votre'} conseiller${conseillerPrenom ? ' ' + conseillerPrenom : ''}${structureNom ? ' (' + structureNom + ')' : ''} vous accompagne sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur ${host}/accompagnement`
     : `Vous êtes invité(e) à rejoindre un accompagnement sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur ${host}/tiers`
