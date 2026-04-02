@@ -1110,16 +1110,7 @@ export default function ChatApp() {
                     <div className="w-full flex justify-center px-4">
                       <SuggestionChips onSelect={handleSuggestion} messageCount={0} />
                     </div>
-                    {/* Bouton parler à un conseiller dès l'accueil */}
-                    {(!referralId || referralStatus === 'annulee' || referralStatus === 'terminee' || referralStatus === 'rupture') && (
-                      <button
-                        onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}
-                        className="mt-6 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-catchup-primary to-catchup-secondary text-white rounded-xl text-sm font-semibold shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-                      >
-                        <span className="text-base">🙋</span>
-                        <span>Parler à un conseiller</span>
-                      </button>
-                    )}
+                    {/* Bouton "Parler à un conseiller" supprimé ici — la barre sticky en bas suffit */}
                     {/* Statut demande en attente — visible sur le welcome screen */}
                     {(referralStatus === 'en_attente' || referralStatus === 'nouvelle') && (
                       <div className="mt-6 w-full max-w-xs">
