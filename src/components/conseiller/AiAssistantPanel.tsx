@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, PointerEvent as ReactPointerEvent } from 'react'
 
 interface AiMessage {
   id: string
@@ -39,6 +39,63 @@ export default function AiAssistantPanel({ context }: AiAssistantPanelProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // ── Drag & drop du FAB ──
+  // fabPos = { right, bottom } en pixels (distance depuis les bords)
+  const [fabPos, setFabPos] = useState<{ right: number; bottom: number }>(() => {
+    if (typeof window === 'undefined') return { right: 24, bottom: 24 }
+    try {
+      const saved = localStorage.getItem('catchup_fab_pos')
+      return saved ? JSON.parse(saved) : { right: 24, bottom: 24 }
+    } catch { return { right: 24, bottom: 24 } }
+  })
+  const dragRef = useRef<{ startX: number; startY: number; origRight: number; origBottom: number; moved: boolean } | null>(null)
+  const fabRef = useRef<HTMLButtonElement>(null)
+
+  const handlePointerDown = useCallback((e: ReactPointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = {
+      startX: e.clientX, startY: e.clientY,
+      origRight: fabPos.right, origBottom: fabPos.bottom,
+      moved: false,
+    }
+  }, [fabPos])
+
+  const handlePointerMove = useCallback((e: ReactPointerEvent) => {
+    if (!dragRef.current) return
+    const dx = e.clientX - dragRef.current.startX
+    const dy = e.clientY - dragRef.current.startY
+    if (!dragRef.current.moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return
+    dragRef.current.moved = true
+
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const SIZE = 56
+    const newRight = Math.max(8, Math.min(vw - SIZE - 8, dragRef.current.origRight - dx))
+    const newBottom = Math.max(8, Math.min(vh - SIZE - 8, dragRef.current.origBottom - dy))
+    setFabPos({ right: newRight, bottom: newBottom })
+  }, [])
+
+  const handlePointerUp = useCallback(() => {
+    if (!dragRef.current) return
+    const wasDrag = dragRef.current.moved
+    dragRef.current = null
+
+    if (wasDrag) {
+      // Snap to nearest horizontal edge (left or right)
+      setFabPos(prev => {
+        const vw = window.innerWidth
+        const leftDist = vw - prev.right - 56
+        const rightDist = prev.right
+        const snappedRight = leftDist < rightDist ? vw - 56 - 16 : 16
+        const final = { right: snappedRight, bottom: prev.bottom }
+        try { localStorage.setItem('catchup_fab_pos', JSON.stringify(final)) } catch { /* */ }
+        return final
+      })
+    } else {
+      setIsOpen(true)
+    }
+  }, [])
 
   // Persister les messages dans localStorage
   useEffect(() => {
@@ -159,14 +216,18 @@ export default function AiAssistantPanel({ context }: AiAssistantPanelProps) {
 
   return (
     <>
-      {/* ── FAB (Floating Action Button) ── */}
+      {/* ── FAB (Floating Action Button) — draggable ── */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center animate-scale-in"
-          title="Assistant IA"
+          ref={fabRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          className="fixed z-50 w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-xl transition-shadow duration-200 flex items-center justify-center animate-scale-in touch-none select-none cursor-grab active:cursor-grabbing"
+          style={{ right: fabPos.right, bottom: fabPos.bottom, transition: dragRef.current ? 'none' : 'right 0.3s ease, bottom 0.05s ease' }}
+          title="Assistant IA — glissez pour déplacer"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
           </svg>
           {isLoading && (
@@ -184,7 +245,7 @@ export default function AiAssistantPanel({ context }: AiAssistantPanelProps) {
             onClick={() => setIsOpen(false)}
           />
 
-          <div className="fixed z-50 bottom-6 right-6 sm:bottom-6 sm:right-6 inset-x-3 sm:inset-x-auto top-20 sm:top-auto sm:w-[380px] sm:h-[520px] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-scale-in">
+          <div className="fixed z-50 inset-x-3 sm:inset-x-auto top-20 sm:top-auto sm:w-[380px] sm:h-[520px] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-scale-in sm:right-6 sm:bottom-24">
 
             {/* Header */}
             <div className="px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 flex-shrink-0">
