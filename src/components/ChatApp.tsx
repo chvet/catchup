@@ -1028,7 +1028,25 @@ export default function ChatApp() {
           <>
             {/* ── Mode IA : chat normal ── */}
             <div className="flex-1 flex flex-col chat-bg min-w-0 w-full max-w-full" style={{ overflowX: 'clip', overflowY: 'hidden' }}>
-              <div className="flex-1 overflow-y-auto chat-scroll px-2 py-3 md:px-6 w-full max-w-full" style={{ overflowX: 'clip' }}>
+              <div className="flex-1 overflow-y-auto chat-scroll px-2 py-3 md:px-6 w-full max-w-full relative" style={{ overflowX: 'clip' }}>
+                {/* Bouton mute/unmute flottant dans la zone messages */}
+                <button
+                  onClick={toggleTts}
+                  className={`sticky top-2 float-right z-10 p-2 rounded-full shadow-md border transition-all duration-200 ${
+                    ttsEnabled
+                      ? 'bg-catchup-primary text-white border-catchup-primary'
+                      : 'bg-white/90 text-gray-400 border-gray-200 hover:text-gray-600 hover:border-gray-300'
+                  }`}
+                  title={ttsEnabled ? 'Désactiver la voix' : 'Activer la voix'}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {ttsEnabled ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M11 5L6 9H2v6h4l5 4V5z" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                    )}
+                  </svg>
+                </button>
                 {!hasMessages && (
                   <div className="flex flex-col items-center justify-center h-full text-center px-4">
                     <div className="mb-6">
@@ -1170,8 +1188,6 @@ export default function ChatApp() {
                 inputRef={inputRef}
                 onAppend={append}
                 onVoiceMessage={handleVoiceMessage}
-                ttsEnabled={ttsEnabled}
-                onToggleTts={toggleTts}
               />
             </div>
 
