@@ -1054,6 +1054,25 @@ export default function ChatApp() {
                         <span>Parler à un conseiller</span>
                       </button>
                     )}
+                    {/* Statut demande en attente — visible sur le welcome screen */}
+                    {(referralStatus === 'en_attente' || referralStatus === 'nouvelle') && (
+                      <div className="mt-6 w-full max-w-xs">
+                        <div className="rounded-2xl px-4 py-3 shadow-sm bg-white text-gray-800 border border-amber-100">
+                          <div className="flex items-center gap-2">
+                            <span className="text-amber-500 inline-block animate-spin" style={{ animationDuration: '2s' }}>⏳</span>
+                            <p className="text-sm leading-relaxed">
+                              Ta demande est en cours de traitement. Un conseiller te contactera bient&ocirc;t 😊
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setShowCancelConfirm(true)}
+                            className="mt-2 text-xs text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            Annuler ma demande
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
