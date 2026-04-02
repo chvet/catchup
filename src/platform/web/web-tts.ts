@@ -102,13 +102,16 @@ export class WebTTSAdapter implements ITTSAdapter {
     this.audio.volume = 1.0
 
     this.audio.onended = () => {
+      if (!this.speaking) return // Stoppé entre-temps
       this.chunkIdx++
       this.playNextChunk()
     }
 
     this.audio.onerror = () => {
+      if (!this.speaking) return // Stoppé entre-temps
       console.warn('[TTS] Audio error on chunk', this.chunkIdx, '- trying speechSynthesis fallback')
       this.fallbackSpeechSynthesis(chunk, () => {
+        if (!this.speaking) return
         this.chunkIdx++
         this.playNextChunk()
       })
@@ -117,9 +120,11 @@ export class WebTTSAdapter implements ITTSAdapter {
     const playPromise = this.audio.play()
     if (playPromise) {
       playPromise.catch(() => {
+        if (!this.speaking) return // Stoppé entre-temps
         // Autoplay bloqué — fallback speechSynthesis
         console.warn('[TTS] Autoplay blocked - fallback speechSynthesis')
         this.fallbackSpeechSynthesis(chunk, () => {
+          if (!this.speaking) return
           this.chunkIdx++
           this.playNextChunk()
         })
@@ -153,10 +158,16 @@ export class WebTTSAdapter implements ITTSAdapter {
     this.chunkIdx = 0
     this.onEndCb = null
     if (this.audio) {
+      // Supprimer les handlers AVANT pause pour éviter les callbacks parasites (Android)
+      this.audio.onended = null
+      this.audio.onerror = null
+      this.audio.onpause = null
       this.audio.pause()
-      this.audio.src = ''
+      try { this.audio.src = '' } catch { /* ignore */ }
+      try { this.audio.load() } catch { /* force reset sur Android */ }
     }
     try { window.speechSynthesis.cancel() } catch { /* ignore */ }
+    console.log('[TTS] Stop — audio arrêté')
   }
 
   isSpeaking(): boolean {
