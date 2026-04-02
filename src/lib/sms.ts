@@ -61,17 +61,19 @@ async function sendSmsVonage(telephone: string, message: string): Promise<Notifi
   try {
     const to = formatPhoneFR(telephone).replace('+', '')
 
+    // Utiliser x-www-form-urlencoded car le secret peut contenir des caractères
+    // spéciaux (%, $, etc.) qui causent des erreurs URL decode côté Vonage en JSON
     const response = await fetch('https://rest.nexmo.com/sms/json', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
         api_key: apiKey,
         api_secret: apiSecret,
         from,
         to,
         text: message,
         type: 'unicode',
-      }),
+      }).toString(),
     })
 
     const data = await response.json()
