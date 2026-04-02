@@ -1170,6 +1170,8 @@ export default function ChatApp() {
                 inputRef={inputRef}
                 onAppend={append}
                 onVoiceMessage={handleVoiceMessage}
+                ttsEnabled={ttsEnabled}
+                onToggleTts={toggleTts}
               />
             </div>
 
