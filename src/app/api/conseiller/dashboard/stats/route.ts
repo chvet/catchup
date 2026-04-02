@@ -95,7 +95,7 @@ export async function GET(request: Request) {
     const tempsAttente = await db
       .select({
         avgHeures: sql<number>`AVG(
-          CAST((julianday(${priseEnCharge.premiereActionLe}) - julianday(${referral.creeLe})) * 24 AS REAL)
+          EXTRACT(EPOCH FROM (${priseEnCharge.premiereActionLe}::timestamp - ${referral.creeLe}::timestamp)) / 3600
         )`,
       })
       .from(priseEnCharge)
