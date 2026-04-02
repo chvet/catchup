@@ -22,6 +22,12 @@ const CONTENT_TYPES: Record<string, string> = {
   '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   '.txt': 'text/plain',
   '.csv': 'text/csv',
+  '.webm': 'audio/webm',
+  '.ogg': 'audio/ogg',
+  '.m4a': 'audio/mp4',
+  '.mp3': 'audio/mpeg',
+  '.mp4': 'audio/mp4',
+  '.wav': 'audio/wav',
 }
 
 export async function GET(
@@ -68,7 +74,7 @@ export async function GET(
     const contentType = CONTENT_TYPES[ext] || 'application/octet-stream'
 
     // Déterminer Content-Disposition (inline pour les images/PDF, attachment pour le reste)
-    const inlineTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
+    const inlineTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/wav']
     const disposition = inlineTypes.includes(contentType) ? 'inline' : 'attachment'
 
     // Extraire le nom du fichier (dernier segment)

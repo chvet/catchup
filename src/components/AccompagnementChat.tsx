@@ -391,34 +391,53 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
   const handleVoiceRecorded = useCallback(async (blob: Blob, duration: number) => {
     setVoiceTranscribing(true)
 
-    // 1. Créer une URL locale pour la lecture immédiate
-    const localAudioUrl = URL.createObjectURL(blob)
-
-    // 2. Transcrire en parallèle (ne bloque pas l'envoi)
+    // Upload du fichier audio sur le serveur + transcription en parallèle
+    let audioUrl = ''
     let transcription = ''
+    const ext = blob.type.includes('mp4') ? 'm4a' : 'webm'
+    const filename = `voice.${ext}`
+
+    const uploadPromise = (async () => {
+      try {
+        const formData = new FormData()
+        formData.append('file', blob, filename)
+        const res = await fetch('/api/accompagnement/documents', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
+        })
+        if (res.ok) {
+          const data = await res.json()
+          audioUrl = data.document?.url || data.url || ''
+        }
+      } catch { /* upload échoué */ }
+    })()
+
     const transcribePromise = (async () => {
       try {
         const formData = new FormData()
-        formData.append('file', blob, `voice.${blob.type.includes('mp4') ? 'm4a' : 'webm'}`)
+        formData.append('file', blob, filename)
         const res = await fetch('/api/voice/transcribe', { method: 'POST', body: formData })
         if (res.ok) {
           const data = await res.json()
           transcription = data.text?.trim() || ''
         }
-      } catch { /* transcription échouée — on continue sans */ }
+      } catch { /* transcription échouée */ }
     })()
 
-    // 3. Envoyer le message vocal structuré immédiatement
     try {
-      // Attendre la transcription (max 15s)
       await Promise.race([
-        transcribePromise,
+        Promise.all([uploadPromise, transcribePromise]),
         new Promise(resolve => setTimeout(resolve, 15000)),
       ])
 
+      if (!audioUrl) {
+        audioUrl = URL.createObjectURL(blob)
+      }
+
       const voicePayload = JSON.stringify({
         type: 'voice',
-        audioUrl: localAudioUrl,
+        audioUrl,
         duration,
         transcription,
       })

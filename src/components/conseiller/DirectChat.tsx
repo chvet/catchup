@@ -407,14 +407,32 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   const handleVoiceRecorded = useCallback(async (blob: Blob, duration: number) => {
     setVoiceTranscribing(true)
 
-    const localAudioUrl = URL.createObjectURL(blob)
-
-    // Transcrire en parallèle
+    // Upload du fichier audio sur le serveur + transcription en parallèle
+    let audioUrl = ''
     let transcription = ''
+
+    const ext = blob.type.includes('mp4') ? 'm4a' : 'webm'
+    const filename = `voice.${ext}`
+
+    const uploadPromise = (async () => {
+      try {
+        const formData = new FormData()
+        formData.append('file', blob, filename)
+        const res = await fetch(`/api/conseiller/file-active/${referralId}/documents`, {
+          method: 'POST',
+          body: formData,
+        })
+        if (res.ok) {
+          const data = await res.json()
+          audioUrl = data.document?.url || data.url || ''
+        }
+      } catch { /* upload échoué */ }
+    })()
+
     const transcribePromise = (async () => {
       try {
         const formData = new FormData()
-        formData.append('file', blob, `voice.${blob.type.includes('mp4') ? 'm4a' : 'webm'}`)
+        formData.append('file', blob, filename)
         const res = await fetch('/api/voice/transcribe', { method: 'POST', body: formData })
         if (res.ok) {
           const data = await res.json()
@@ -425,13 +443,18 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
 
     try {
       await Promise.race([
-        transcribePromise,
+        Promise.all([uploadPromise, transcribePromise]),
         new Promise(resolve => setTimeout(resolve, 15000)),
       ])
 
+      // Fallback si l'upload a échoué : utiliser un blob URL (mieux que rien)
+      if (!audioUrl) {
+        audioUrl = URL.createObjectURL(blob)
+      }
+
       const voicePayload = JSON.stringify({
         type: 'voice',
-        audioUrl: localAudioUrl,
+        audioUrl,
         duration,
         transcription,
       })
