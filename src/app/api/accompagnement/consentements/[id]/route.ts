@@ -7,6 +7,7 @@ import { db } from '@/data/db'
 import { demandeConsentement, tiersIntervenant, participantConversation, codeVerification } from '@/data/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
+import { sendPinCode } from '@/lib/sms'
 
 export async function PATCH(
   request: Request,
@@ -128,6 +129,12 @@ export async function PATCH(
         .where(eq(tiersIntervenant.id, consent.tiersId))
 
       const telephone = tiersRows.length > 0 ? tiersRows[0].telephone : null
+
+      // Envoyer le code par SMS/email au tiers
+      if (telephone) {
+        const notifResult = await sendPinCode(telephone, pin, { type: 'tiers' })
+        console.log(`[PIN Tiers] Code envoyé à ${telephone} via ${notifResult.channel}`)
+      }
 
       await logJournal(
         auth.priseEnChargeId,
