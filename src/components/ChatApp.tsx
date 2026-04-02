@@ -357,8 +357,11 @@ export default function ChatApp() {
             if (d.priseEnCharge?.exists) {
               setReferralConseillerPrenom(d.priseEnCharge.conseiller?.prenom || null)
             }
-            // Quand le statut passe à prise_en_charge, notifier le bénéficiaire
+            // Quand le statut passe à prise_en_charge, réinitialiser la session conseiller
             if (d.statut === 'prise_en_charge' && prevStatut !== 'prise_en_charge') {
+              // Supprimer l'ancienne session accompagnement pour repartir proprement
+              localStorage.removeItem('catchup_accompagnement')
+              setAccompSession(null)
               // Force scroll pour que le bénéficiaire voie le changement
               messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
             }
