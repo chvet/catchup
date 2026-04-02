@@ -154,29 +154,31 @@ export default function AccompagnementPage() {
   if (session) {
     return (
       <div className="h-[100dvh] flex flex-col bg-white">
-        {/* Barre de bascule IA / Conseiller */}
-        <div className="flex items-center justify-between px-4 py-2 bg-catchup-dark text-white">
+        {/* Header compact */}
+        <div className="flex items-center justify-between px-4 py-2.5 bg-catchup-dark text-white">
           <div className="flex items-center gap-2">
-            <span className="text-lg">💡</span>
-            <span className="text-sm font-semibold">Catch&apos;Up</span>
+            <span className="text-lg">🤝</span>
+            <div>
+              <span className="text-sm font-semibold">Mon conseiller : {session.conseillerPrenom}</span>
+              {session.structureNom && (
+                <p className="text-[10px] text-gray-400">{session.structureNom}</p>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <a
               href="/"
               className="px-3 py-1.5 text-xs rounded-full bg-white/10 hover:bg-white/20 transition"
             >
-              🤖 IA
+              ← Retour IA
             </a>
-            <span className="px-3 py-1.5 text-xs rounded-full bg-catchup-primary font-medium">
-              👤 Conseiller
-            </span>
+            <button
+              onClick={() => setShowQuitConfirm(true)}
+              className="text-xs text-gray-400 hover:text-red-400 transition"
+            >
+              Quitter
+            </button>
           </div>
-          <button
-            onClick={() => setShowQuitConfirm(true)}
-            className="text-xs text-gray-400 hover:text-red-400 transition"
-          >
-            Quitter
-          </button>
         </div>
 
         {/* Chat */}

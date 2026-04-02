@@ -1114,7 +1114,7 @@ export default function ChatApp() {
               )}
 
               {/* ── Barre compacte : bouton mise en relation ── */}
-              {hasMessages && (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee' || referralStatus === 'rupture') ? (
+              {(!referralId || referralStatus === 'annulee' || referralStatus === 'terminee' || referralStatus === 'rupture') ? (
                 <div className="mx-3 md:mx-6 shrink-0">
                   <button
                     onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}
