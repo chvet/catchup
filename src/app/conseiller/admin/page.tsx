@@ -14,6 +14,17 @@ import CarteDesRessources from '@/components/conseiller/CarteDesRessources'
 
 // === Types ===
 
+interface ConseillerStat {
+  id: string
+  prenom: string
+  nom: string
+  email: string
+  casActifs: number
+  casTermines: number
+  casRupture: number
+  derniereConnexion: string | null
+}
+
 interface AdminStats {
   kpis: {
     enAttente: number
@@ -24,6 +35,7 @@ interface AdminStats {
     tauxPriseEnCharge: number
   }
   structures: StructureStat[]
+  conseillerStats?: ConseillerStat[]
   barChartData: BarChartItem[]
   evolutionJours: { jour: string; count: number }[]
   repartitionStatuts: { statut: string; count: number }[]
@@ -304,12 +316,15 @@ export default function AdminDashboardPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [satisfaction, setSatisfaction] = useState<SatisfactionData | null>(null)
 
-  // Redirection si pas super_admin
+  const isSuperAdmin = conseiller?.role === 'super_admin'
+  const isAdminStructure = conseiller?.role === 'admin_structure'
+
+  // Redirection si ni super_admin ni admin_structure
   useEffect(() => {
-    if (conseiller && conseiller.role !== 'super_admin') {
+    if (conseiller && !isSuperAdmin && !isAdminStructure) {
       router.push('/conseiller')
     }
-  }, [conseiller, router])
+  }, [conseiller, router, isSuperAdmin, isAdminStructure])
 
   // Chargement des stats
   useEffect(() => {
@@ -336,7 +351,7 @@ export default function AdminDashboardPage() {
       .catch(() => {})
   }, [])
 
-  if (conseiller?.role !== 'super_admin') {
+  if (!isSuperAdmin && !isAdminStructure) {
     return null
   }
 
@@ -425,8 +440,12 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Administration multi-structures</h1>
-          <p className="text-gray-500 text-sm">Vue d&apos;ensemble de toutes les structures</p>
+          <h1 className="text-2xl font-bold text-gray-800">
+            {isSuperAdmin ? 'Administration multi-structures' : `Administration — ${conseiller?.structure?.nom || 'Ma structure'}`}
+          </h1>
+          <p className="text-gray-500 text-sm">
+            {isSuperAdmin ? "Vue d'ensemble de toutes les structures" : 'Vue de votre structure et de votre equipe'}
+          </p>
         </div>
         <ExportDropdown />
       </div>
@@ -519,13 +538,64 @@ export default function AdminDashboardPage() {
       {/* === E. Satisfaction === */}
       {satisfaction && <SatisfactionSection data={satisfaction} />}
 
-      {/* === Carte des ressources (Leaflet) === */}
-      <CarteDesRessources structures={stats.structures} />
+      {/* === Carte des ressources (Leaflet) — super_admin uniquement === */}
+      {isSuperAdmin && <CarteDesRessources structures={stats.structures} />}
+
+      {/* === Stats par conseiller (admin_structure) === */}
+      {isAdminStructure && stats.conseillerStats && stats.conseillerStats.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8 overflow-hidden">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-800">Performance de l&apos;equipe</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-left text-gray-600">
+                  <th className="px-4 py-3 font-medium">Conseiller</th>
+                  <th className="px-3 py-3 font-medium text-center">Cas actifs</th>
+                  <th className="px-3 py-3 font-medium text-center">Termines ce mois</th>
+                  <th className="px-3 py-3 font-medium text-center">Ruptures</th>
+                  <th className="px-3 py-3 font-medium text-center">Derniere connexion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.conseillerStats.map(c => (
+                  <tr key={c.id} className="border-t border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-800">{c.prenom} {c.nom}</p>
+                      <p className="text-xs text-gray-400">{c.email}</p>
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <span className={`inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded-full text-xs font-bold ${
+                        c.casActifs > 10 ? 'bg-red-100 text-red-700' :
+                        c.casActifs > 5 ? 'bg-orange-100 text-orange-700' :
+                        c.casActifs > 0 ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-500'
+                      }`}>
+                        {c.casActifs}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-center text-green-600 font-medium">{c.casTermines}</td>
+                    <td className="px-3 py-3 text-center text-red-500">{c.casRupture}</td>
+                    <td className="px-3 py-3 text-center text-xs text-gray-500">
+                      {c.derniereConnexion
+                        ? new Date(c.derniereConnexion).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                        : 'Jamais'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* === B. Tableau comparatif === */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8 overflow-hidden">
         <div className="p-4 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-800">Comparatif des structures</h3>
+          <h3 className="text-lg font-semibold text-gray-800">
+            {isSuperAdmin ? 'Comparatif des structures' : 'Indicateurs de la structure'}
+          </h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

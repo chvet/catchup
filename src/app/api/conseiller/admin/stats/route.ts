@@ -10,8 +10,10 @@ export async function GET() {
   try {
     const ctx = await getConseillerFromHeaders()
 
-    // Super admin uniquement
-    if (!hasRole(ctx, 'super_admin')) {
+    // Admin structure ou super admin
+    const isSuperAdmin = hasRole(ctx, 'super_admin')
+    const isAdminStructure = hasRole(ctx, 'admin_structure')
+    if (!isSuperAdmin && !isAdminStructure) {
       return jsonError('Accès refusé', 403)
     }
 
@@ -21,19 +23,33 @@ export async function GET() {
     const il_y_a_48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
     const il_y_a_24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-    // === A. KPIs globaux ===
+    // Filtres selon le rôle : admin_structure voit uniquement sa structure
+    const referralStructFilter = isAdminStructure && ctx.structureId
+      ? or(eq(referral.structureSuggereId, ctx.structureId), sql`${referral.structureSuggereId} IS NULL`)
+      : undefined
+    const pecStructFilter = isAdminStructure && ctx.structureId
+      ? eq(priseEnCharge.structureId, ctx.structureId)
+      : undefined
 
-    // En attente (toutes structures)
+    // === A. KPIs globaux (ou structure-scoped pour admin_structure) ===
+
+    // En attente
     const enAttente = await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(referral)
-      .where(or(eq(referral.statut, 'en_attente'), eq(referral.statut, 'nouvelle')))
+      .where(and(
+        or(eq(referral.statut, 'en_attente'), eq(referral.statut, 'nouvelle')),
+        referralStructFilter
+      ))
 
     // Prises en charge actives
     const prisesActives = await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(priseEnCharge)
-      .where(sql`${priseEnCharge.statut} IN ('nouvelle', 'en_attente', 'prise_en_charge')`)
+      .where(and(
+        sql`${priseEnCharge.statut} IN ('nouvelle', 'en_attente', 'prise_en_charge')`,
+        pecStructFilter
+      ))
 
     // Terminées ce mois
     const terminesCeMois = await db
@@ -41,7 +57,8 @@ export async function GET() {
       .from(priseEnCharge)
       .where(and(
         eq(priseEnCharge.statut, 'terminee'),
-        gte(priseEnCharge.termineeLe, debutMois)
+        gte(priseEnCharge.termineeLe, debutMois),
+        pecStructFilter
       ))
 
     // Ruptures ce mois
@@ -50,10 +67,11 @@ export async function GET() {
       .from(priseEnCharge)
       .where(and(
         eq(priseEnCharge.statut, 'abandonnee'),
-        gte(priseEnCharge.misAJourLe, debutMois)
+        gte(priseEnCharge.misAJourLe, debutMois),
+        pecStructFilter
       ))
 
-    // Temps d'attente moyen global (heures)
+    // Temps d'attente moyen (heures)
     const tempsAttenteMoyen = await db
       .select({
         avgHeures: sql<number>`AVG(
@@ -62,27 +80,36 @@ export async function GET() {
       })
       .from(priseEnCharge)
       .innerJoin(referral, eq(priseEnCharge.referralId, referral.id))
-      .where(sql`${priseEnCharge.premiereActionLe} IS NOT NULL`)
+      .where(and(
+        sql`${priseEnCharge.premiereActionLe} IS NOT NULL`,
+        pecStructFilter
+      ))
 
-    // Taux de prise en charge global
+    // Taux de prise en charge
     const totalReferrals = await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(referral)
+      .where(referralStructFilter)
 
     const totalPrisEnCharge = await db
       .select({ count: sql<number>`COUNT(DISTINCT ${priseEnCharge.referralId})` })
       .from(priseEnCharge)
+      .where(pecStructFilter)
 
     const totalRef = totalReferrals[0]?.count || 0
     const totalPec = totalPrisEnCharge[0]?.count || 0
     const tauxPriseEnCharge = totalRef > 0 ? Math.round((totalPec / totalRef) * 100) : 0
 
     // === B. Stats par structure ===
+    // admin_structure : uniquement sa structure / super_admin : toutes
 
     const allStructures = await db
       .select()
       .from(structure)
-      .where(eq(structure.actif, 1))
+      .where(and(
+        eq(structure.actif, 1),
+        isAdminStructure && ctx.structureId ? eq(structure.id, ctx.structureId) : undefined
+      ))
 
     const structureStats = await Promise.all(allStructures.map(async (s) => {
       // Conseillers actifs
@@ -189,7 +216,7 @@ export async function GET() {
         count: sql<number>`COUNT(*)`,
       })
       .from(referral)
-      .where(gte(referral.creeLe, il_y_a_30j))
+      .where(and(gte(referral.creeLe, il_y_a_30j), referralStructFilter))
       .groupBy(sql`DATE(${referral.creeLe})`)
       .orderBy(sql`DATE(${referral.creeLe})`)
 
@@ -200,6 +227,7 @@ export async function GET() {
         count: sql<number>`COUNT(*)`,
       })
       .from(referral)
+      .where(referralStructFilter)
       .groupBy(referral.statut)
 
     // Repartition statuts PEC (pour le stacked bar)
@@ -210,6 +238,7 @@ export async function GET() {
         count: sql<number>`COUNT(*)`,
       })
       .from(priseEnCharge)
+      .where(pecStructFilter)
       .groupBy(priseEnCharge.structureId, priseEnCharge.statut)
 
     // === D. Alertes ===
@@ -227,7 +256,8 @@ export async function GET() {
       .from(referral)
       .where(and(
         or(eq(referral.statut, 'en_attente'), eq(referral.statut, 'nouvelle')),
-        sql`${referral.creeLe} < ${il_y_a_48h}`
+        sql`${referral.creeLe} < ${il_y_a_48h}`,
+        referralStructFilter
       ))
 
     // Structures sans conseiller connecte depuis 24h
@@ -250,6 +280,62 @@ export async function GET() {
       }
     })
 
+    // === E. Stats par conseiller (pour admin_structure) ===
+    let conseillerStats: {
+      id: string; prenom: string; nom: string; email: string
+      casActifs: number; casTermines: number; casRupture: number
+      derniereConnexion: string | null
+    }[] = []
+
+    if (isAdminStructure && ctx.structureId) {
+      const conseillersDeLaStructure = await db
+        .select({
+          id: conseiller.id,
+          prenom: conseiller.prenom,
+          nom: conseiller.nom,
+          email: conseiller.email,
+          derniereConnexion: conseiller.derniereConnexion,
+        })
+        .from(conseiller)
+        .where(and(eq(conseiller.structureId, ctx.structureId), eq(conseiller.actif, 1)))
+
+      conseillerStats = await Promise.all(conseillersDeLaStructure.map(async (c) => {
+        const actifs = await db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(priseEnCharge)
+          .where(and(
+            eq(priseEnCharge.conseillerId, c.id),
+            sql`${priseEnCharge.statut} IN ('nouvelle', 'en_attente', 'prise_en_charge')`
+          ))
+        const termines = await db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(priseEnCharge)
+          .where(and(
+            eq(priseEnCharge.conseillerId, c.id),
+            eq(priseEnCharge.statut, 'terminee'),
+            gte(priseEnCharge.termineeLe, debutMois)
+          ))
+        const ruptures = await db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(priseEnCharge)
+          .where(and(
+            eq(priseEnCharge.conseillerId, c.id),
+            eq(priseEnCharge.statut, 'abandonnee'),
+            gte(priseEnCharge.misAJourLe, debutMois)
+          ))
+        return {
+          id: c.id,
+          prenom: c.prenom,
+          nom: c.nom,
+          email: c.email,
+          casActifs: actifs[0]?.count || 0,
+          casTermines: termines[0]?.count || 0,
+          casRupture: ruptures[0]?.count || 0,
+          derniereConnexion: c.derniereConnexion,
+        }
+      }))
+    }
+
     return jsonSuccess({
       kpis: {
         enAttente: enAttente[0]?.count || 0,
@@ -260,6 +346,7 @@ export async function GET() {
         tauxPriseEnCharge,
       },
       structures: structureStats,
+      conseillerStats: isAdminStructure ? conseillerStats : undefined,
       barChartData,
       evolutionJours,
       repartitionStatuts,
