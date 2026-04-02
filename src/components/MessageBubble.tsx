@@ -24,10 +24,10 @@ const AVATAR_BY_GENRE: Record<string, string> = {
 
 function EqBars() {
   return (
-    <span className="inline-flex items-end gap-[2px] h-3 ml-0.5">
-      <span className="w-[2px] bg-catchup-primary rounded-full animate-eq-1" />
-      <span className="w-[2px] bg-catchup-primary rounded-full animate-eq-2" />
-      <span className="w-[2px] bg-catchup-primary rounded-full animate-eq-3" />
+    <span className="inline-flex items-end gap-[2px] h-4 ml-0.5">
+      <span className="w-[2.5px] bg-catchup-primary rounded-full animate-eq-1" />
+      <span className="w-[2.5px] bg-catchup-primary rounded-full animate-eq-2" />
+      <span className="w-[2.5px] bg-catchup-primary rounded-full animate-eq-3" />
     </span>
   )
 }
@@ -88,14 +88,14 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
               >
                 {isSpeaking ? (
                   <>
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <rect x="6" y="4" width="4" height="16" rx="1" />
                       <rect x="14" y="4" width="4" height="16" rx="1" />
                     </svg>
                     <EqBars />
                   </>
                 ) : (
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M11 5L6 9H2v6h4l5 4V5z" />
                   </svg>
                 )}
