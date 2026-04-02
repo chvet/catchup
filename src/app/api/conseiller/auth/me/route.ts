@@ -43,6 +43,7 @@ export async function GET() {
         nom: structureData.nom,
         type: structureData.type,
         slug: structureData.slug || null,
+        logoUrl: structureData.logoUrl || null,
       } : null,
     })
   } catch (error) {

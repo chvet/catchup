@@ -19,6 +19,7 @@ else
       const db = createClient({ url: 'file:$DB_PATH' });
       const migrations = [
         'ALTER TABLE referral ADD COLUMN campagne_id TEXT',
+        'ALTER TABLE structure ADD COLUMN logo_url TEXT',
       ];
       for (const m of migrations) {
         try { await db.execute(m); console.log('  ✓', m.substring(0, 60)); } catch(e) { /* already exists */ }

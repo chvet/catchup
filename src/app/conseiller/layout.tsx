@@ -146,32 +146,46 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
             : `relative h-full ${sidebarOpen ? 'w-64' : 'w-16'}`
           }
         `}>
-          {/* Logo */}
-          <div className="p-4 flex items-center justify-between border-b border-white/10">
-            {(sidebarOpen || isMobile) ? (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
+          {/* Logo Catch'Up + Logo structure */}
+          <div className="p-4 border-b border-white/10">
+            <div className="flex items-center justify-between">
+              {(sidebarOpen || isMobile) ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/favicon-catchup.png?v=3" alt={brandConfig.appName} className="w-8 h-8 object-contain" />
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-bold text-catchup-primary leading-tight">{brandConfig.appName}</h1>
+                    <p className="text-[10px] text-gray-400">Espace Conseiller</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mx-auto w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-sm">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/favicon-catchup.png?v=3" alt={brandConfig.appName} className="w-8 h-8 object-contain" />
                 </div>
-                <div>
-                  <h1 className="text-lg font-bold text-catchup-primary leading-tight">{brandConfig.appName}</h1>
-                  <p className="text-[10px] text-gray-400">Espace Conseiller</p>
+              )}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="text-gray-400 hover:text-white p-1"
+                title={sidebarOpen ? 'Réduire' : 'Déplier'}
+              >
+                {isMobile ? '✕' : sidebarOpen ? '◀' : '▶'}
+              </button>
+            </div>
+            {/* Logo de la structure (sous le logo Catch'Up) */}
+            {conseiller?.structure?.logoUrl && (
+              <div className={`mt-3 flex ${(sidebarOpen || isMobile) ? 'items-center gap-3' : 'justify-center'}`}>
+                <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center overflow-hidden shadow-sm border border-gray-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={conseiller.structure.logoUrl} alt={conseiller.structure.nom} className="w-10 h-10 object-contain" />
                 </div>
-              </div>
-            ) : (
-              <div className="mx-auto w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-sm">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/favicon-catchup.png?v=3" alt={brandConfig.appName} className="w-8 h-8 object-contain" />
+                {(sidebarOpen || isMobile) && (
+                  <p className="text-xs font-medium text-gray-300 truncate">{conseiller.structure.nom}</p>
+                )}
               </div>
             )}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-gray-400 hover:text-white p-1"
-              title={sidebarOpen ? 'Réduire' : 'Déplier'}
-            >
-              {isMobile ? '✕' : sidebarOpen ? '◀' : '▶'}
-            </button>
           </div>
 
           {/* Navigation */}

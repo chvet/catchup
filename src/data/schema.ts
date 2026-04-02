@@ -188,6 +188,7 @@ export const structure = sqliteTable('structure', {
   webhookUrl: text('webhook_url'),
   parcoureoId: text('parcoureo_id'),
   promptPersonnalise: text('prompt_personnalise'), // Custom AI behavior prompt set by admin_structure
+  logoUrl: text('logo_url'), // Structure logo (relative path to uploaded image)
   actif: integer('actif').default(1),
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),

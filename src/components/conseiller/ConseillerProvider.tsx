@@ -9,7 +9,7 @@ export interface ConseillerInfo {
   nom: string
   role: string
   parcoureoId?: string | null
-  structure: { id: string; nom: string; type: string } | null
+  structure: { id: string; nom: string; type: string; logoUrl?: string | null } | null
 }
 
 const ConseillerContext = createContext<ConseillerInfo | null>(null)

@@ -25,6 +25,7 @@ interface StructureDetail {
   latitude?: number | null
   longitude?: number | null
   promptPersonnalise?: string | null
+  logoUrl?: string | null
   nbConseillers?: number
   nbCasActifs?: number
 }
@@ -106,6 +107,10 @@ export default function StructureDetailPage() {
   const [promptSaving, setPromptSaving] = useState(false)
   const [promptSaved, setPromptSaved] = useState(false)
 
+  // Logo
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+
   const isAdmin = conseiller?.role === 'admin_structure' || conseiller?.role === 'super_admin'
   const isSuperAdmin = conseiller?.role === 'super_admin'
 
@@ -152,6 +157,7 @@ export default function StructureDetailPage() {
         ville: structure.ville || '',
       })
       setPromptValue(structure.promptPersonnalise || '')
+      setLogoPreview(structure.logoUrl || null)
     }
   }, [structure])
 
@@ -651,6 +657,79 @@ export default function StructureDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Logo de la structure */}
+      {isAdmin && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            <span className="mr-2">🏢</span>Logo de la structure
+          </h3>
+          <div className="flex items-center gap-6">
+            {/* Preview */}
+            <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden bg-gray-50 flex-shrink-0">
+              {logoPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`${logoPreview}?t=${Date.now()}`} alt="Logo" className="w-full h-full object-contain" />
+              ) : (
+                <span className="text-gray-300 text-2xl">🏢</span>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-gray-500 mb-3">
+                Ce logo sera affich&eacute; dans la barre lat&eacute;rale de l&apos;espace conseiller, sous le logo Catch&apos;Up.<br />
+                Formats : JPG, PNG, WebP, GIF. Max 2 Mo.
+              </p>
+              <div className="flex items-center gap-2">
+                <label className="px-4 py-2 bg-catchup-primary text-white text-xs font-semibold rounded-lg cursor-pointer hover:bg-catchup-primary/90 transition-colors">
+                  {logoUploading ? 'Envoi...' : logoPreview ? 'Changer' : 'Ajouter un logo'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    disabled={logoUploading}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      setLogoUploading(true)
+                      try {
+                        const fd = new FormData()
+                        fd.append('logo', file)
+                        const res = await fetch(`/api/conseiller/structures/${structureId}/logo`, {
+                          method: 'POST',
+                          body: fd,
+                        })
+                        if (res.ok) {
+                          const data = await res.json()
+                          setLogoPreview(data.logoUrl)
+                        } else {
+                          const err = await res.json().catch(() => ({ error: 'Erreur' }))
+                          alert(err.error || 'Erreur lors de l\'upload')
+                        }
+                      } catch {
+                        alert('Erreur de connexion')
+                      }
+                      setLogoUploading(false)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+                {logoPreview && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Supprimer le logo ?')) return
+                      const res = await fetch(`/api/conseiller/structures/${structureId}/logo`, { method: 'DELETE' })
+                      if (res.ok) setLogoPreview(null)
+                    }}
+                    className="px-3 py-2 text-xs text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    Supprimer
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lien & QR Code */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">

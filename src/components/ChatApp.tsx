@@ -1045,7 +1045,7 @@ export default function ChatApp() {
                     {(!referralId || referralStatus === 'annulee' || referralStatus === 'terminee' || referralStatus === 'rupture') && (
                       <button
                         onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}
-                        className="mt-6 flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-catchup-primary/20 text-catchup-primary rounded-full text-sm font-semibold hover:bg-catchup-primary hover:text-white hover:border-catchup-primary active:scale-[0.97] transition-all duration-200 shadow-sm"
+                        className="mt-6 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-catchup-primary to-catchup-secondary text-white rounded-xl text-sm font-semibold shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                       >
                         <span className="text-base">🙋</span>
                         <span>Parler à un conseiller</span>
