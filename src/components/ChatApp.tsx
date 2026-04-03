@@ -1475,8 +1475,8 @@ export default function ChatApp() {
 
       {/* Mini profil connecté */}
       {showAuthProfile && authUser && (
-        <div className="fixed inset-0 z-50 flex items-start justify-end pt-14 pr-3" onClick={() => setShowAuthProfile(false)}>
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-4 w-64" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-start justify-end pt-14 px-3" onClick={() => setShowAuthProfile(false)}>
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-4 w-64 max-w-[calc(100vw-1.5rem)]" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-catchup-primary/10 flex items-center justify-center">
                 <span className="text-lg font-bold text-catchup-primary">{authUser.prenom.charAt(0).toUpperCase()}</span>
@@ -1655,7 +1655,7 @@ export default function ChatApp() {
                 onClick={() => setShowIaBubble(false)}
               />
 
-              <div className="fixed z-50 bottom-6 right-6 sm:bottom-6 sm:right-6 inset-x-3 sm:inset-x-auto top-20 sm:top-auto sm:w-[380px] sm:h-[520px] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-scale-in">
+              <div className="fixed z-50 inset-x-3 top-20 bottom-6 sm:inset-x-auto sm:top-auto sm:bottom-6 sm:right-6 sm:w-[min(380px,calc(100vw-2rem))] sm:h-[520px] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-scale-in">
                 {/* Header */}
                 <div className="px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 flex-shrink-0">
                   <div className="flex items-center justify-between">

@@ -77,7 +77,7 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
             {!isUser && !voiceData && (
               <button
                 onClick={onSpeak}
-                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] transition-all duration-200
+                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] min-h-[36px] transition-all duration-200
                   focus-visible:ring-2 focus-visible:ring-catchup-primary focus-visible:outline-none
                   ${isSpeaking
                     ? 'bg-catchup-primary/10 text-catchup-primary font-medium'

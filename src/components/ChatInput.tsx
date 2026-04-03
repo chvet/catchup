@@ -164,7 +164,7 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
         <button
           type="submit"
           disabled={!input.trim() || isLoading || transcribing}
-          className="p-2 rounded-full bg-catchup-primary text-white disabled:opacity-30 hover:bg-indigo-600 active:scale-95 transition-all shadow-sm disabled:shadow-none shrink-0"
+          className="p-2.5 rounded-full bg-catchup-primary text-white disabled:opacity-30 hover:bg-indigo-600 active:scale-95 transition-all shadow-sm disabled:shadow-none shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

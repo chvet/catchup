@@ -166,7 +166,7 @@ export default function ProfilePanel({ profile, messageCount = 0, gameState, onC
   }, [confiance.niveau])
 
   return (
-    <div className="absolute inset-y-0 right-0 w-80 md:w-96 bg-white shadow-2xl z-40 slide-in-right flex flex-col" role="dialog" aria-label="Profil utilisateur">
+    <div className="fixed inset-0 sm:absolute sm:inset-y-0 sm:left-auto sm:right-0 sm:w-80 md:w-96 bg-white shadow-2xl z-40 slide-in-right flex flex-col" role="dialog" aria-label="Profil utilisateur">
       {/* Header */}
       <div className="bg-gradient-to-r from-catchup-primary to-indigo-600 text-white px-4 py-4">
         <div className="flex items-center justify-between mb-3">
