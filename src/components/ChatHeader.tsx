@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useRef, useEffect } from 'react'
 import { UserProfile } from '@/core/types'
 import { hasSignificantProfile } from '@/core/profile-parser'
 import { useAppBrand } from '@/hooks/useAppBrand'
@@ -51,13 +52,50 @@ interface Props {
   onLangChange: (lang: LangCode) => void
 }
 
+// RGAA audit items — updated when features evolve
+const RGAA_ITEMS = [
+  { label: 'Navigation au clavier', status: 'ok' as const },
+  { label: 'Attributs ARIA (roles, labels)', status: 'ok' as const },
+  { label: 'Contraste des textes (AA)', status: 'ok' as const },
+  { label: 'Taille de texte ajustable', status: 'ok' as const },
+  { label: 'Interligne ajustable', status: 'ok' as const },
+  { label: 'Mode contraste renforce', status: 'ok' as const },
+  { label: 'Animations reductibles', status: 'ok' as const },
+  { label: 'Lecture vocale (TTS)', status: 'ok' as const },
+  { label: 'Support multilingue (10 langues)', status: 'ok' as const },
+  { label: 'Formulaires accessibles', status: 'ok' as const },
+  { label: 'Textes alternatifs images', status: 'partial' as const, note: 'Partiel sur les avatars' },
+  { label: 'Sous-titres / transcriptions audio', status: 'missing' as const, note: 'Prevu prochainement' },
+  { label: 'Compatible lecteurs d\'ecran (NVDA/VoiceOver)', status: 'partial' as const, note: 'Tests en cours' },
+  { label: 'Documentation accessibilite', status: 'missing' as const, note: 'En redaction' },
+] as const
+
+const RGAA_SCORE = Math.round(
+  (RGAA_ITEMS.filter(i => i.status === 'ok').length / RGAA_ITEMS.length) * 100
+)
+
 export default function ChatHeader({ profile, streak = 0, hasMessages = false, onToggleProfile, onToggleA11y, onToggleTts, onReset, a11yOpen, ttsEnabled, authPrenom, onAuthClick, selectedLang, onLangChange }: Props) {
   const hasProfile = hasSignificantProfile(profile)
   const brandConfig = useAppBrand()
+  const [rgaaOpen, setRgaaOpen] = useState(false)
+  const [langOpen, setLangOpen] = useState(false)
+  const langRef = useRef<HTMLDivElement>(null)
+
+  // Close lang dropdown on outside click
+  useEffect(() => {
+    if (!langOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (langRef.current && !langRef.current.contains(e.target as Node)) {
+        setLangOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [langOpen])
 
   return (
-    <>
-    <header className="bg-gradient-to-r from-catchup-primary to-indigo-600 text-white px-3 py-2.5 flex items-center gap-3 shadow-lg z-30">
+    <div className="relative z-30">
+    <header className="bg-gradient-to-r from-catchup-primary to-indigo-600 text-white px-3 py-2.5 flex items-center gap-3 shadow-lg">
       <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm">
         {brandConfig.logo.startsWith('/') ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -94,7 +132,63 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           </HeaderBtn>
         )}
 
-        {/* Bouton accessibilité (ouvre le panneau avec TTS + options visuelles) */}
+        {/* Sélecteur de langue — drapeau actif + dropdown */}
+        <div ref={langRef} className="relative">
+          <button
+            onClick={() => setLangOpen(v => !v)}
+            className={`p-1.5 rounded-full transition-colors flex items-center gap-1 ${langOpen ? 'bg-white/25' : 'hover:bg-white/10'}`}
+            title={LANGUAGES.find(l => l.code === selectedLang)?.label || 'Langue'}
+            aria-label="Changer de langue"
+            aria-expanded={langOpen}
+            aria-haspopup="true"
+          >
+            <span className="w-7 h-5 rounded-sm overflow-hidden border border-white/40 block">
+              {FLAGS[selectedLang]}
+            </span>
+            <svg className={`w-3 h-3 transition-transform ${langOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* Dropdown drapeaux — grille 5×2 */}
+          {langOpen && (
+            <div
+              className="absolute top-full right-0 mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-200 p-2.5 z-50 w-[220px]"
+              role="listbox"
+              aria-label="Choisir une langue"
+            >
+              <div className="grid grid-cols-5 gap-1.5">
+                {LANGUAGES.map(({ code, label }) => (
+                  <button
+                    key={code}
+                    onClick={() => { onLangChange(code); setLangOpen(false) }}
+                    className={`group flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all ${
+                      selectedLang === code
+                        ? 'bg-catchup-primary/10 ring-2 ring-catchup-primary'
+                        : 'hover:bg-gray-100'
+                    }`}
+                    title={label}
+                    role="option"
+                    aria-selected={selectedLang === code}
+                  >
+                    <span className={`w-8 h-5.5 rounded-sm overflow-hidden border block ${
+                      selectedLang === code ? 'border-catchup-primary' : 'border-gray-200 group-hover:border-gray-400'
+                    }`}>
+                      {FLAGS[code]}
+                    </span>
+                    <span className={`text-[9px] leading-tight ${
+                      selectedLang === code ? 'text-catchup-primary font-semibold' : 'text-gray-500'
+                    }`}>
+                      {code.toUpperCase()}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bouton accessibilité */}
         <button
           onClick={onToggleA11y}
           className={`p-2 rounded-full transition-colors ${a11yOpen ? 'bg-white/25' : 'hover:bg-white/10'}`}
@@ -106,6 +200,18 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
             <circle cx="12" cy="4.5" r="2" fill="currentColor" stroke="none" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5m0 0l-3 6m3-6l3 6M5 10l7 1 7-1" />
           </svg>
+        </button>
+
+        {/* Badge RGAA cliquable */}
+        <button
+          onClick={() => setRgaaOpen(v => !v)}
+          className={`px-1.5 py-0.5 rounded text-[10px] font-medium tracking-wide transition-colors ${
+            rgaaOpen ? 'bg-white/25 text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/10'
+          }`}
+          title="Voir le detail de conformite RGAA"
+          aria-expanded={rgaaOpen}
+        >
+          RGAA {RGAA_SCORE}%
         </button>
 
         {onAuthClick && (
@@ -132,7 +238,6 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           className="p-2 rounded-full hover:bg-white/10 transition-colors relative"
           title="Mon profil RIASEC"
         >
-          {/* Icône cible / bullseye pour le profil RIASEC */}
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" strokeWidth={2} />
             <circle cx="12" cy="12" r="6" strokeWidth={2} />
@@ -145,31 +250,55 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
       </div>
     </header>
 
-    {/* ── Barre de drapeaux + badge RGAA ── */}
-    <div className="bg-gradient-to-r from-catchup-primary/90 to-indigo-600/90 px-3 py-1.5 flex items-center gap-1.5 border-t border-white/10">
-      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide flex-1">
-        {LANGUAGES.map(({ code, label }) => (
-          <button
-            key={code}
-            onClick={() => onLangChange(code)}
-            className={`flex-shrink-0 w-9 h-6 rounded-sm overflow-hidden transition-all border ${
-              selectedLang === code
-                ? 'scale-110 ring-2 ring-white/60 border-white/80 shadow-md'
-                : 'hover:scale-105 opacity-70 hover:opacity-100 border-white/20'
-            }`}
-            title={label}
-            aria-label={label}
-            aria-pressed={selectedLang === code}
-          >
-            {FLAGS[code]}
-          </button>
-        ))}
-      </div>
-      <span className="flex-shrink-0 text-[10px] text-white/60 font-medium tracking-wide" title="Taux de conformité RGAA estimé">
-        RGAA 72%
-      </span>
+    {/* ── Panneau detail RGAA ── */}
+    {rgaaOpen && (
+      <>
+        <div className="fixed inset-0 z-40" onClick={() => setRgaaOpen(false)} aria-hidden="true" />
+        <div className="absolute top-full right-2 z-50 w-80 max-w-[calc(100vw-1rem)] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-fade-in"
+          role="dialog" aria-label="Detail conformite RGAA">
+          <div className="px-4 py-3 bg-gradient-to-r from-catchup-primary to-indigo-600 text-white flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">Conformite RGAA</h3>
+              <p className="text-[11px] text-white/70">Referentiel general d&apos;amelioration de l&apos;accessibilite</p>
+            </div>
+            <div className="text-right">
+              <span className="text-xl font-bold">{RGAA_SCORE}%</span>
+              <p className="text-[10px] text-white/60">{RGAA_ITEMS.filter(i => i.status === 'ok').length}/{RGAA_ITEMS.length} criteres</p>
+            </div>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto px-4 py-3 space-y-2">
+            {RGAA_ITEMS.map((item, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className={`flex-shrink-0 mt-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  item.status === 'ok'
+                    ? 'bg-green-100 text-green-600'
+                    : item.status === 'partial'
+                      ? 'bg-amber-100 text-amber-600'
+                      : 'bg-red-100 text-red-500'
+                }`}>
+                  {item.status === 'ok' ? '✓' : item.status === 'partial' ? '~' : '✕'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs ${item.status === 'ok' ? 'text-gray-700' : 'text-gray-500'}`}>{item.label}</p>
+                  {'note' in item && item.note && (
+                    <p className="text-[10px] text-gray-400">{item.note}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+            <p className="text-[10px] text-gray-400">Derniere evaluation : avril 2026</p>
+            <button onClick={() => setRgaaOpen(false)} className="text-xs text-catchup-primary hover:underline">
+              Fermer
+            </button>
+          </div>
+        </div>
+      </>
+    )}
     </div>
-    </>
   )
 }
 
