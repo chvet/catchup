@@ -4,17 +4,31 @@ import { UserProfile } from '@/core/types'
 import { hasSignificantProfile } from '@/core/profile-parser'
 import { useAppBrand } from '@/hooks/useAppBrand'
 
+// Drapeaux SVG inline — aucune dépendance externe
+const FLAGS: Record<string, React.ReactNode> = {
+  fr: <svg viewBox="0 0 30 20"><rect width="10" height="20" fill="#002395"/><rect x="10" width="10" height="20" fill="#fff"/><rect x="20" width="10" height="20" fill="#ED2939"/></svg>,
+  gb: <svg viewBox="0 0 30 20"><rect width="30" height="20" fill="#012169"/><path d="M0,0L30,20M30,0L0,20" stroke="#fff" strokeWidth="4"/><path d="M0,0L30,20M30,0L0,20" stroke="#C8102E" strokeWidth="2.5"/><path d="M15,0V20M0,10H30" stroke="#fff" strokeWidth="6"/><path d="M15,0V20M0,10H30" stroke="#C8102E" strokeWidth="3.5"/></svg>,
+  dz: <svg viewBox="0 0 30 20"><rect width="15" height="20" fill="#006633"/><rect x="15" width="15" height="20" fill="#fff"/><circle cx="16" cy="10" r="5" fill="#D21034"/><circle cx="17.5" cy="10" r="4" fill="#fff"/><path d="M17,6.5L18,9.5H15L17,7.5L13.5,9.5L15.5,9.5Z" fill="#D21034" transform="translate(-0.5,0.5)"/></svg>,
+  pt: <svg viewBox="0 0 30 20"><rect width="12" height="20" fill="#006600"/><rect x="12" width="18" height="20" fill="#FF0000"/><circle cx="12" cy="10" r="4" fill="#FFCC00"/></svg>,
+  tr: <svg viewBox="0 0 30 20"><rect width="30" height="20" fill="#E30A17"/><circle cx="12" cy="10" r="5" fill="#fff"/><circle cx="13.5" cy="10" r="4" fill="#E30A17"/><polygon points="17,10 14.5,8.5 14.5,11.5 17,10 14,10 15.5,7.5 15.5,12.5" fill="#fff"/></svg>,
+  it: <svg viewBox="0 0 30 20"><rect width="10" height="20" fill="#009246"/><rect x="10" width="10" height="20" fill="#fff"/><rect x="20" width="10" height="20" fill="#CE2B37"/></svg>,
+  es: <svg viewBox="0 0 30 20"><rect width="30" height="5" fill="#AA151B"/><rect y="5" width="30" height="10" fill="#F1BF00"/><rect y="15" width="30" height="5" fill="#AA151B"/></svg>,
+  de: <svg viewBox="0 0 30 20"><rect width="30" height="7" fill="#000"/><rect y="7" width="30" height="6" fill="#DD0000"/><rect y="13" width="30" height="7" fill="#FFCC00"/></svg>,
+  ro: <svg viewBox="0 0 30 20"><rect width="10" height="20" fill="#002B7F"/><rect x="10" width="10" height="20" fill="#FCD116"/><rect x="20" width="10" height="20" fill="#CE1126"/></svg>,
+  cn: <svg viewBox="0 0 30 20"><rect width="30" height="20" fill="#DE2910"/><polygon points="5,3 6,6 3,4.5 7,4.5 4,6" fill="#FFDE00"/><polygon points="10,1.5 10.4,2.7 9.3,2 10.7,2 9.6,2.7" fill="#FFDE00"/><polygon points="12,3.5 12.4,4.7 11.3,4 12.7,4 11.6,4.7" fill="#FFDE00"/><polygon points="12,6.5 12.4,7.7 11.3,7 12.7,7 11.6,7.7" fill="#FFDE00"/><polygon points="10,8.5 10.4,9.7 9.3,9 10.7,9 9.6,9.7" fill="#FFDE00"/></svg>,
+}
+
 export const LANGUAGES = [
-  { code: 'fr', country: 'fr', label: 'Français' },
-  { code: 'en', country: 'gb', label: 'English' },
-  { code: 'ar', country: 'dz', label: 'العربية' },
-  { code: 'pt', country: 'pt', label: 'Português' },
-  { code: 'tr', country: 'tr', label: 'Türkçe' },
-  { code: 'it', country: 'it', label: 'Italiano' },
-  { code: 'es', country: 'es', label: 'Español' },
-  { code: 'de', country: 'de', label: 'Deutsch' },
-  { code: 'ro', country: 'ro', label: 'Română' },
-  { code: 'zh', country: 'cn', label: '中文' },
+  { code: 'fr', label: 'Français' },
+  { code: 'en', label: 'English' },
+  { code: 'ar', label: 'العربية' },
+  { code: 'pt', label: 'Português' },
+  { code: 'tr', label: 'Türkçe' },
+  { code: 'it', label: 'Italiano' },
+  { code: 'es', label: 'Español' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'ro', label: 'Română' },
+  { code: 'zh', label: '中文' },
 ] as const
 
 export type LangCode = typeof LANGUAGES[number]['code']
@@ -138,11 +152,11 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
 
     {/* ── Barre de drapeaux / sélection de langue ── */}
     <div className="bg-gradient-to-r from-catchup-primary/90 to-indigo-600/90 px-3 py-1.5 flex items-center gap-1.5 overflow-x-auto scrollbar-hide border-t border-white/10">
-      {LANGUAGES.map(({ code, country, label }) => (
+      {LANGUAGES.map(({ code, label }) => (
         <button
           key={code}
           onClick={() => onLangChange(code)}
-          className={`flex-shrink-0 w-8 h-6 rounded-sm overflow-hidden transition-all border ${
+          className={`flex-shrink-0 w-9 h-6 rounded-sm overflow-hidden transition-all border ${
             selectedLang === code
               ? 'scale-110 ring-2 ring-white/60 border-white/80 shadow-md'
               : 'hover:scale-105 opacity-70 hover:opacity-100 border-white/20'
@@ -151,14 +165,7 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           aria-label={label}
           aria-pressed={selectedLang === code}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`https://flagcdn.com/w40/${country}.png`}
-            srcSet={`https://flagcdn.com/w80/${country}.png 2x`}
-            alt={label}
-            className="w-full h-full object-cover"
-            loading="eager"
-          />
+          {FLAGS[code]}
         </button>
       ))}
     </div>
