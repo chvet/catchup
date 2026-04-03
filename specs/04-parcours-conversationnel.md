@@ -50,6 +50,88 @@ Quand le jeune sort du périmètre, Catch'Up ne refuse **jamais** sèchement. Il
 
 ---
 
+## Écran d'acceptation des CGU (bénéficiaires)
+
+Avant toute interaction avec le chat, le bénéficiaire voit un **écran modal bloquant** (interstitiel) lors de sa première visite. Cet écran doit être accepté pour accéder à la conversation.
+
+### Contenu de l'écran CGU
+
+L'écran couvre les points suivants :
+- **Utilisation des données** : les données sont traitées pour l'accompagnement en orientation uniquement
+- **Consentement SMS** : si le jeune fournit son numéro, il accepte d'être recontacté par SMS
+- **Avertissement IA** : Catch'Up utilise une intelligence artificielle — les réponses ne constituent pas un conseil professionnel garanti
+- **Cookies** : un seul cookie technique (session), aucun cookie tiers, aucun tracking publicitaire
+- **Contact DPO** : possibilité de contacter le délégué à la protection des données à `rgpd@fondation-jae.org`
+
+### Comportement technique
+
+- **Modal bloquant** : le chat est inaccessible tant que l'utilisateur n'a pas cliqué sur « Accepter »
+- **Persistance** : l'acceptation est enregistrée en `localStorage` (`cgu_accepted = true`). L'écran ne réapparaît pas lors des visites suivantes
+- **Non applicable aux conseillers** : les conseillers/prescripteurs disposent de contrats séparés — cet écran ne s'affiche que dans le `ChatApp.tsx` côté bénéficiaire
+
+### Exemple de présentation
+
+> **Avant de commencer...**
+> Catch'Up utilise une IA pour t'aider dans ton orientation. Tes données restent confidentielles et ne sont jamais vendues. En continuant, tu acceptes nos conditions d'utilisation.
+> [Lire les CGU complètes] [Accepter et commencer]
+
+---
+
+## Sélecteur de langue
+
+### Langues supportées
+
+Catch'Up supporte **10 langues** : français (fr), anglais (en), arabe (ar), portugais (pt), turc (tr), italien (it), espagnol (es), allemand (de), roumain (ro), chinois (zh).
+
+### Interface du sélecteur
+
+Le sélecteur de langue est un **dropdown compact** dans le header :
+- **Bouton** : un seul drapeau SVG inline correspondant à la langue active
+- **Au clic** : ouverture d'une grille 5×2 affichant les 10 langues avec leurs drapeaux SVG inline
+- **Drapeaux** : SVG inline (pas de dépendance externe type flagcdn) pour compatibilité maximale
+
+### Comportement au changement de langue
+
+Quand le jeune change de langue :
+1. Un **message est envoyé à l'IA** pour l'informer du changement de langue (ex. : « L'utilisateur souhaite désormais converser en anglais »)
+2. La **langue forcée est injectée dans le system prompt** pour que l'IA réponde systématiquement dans la langue choisie
+3. L'interface reste en français — seule la conversation bascule dans la langue sélectionnée
+4. Les blocs techniques (PROFILE, SUGGESTIONS) restent en français
+
+### Emplacement dans le header
+
+Le sélecteur de langue fait partie du header redessiné (ligne unique) : logo, nom de l'app, streak, [nouvelle conversation], [dropdown drapeaux], [accessibilité], [badge RGAA], [auth], [profil RIASEC]. L'ancien bandeau de drapeaux en deuxième ligne a été supprimé.
+
+---
+
+## Header redessiné
+
+Le header est désormais une **ligne unique** contenant (de gauche à droite) :
+1. **Logo** Catch'Up
+2. **Nom de l'application**
+3. **Streak** (série de jours consécutifs)
+4. **Bouton nouvelle conversation**
+5. **Dropdown drapeaux** (sélecteur de langue compact)
+6. **Bouton accessibilité** (ouvre le panneau d'accessibilité, cf. spec 12)
+7. **Badge RGAA** (score cliquable, cf. spec 12)
+8. **Bouton authentification**
+9. **Bouton profil RIASEC**
+
+L'ancien header à deux barres (avec bandeau de drapeaux sur la deuxième ligne) est supprimé.
+
+---
+
+## Bulle IA draggable (FAB)
+
+Dans l'espace bénéficiaire, la bulle d'accès au chat IA est un **bouton flottant (FAB)** draggable :
+
+- **Déplacement** : le FAB est déplaçable par pointer events (souris, touch, stylet)
+- **Snap-to-edges** : lorsqu'il est relâché, le FAB se repositionne automatiquement contre le bord le plus proche (gauche ou droite)
+- **Persistance** : la position du FAB est sauvegardée en `localStorage` et restaurée au chargement
+- **Comportement au clic** : un clic (sans drag) ouvre le chat ; un drag ne déclenche pas l'ouverture
+
+---
+
 ## Contextes d'arrivée
 
 Le jeune n'arrive pas toujours de la même façon. La première phrase de Catch'Up doit s'adapter.

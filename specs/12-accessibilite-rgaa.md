@@ -240,10 +240,77 @@ Un lecteur d'écran dira : "Score Artiste, 70 sur 100".
 
 ---
 
+## Panneau d'accessibilité (header)
+
+### Activation
+
+Le panneau d'accessibilité est contrôlé depuis un **bouton dédié dans le header** (remplace l'ancienne icône œil). Le panneau s'ouvre en position **top-right**, aligné sous le header.
+
+### Fonctionnalités du panneau
+
+Le panneau regroupe tous les réglages d'accessibilité en un seul endroit :
+
+| Réglage | Description | Persistance |
+|---------|-------------|-------------|
+| **TTS (synthèse vocale)** | Toggle on/off — active la lecture automatique des réponses IA | localStorage |
+| **Taille de police** | Curseur ou boutons +/- pour ajuster la taille du texte | localStorage |
+| **Interligne** | Curseur pour ajuster l'espacement des lignes | localStorage |
+| **Contraste élevé** | Toggle — passe en mode contraste AAA (7:1) | localStorage |
+| **Réduction des animations** | Toggle — désactive toutes les animations et transitions | localStorage |
+
+### Comportement
+
+- Le panneau se ferme avec `Échap`, clic extérieur ou re-clic sur le bouton d'accessibilité
+- Les réglages sont appliqués en temps réel (pas besoin de valider)
+- Les préférences sont persistées en `localStorage` et restaurées au chargement
+- Le bouton d'accessibilité dans le header est toujours visible (fait partie de la ligne unique : logo, nom, streak, [nouvelle conversation], [drapeaux], [accessibilité], [RGAA], [auth], [profil RIASEC])
+
+---
+
+## Panneau de conformité RGAA
+
+### Badge RGAA dans le header
+
+Un **badge RGAA cliquable** est affiché dans le header. Il indique le score de conformité actuel (ex. : « RGAA 71% »).
+
+### Calcul du score
+
+Le score est **auto-calculé** à partir d'un tableau `RGAA_ITEMS` défini dans le code :
+- Chaque critère a un statut : `ok` (conforme), `partial` (partiellement conforme) ou `missing` (non conforme)
+- Le score affiché = nombre de critères `ok` / nombre total de critères
+- Score actuel : **71% (10 critères conformes sur 14)**
+
+### Panneau de détail
+
+Au clic sur le badge, un panneau s'ouvre listant tous les critères avec leur statut :
+
+| Critère | Statut | Icône |
+|---------|--------|-------|
+| Images | ok | ✅ |
+| Cadres | ok | ✅ |
+| Couleurs | ok | ✅ |
+| Multimédia | partial | ⚠️ |
+| ... | ... | ... |
+
+Chaque critère affiche :
+- Le nom du critère RGAA
+- Le statut visuel (icône + couleur)
+- Un résumé de la conformité ou des points à améliorer
+
+### Objectifs
+
+| Phase | Score visé |
+|-------|-----------|
+| MVP | > 71% (état actuel) |
+| v1.1 | > 85% |
+| v2 | > 90% |
+
+---
+
 ## Mode RGAA (accessibilité renforcée)
 
 ### Activation
-Bouton ♿ dans l'en-tête du chat. Active un mode d'accessibilité renforcée.
+Le mode RGAA renforcé est activable via le panneau d'accessibilité (cf. section ci-dessus). Les réglages individuels (taille de police, interligne, contraste, animations) remplacent l'ancien toggle unique.
 
 ### Ce que le mode RGAA change
 

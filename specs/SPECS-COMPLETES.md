@@ -804,6 +804,24 @@ Mise en relation conseiller
 
 ---
 
+## Ecran d'acceptation des CGU (beneficiaires)
+
+Avant toute interaction avec le chat, le beneficiaire voit un **ecran modal bloquant** lors de sa premiere visite. Contenu : utilisation des donnees, consentement SMS, avertissement IA, cookies, contact DPO (`rgpd@fondation-jae.org`). L'acceptation est persistee en `localStorage` (`cgu_accepted = true`). Non applicable aux conseillers (contrats separes). Cf. spec 14 pour les details RGPD.
+
+---
+
+## Selecteur de langue
+
+Catch'Up supporte **10 langues** (fr, en, ar, pt, tr, it, es, de, ro, zh) avec drapeaux SVG inline. Le selecteur est un **dropdown compact** dans le header : un bouton drapeau unique (langue active), clic ouvre une grille 5x2. Au changement de langue, un message est envoye a l'IA et la langue forcee est injectee dans le system prompt. L'ancien bandeau de drapeaux en deuxieme ligne a ete supprime. Le header est desormais une ligne unique : logo, nom, streak, [nouvelle conversation], [dropdown drapeaux], [accessibilite], [badge RGAA], [auth], [profil RIASEC].
+
+---
+
+## Bulle IA draggable (FAB)
+
+Le bouton flottant (FAB) d'acces au chat IA dans l'espace beneficiaire est **draggable** par pointer events, avec snap-to-edges et position persistee en `localStorage`.
+
+---
+
 ## Contextes d'arrivee
 
 Le jeune n'arrive pas toujours de la meme facon. La premiere phrase de Catch'Up doit s'adapter.
@@ -4568,9 +4586,31 @@ Les jeunes 16-25 ans accompagnes par Catch'Up incluent :
 
 ---
 
+## Panneau d'accessibilite (header)
+
+Bouton dedie dans le header (remplace l'ancienne icone oeil). Le panneau s'ouvre en position **top-right** et regroupe tous les reglages d'accessibilite :
+
+| Reglage | Description |
+|---------|-------------|
+| TTS (synthese vocale) | Toggle on/off — lecture automatique des reponses IA |
+| Taille de police | Curseur ou boutons +/- |
+| Interligne | Curseur pour ajuster l'espacement des lignes |
+| Contraste eleve | Toggle — mode contraste AAA (7:1) |
+| Reduction des animations | Toggle — desactive toutes les animations |
+
+Les preferences sont persistees en `localStorage` et appliquees en temps reel.
+
+---
+
+## Panneau de conformite RGAA
+
+Badge RGAA cliquable dans le header affichant le score de conformite (actuellement **71% = 10/14 criteres**). Au clic, un panneau liste tous les criteres avec leur statut (`ok`, `partial`, `missing`). Le score est auto-calcule a partir du tableau `RGAA_ITEMS` dans le code.
+
+---
+
 ## Mode RGAA (accessibilite renforcee)
 
-Bouton dans l'en-tete du chat. Active un mode d'accessibilite renforcee :
+Les reglages individuels (taille de police, interligne, contraste, animations) sont desormais accessibles depuis le panneau d'accessibilite (cf. ci-dessus) :
 
 | Fonctionnalite | Mode normal | Mode RGAA |
 |----------------|------------|-----------|
@@ -4589,7 +4629,7 @@ Bouton dans l'en-tete du chat. Active un mode d'accessibilite renforcee :
 ## Synthese vocale (TTS)
 
 - **Mode manuel :** Bouton sur chaque bulle IA
-- **Mode automatique (RGAA) :** Chaque nouvelle reponse lue automatiquement
+- **Mode automatique :** Activable depuis le panneau d'accessibilite (toggle TTS)
 - Voix masculine francaise, debit 0.95, hauteur 0.85
 - Decoupage par phrases pour fluidite
 
@@ -4803,13 +4843,17 @@ Pas de collecte de : nom de famille, adresse postale, date de naissance, geoloca
 - **Droit a la portabilite** : Export JSON structuré
 - **Droit d'opposition** : Desinscription email, desactivation push, respect Do-Not-Track
 
-### 2.4 Mineurs (< 18 ans)
+### 2.4 Acceptation des CGU (beneficiaires)
+
+Ecran modal bloquant a la premiere visite du beneficiaire dans le chat. Couvre : utilisation des donnees, consentement SMS, avertissement IA, cookies, contact DPO. Acceptation persistee en `localStorage` (`cgu_accepted = true`). **Non applicable aux conseillers** (couverts par contrats professionnels separes).
+
+### 2.5 Mineurs (< 18 ans)
 
 - 15+ ans : consentement valide (article 8 RGPD)
 - < 15 ans : mode anonyme sans collecte de donnees personnelles
 - Suppression sur demande parentale via `rgpd@fondation-jae.org`
 
-### 2.5 Durees de conservation
+### 2.6 Durees de conservation
 
 | Donnee | Duree |
 |--------|-------|
@@ -4819,7 +4863,7 @@ Pas de collecte de : nom de famille, adresse postale, date de naissance, geoloca
 | Logs serveur | 90 jours |
 | Evenements quiz anonymes | 2 ans |
 
-### 2.6 Sous-traitants
+### 2.7 Sous-traitants
 
 | Sous-traitant | Localisation | Garanties |
 |---------------|-------------|-----------|

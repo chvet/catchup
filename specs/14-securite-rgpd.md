@@ -218,10 +218,29 @@ Le jeune peut s'opposer à certains traitements :
 
 ### 2.4 Consentement
 
+#### Acceptation des CGU — Écran bloquant (bénéficiaires uniquement)
+
+Lors de la **première visite**, un écran modal bloquant est affiché au bénéficiaire avant tout accès au chat (`ChatApp.tsx`). L'écran couvre :
+
+| Point couvert | Détail |
+|---------------|--------|
+| Utilisation des données | Données traitées uniquement pour l'accompagnement en orientation |
+| Consentement SMS | Acceptation d'être recontacté par SMS si le numéro est fourni |
+| Avertissement IA | Les réponses de l'IA ne constituent pas un conseil professionnel garanti |
+| Cookies | Un seul cookie technique, aucun cookie tiers, aucun tracking publicitaire |
+| Contact DPO | Possibilité de contacter `rgpd@fondation-jae.org` à tout moment |
+
+**Règles :**
+- L'acceptation est persistée en `localStorage` (`cgu_accepted = true`)
+- L'écran ne réapparaît pas si déjà accepté
+- **Non applicable aux conseillers/prescripteurs** : ceux-ci sont couverts par des contrats professionnels séparés (contrat de prestation / convention de partenariat). L'interstitiel CGU ne s'affiche que dans l'espace bénéficiaire
+- Le lien vers les CGU complètes (`/cgu`) et la politique de confidentialité (`/confidentialite`) est accessible depuis l'écran
+
 #### Quand on demande le consentement
 
 | Moment | Ce qu'on demande | Comment |
 |--------|-----------------|---------|
+| Première visite (bénéficiaire) | Acceptation des CGU (données, SMS, IA, cookies, DPO) | Écran modal bloquant dans ChatApp.tsx |
 | Collecte email | "Tu veux que je retienne tout ça ? Il me faut juste ton email 😊" | Dans la conversation (pas un popup) |
 | Mise en relation conseiller | "Je peux lui envoyer ton profil pour que tu n'aies pas à tout répéter. Tu veux ?" | Dans la conversation |
 | Newsletter / contenu récurrent | "Tu veux recevoir des actus orientation chaque semaine ?" | Opt-in explicite dans les paramètres |
