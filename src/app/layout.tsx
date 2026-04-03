@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
-import AccessibilityPanel from '@/components/AccessibilityPanel'
 import UpdateBanner from '@/components/UpdateBanner'
 
 export const metadata: Metadata = {
@@ -42,7 +41,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="font-sans antialiased bg-catchup-bg overflow-x-hidden">
         {children}
-        <AccessibilityPanel />
         <UpdateBanner />
         <script
           dangerouslySetInnerHTML={{
