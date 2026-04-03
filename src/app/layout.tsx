@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import AccessibilityPanel from '@/components/AccessibilityPanel'
+import UpdateBanner from '@/components/UpdateBanner'
 
 export const metadata: Metadata = {
   title: "Catch'Up — Ton guide orientation",
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans antialiased bg-catchup-bg overflow-x-hidden">
         {children}
         <AccessibilityPanel />
+        <UpdateBanner />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -58,6 +60,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     navigator.serviceWorker.register('/sw.js')
                       .then(function(reg) {
                         console.log('[SW] Enregistré, scope :', reg.scope);
+                        // Vérifier les mises à jour toutes les 60s
+                        setInterval(function() { reg.update(); }, 60000);
+                        // Détecter quand un nouveau SW est installé
+                        reg.addEventListener('updatefound', function() {
+                          var newSW = reg.installing;
+                          if (newSW) {
+                            newSW.addEventListener('statechange', function() {
+                              if (newSW.state === 'activated') {
+                                console.log('[SW] Nouvelle version activée');
+                              }
+                            });
+                          }
+                        });
                       })
                       .catch(function(err) {
                         console.warn('[SW] Échec enregistrement :', err);

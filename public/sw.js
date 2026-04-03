@@ -1,7 +1,7 @@
 // Service Worker Catch'Up
-// Gestion du cache et des notifications push
+// Gestion du cache, notifications push, et détection de mises à jour
 
-const CACHE_NAME = 'catchup-v2';
+const CACHE_NAME = 'catchup-v3';
 const API_CACHE_NAME = 'catchup-api-v1';
 
 // Ressources à pré-cacher lors de l'installation
@@ -24,7 +24,7 @@ self.addEventListener('install', (event) => {
 });
 
 // --- Activation ---
-// Nettoyage des anciens caches
+// Nettoyage des anciens caches + notification aux clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -33,6 +33,13 @@ self.addEventListener('activate', (event) => {
           .filter((name) => name !== CACHE_NAME && name !== API_CACHE_NAME)
           .map((name) => caches.delete(name))
       );
+    }).then(() => {
+      // Notifier tous les clients qu'une mise à jour est disponible
+      return self.clients.matchAll({ type: 'window' }).then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'SW_UPDATED' });
+        });
+      });
     })
   );
   // Prendre le contrôle de tous les clients ouverts
@@ -43,6 +50,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // JAMAIS cacher version.json ni sw.js — toujours réseau
+  if (url.pathname === '/version.json' || url.pathname === '/sw.js') {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   // Stale-while-revalidate pour les API fiches (données métiers cachéables)
   if (url.pathname.startsWith('/api/fiches') && request.method === 'GET') {

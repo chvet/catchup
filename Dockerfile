@@ -14,7 +14,9 @@ RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN mkdir -p /app/data
+RUN apk add --no-cache git 2>/dev/null || true
 RUN chmod +x node_modules/.bin/* && npm run build
+RUN git rev-parse --short HEAD > /app/.build-hash 2>/dev/null || echo "unknown" > /app/.build-hash
 
 # --- Runner ---
 FROM base AS runner
@@ -30,6 +32,7 @@ RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 RUN mkdir -p /home/nextjs/.npm && chown nextjs:nodejs /home/nextjs/.npm
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.build-hash ./.build-hash
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 

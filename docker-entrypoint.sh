@@ -41,6 +41,11 @@ else
   echo "📦 Base de données existante trouvée"
 fi
 
+# Générer version.json avec le timestamp de démarrage
+BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+echo "{\"version\":\"$(cat /app/.build-hash 2>/dev/null || echo 'unknown')\",\"buildTime\":\"${BUILD_TIME}\"}" > /app/public/version.json
+echo "📋 Version: $(cat /app/.build-hash 2>/dev/null || echo '?') (${BUILD_TIME})"
+
 # Lancer le serveur Next.js
 echo "🚀 Démarrage de Catch'Up..."
 exec node server.js
