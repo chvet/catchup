@@ -182,10 +182,9 @@ export default function ChatApp() {
 
   // Inline PIN verification state
   const [pinEmail, setPinEmail] = useState('')
-  const [pinCode, setPinCode] = useState(['', '', '', '', '', ''])
+  const [pinCode, setPinCode] = useState('')
   const [pinError, setPinError] = useState('')
   const [pinVerifying, setPinVerifying] = useState(false)
-  const pinInputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -727,35 +726,14 @@ export default function ChatApp() {
   }
 
   // ── Inline PIN verification handlers ──
-  const handlePinCodeChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return
-    const newCode = [...pinCode]
-    newCode[index] = value.slice(-1)
-    setPinCode(newCode)
+  const handlePinCodeChange = (value: string) => {
+    const cleaned = value.replace(/\D/g, '').slice(0, 6)
+    setPinCode(cleaned)
     setPinError('')
-    if (value && index < 5) {
-      pinInputRefs.current[index + 1]?.focus()
-    }
-  }
-
-  const handlePinKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !pinCode[index] && index > 0) {
-      pinInputRefs.current[index - 1]?.focus()
-    }
-  }
-
-  const handlePinPaste = (e: React.ClipboardEvent) => {
-    e.preventDefault()
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-    if (pasted.length === 6) {
-      setPinCode(pasted.split(''))
-      pinInputRefs.current[5]?.focus()
-    }
   }
 
   const handlePinVerify = useCallback(async () => {
-    const codeStr = pinCode.join('')
-    if (codeStr.length !== 6) { setPinError('Saisissez les 6 chiffres'); return }
+    if (pinCode.length !== 6) { setPinError('Saisissez les 6 chiffres'); return }
     if (!pinEmail.trim()) { setPinError('Saisissez votre email ou téléphone'); return }
 
     setPinVerifying(true)
@@ -764,7 +742,7 @@ export default function ChatApp() {
       const res = await fetch('/api/accompagnement/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pinEmail.trim(), code: codeStr }),
+        body: JSON.stringify({ email: pinEmail.trim(), code: pinCode }),
       })
       const data = await res.json()
       if (!res.ok) { setPinError(data.error || 'Code invalide'); setPinVerifying(false); return }
@@ -789,7 +767,7 @@ export default function ChatApp() {
 
   // Auto-submit PIN when all 6 digits entered
   useEffect(() => {
-    if (pinCode.every(c => c !== '') && pinEmail.trim()) {
+    if (pinCode.length === 6 && pinEmail.trim()) {
       handlePinVerify()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1158,41 +1136,34 @@ export default function ChatApp() {
                       />
                     </div>
 
-                    {/* Code PIN 6 chiffres */}
+                    {/* Code PIN 6 chiffres — champ unique pour auto-fill SMS */}
                     <div className="mb-4">
-                      <label className="block text-xs font-medium text-gray-600 mb-2">Code de vérification (6 chiffres)</label>
-                      <input
-                        type="text"
-                        autoComplete="one-time-code"
-                        inputMode="numeric"
-                        className="sr-only"
-                        aria-hidden="true"
-                        tabIndex={-1}
-                        onChange={e => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 6)
-                          if (val.length === 6) {
-                            setPinCode(val.split(''))
-                            pinInputRefs.current[5]?.focus()
-                          }
-                        }}
-                      />
-                      <div className="flex gap-2 justify-center" onPaste={handlePinPaste}>
-                        {pinCode.map((digit, i) => (
-                          <input
-                            key={i}
-                            ref={el => { pinInputRefs.current[i] = el }}
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            autoComplete={i === 0 ? 'one-time-code' : 'off'}
-                            maxLength={1}
-                            value={digit}
-                            onChange={e => handlePinCodeChange(i, e.target.value)}
-                            onKeyDown={e => handlePinKeyDown(i, e)}
-                            aria-label={`Chiffre ${i + 1} du code`}
-                            className="w-10 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition text-gray-800"
-                          />
-                        ))}
+                      <label htmlFor="inline-pin-code" className="block text-xs font-medium text-gray-600 mb-2">Code de vérification (6 chiffres)</label>
+                      <div className="relative">
+                        <input
+                          id="inline-pin-code"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoComplete="one-time-code"
+                          maxLength={6}
+                          value={pinCode}
+                          onChange={e => handlePinCodeChange(e.target.value)}
+                          enterKeyHint="done"
+                          aria-label="Code de vérification à 6 chiffres"
+                          className="w-full h-12 text-center text-xl font-bold tracking-[0.5em] border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition text-gray-800 bg-white"
+                          placeholder="••••••"
+                        />
+                        <div className="flex gap-1.5 justify-center mt-1.5 pointer-events-none" aria-hidden="true">
+                          {[0, 1, 2, 3, 4, 5].map(i => (
+                            <div
+                              key={i}
+                              className={`w-6 h-0.5 rounded-full transition-colors ${
+                                i < pinCode.length ? 'bg-green-500' : 'bg-gray-200'
+                              }`}
+                            />
+                          ))}
+                        </div>
                       </div>
                     </div>
 
@@ -1204,7 +1175,7 @@ export default function ChatApp() {
 
                     <button
                       onClick={handlePinVerify}
-                      disabled={pinVerifying || pinCode.some(c => c === '') || !pinEmail.trim()}
+                      disabled={pinVerifying || pinCode.length !== 6 || !pinEmail.trim()}
                       className="w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[48px]"
                     >
                       {pinVerifying ? 'Vérification...' : 'Accéder au chat'}

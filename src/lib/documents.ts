@@ -13,10 +13,12 @@ import { eq, asc } from 'drizzle-orm'
 export const UPLOADS_BASE_DIR = '/app/data/uploads'
 
 export const ALLOWED_TYPES: Record<string, string[]> = {
+  // Images
   'image/jpeg': ['.jpg', '.jpeg'],
   'image/png': ['.png'],
   'image/gif': ['.gif'],
   'image/webp': ['.webp'],
+  // Documents
   'application/pdf': ['.pdf'],
   'application/msword': ['.doc'],
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
@@ -26,6 +28,15 @@ export const ALLOWED_TYPES: Record<string, string[]> = {
   'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
   'text/plain': ['.txt'],
   'text/csv': ['.csv'],
+  // Audio (messages vocaux)
+  'audio/webm': ['.webm'],
+  'audio/webm;codecs=opus': ['.webm'],
+  'audio/mp4': ['.m4a', '.mp4'],
+  'audio/ogg': ['.ogg'],
+  'audio/ogg;codecs=opus': ['.ogg'],
+  'audio/mpeg': ['.mp3'],
+  'audio/wav': ['.wav'],
+  'audio/x-m4a': ['.m4a'],
 }
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
@@ -44,10 +55,22 @@ export interface DocumentMetadata {
 // === VALIDATION ===
 
 /**
+ * Résout le type MIME exact ou par type de base (sans paramètres codecs)
+ * Ex: "audio/webm;codecs=opus" → cherche d'abord exact, puis "audio/webm"
+ */
+function resolveAllowedExts(mimeType: string): string[] | null {
+  if (mimeType in ALLOWED_TYPES) return ALLOWED_TYPES[mimeType]
+  // Essayer sans les paramètres (codecs, etc.)
+  const baseType = mimeType.split(';')[0].trim()
+  if (baseType in ALLOWED_TYPES) return ALLOWED_TYPES[baseType]
+  return null
+}
+
+/**
  * Vérifie que le type MIME est dans la liste autorisée
  */
 export function isAllowedMimeType(mimeType: string): boolean {
-  return mimeType in ALLOWED_TYPES
+  return resolveAllowedExts(mimeType) !== null
 }
 
 /**
@@ -55,7 +78,7 @@ export function isAllowedMimeType(mimeType: string): boolean {
  */
 export function isExtensionValid(originalName: string, mimeType: string): boolean {
   const ext = extname(originalName).toLowerCase()
-  const allowedExts = ALLOWED_TYPES[mimeType]
+  const allowedExts = resolveAllowedExts(mimeType)
   if (!allowedExts) return false
   return allowedExts.includes(ext)
 }
