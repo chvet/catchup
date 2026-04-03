@@ -5,16 +5,16 @@ import { hasSignificantProfile } from '@/core/profile-parser'
 import { useAppBrand } from '@/hooks/useAppBrand'
 
 export const LANGUAGES = [
-  { code: 'fr', flag: '🇫🇷', label: 'Français' },
-  { code: 'en', flag: '🇬🇧', label: 'English' },
-  { code: 'ar', flag: '🇩🇿', label: 'العربية' },
-  { code: 'pt', flag: '🇵🇹', label: 'Português' },
-  { code: 'tr', flag: '🇹🇷', label: 'Türkçe' },
-  { code: 'it', flag: '🇮🇹', label: 'Italiano' },
-  { code: 'es', flag: '🇪🇸', label: 'Español' },
-  { code: 'de', flag: '🇩🇪', label: 'Deutsch' },
-  { code: 'ro', flag: '🇷🇴', label: 'Română' },
-  { code: 'zh', flag: '🇨🇳', label: '中文' },
+  { code: 'fr', country: 'fr', label: 'Français' },
+  { code: 'en', country: 'gb', label: 'English' },
+  { code: 'ar', country: 'dz', label: 'العربية' },
+  { code: 'pt', country: 'pt', label: 'Português' },
+  { code: 'tr', country: 'tr', label: 'Türkçe' },
+  { code: 'it', country: 'it', label: 'Italiano' },
+  { code: 'es', country: 'es', label: 'Español' },
+  { code: 'de', country: 'de', label: 'Deutsch' },
+  { code: 'ro', country: 'ro', label: 'Română' },
+  { code: 'zh', country: 'cn', label: '中文' },
 ] as const
 
 export type LangCode = typeof LANGUAGES[number]['code']
@@ -137,21 +137,28 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
     </header>
 
     {/* ── Barre de drapeaux / sélection de langue ── */}
-    <div className="bg-gradient-to-r from-catchup-primary/90 to-indigo-600/90 px-3 py-1.5 flex items-center gap-1 overflow-x-auto scrollbar-hide border-t border-white/10">
-      {LANGUAGES.map(({ code, flag, label }) => (
+    <div className="bg-gradient-to-r from-catchup-primary/90 to-indigo-600/90 px-3 py-1.5 flex items-center gap-1.5 overflow-x-auto scrollbar-hide border-t border-white/10">
+      {LANGUAGES.map(({ code, country, label }) => (
         <button
           key={code}
           onClick={() => onLangChange(code)}
-          className={`text-lg flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+          className={`flex-shrink-0 w-8 h-6 rounded-sm overflow-hidden transition-all border ${
             selectedLang === code
-              ? 'bg-white/30 scale-110 ring-2 ring-white/50'
-              : 'hover:bg-white/15 opacity-70 hover:opacity-100'
+              ? 'scale-110 ring-2 ring-white/60 border-white/80 shadow-md'
+              : 'hover:scale-105 opacity-70 hover:opacity-100 border-white/20'
           }`}
           title={label}
           aria-label={label}
           aria-pressed={selectedLang === code}
         >
-          {flag}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://flagcdn.com/w40/${country}.png`}
+            srcSet={`https://flagcdn.com/w80/${country}.png 2x`}
+            alt={label}
+            className="w-full h-full object-cover"
+            loading="eager"
+          />
         </button>
       ))}
     </div>
