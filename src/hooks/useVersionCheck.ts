@@ -1,13 +1,25 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const CHECK_INTERVAL = 60_000 // Vérifier toutes les 60 secondes
 const VERSION_URL = '/version.json'
+const UPDATED_KEY = 'catchup_just_updated'
+const GRACE_PERIOD = 15_000 // 15s de grâce après chargement avant de détecter les updates
 
 export function useVersionCheck() {
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [initialVersion, setInitialVersion] = useState<string | null>(null)
+  const mountTime = useRef(Date.now())
+
+  // Si on vient de faire une mise à jour, marquer et ignorer les signaux SW
+  useEffect(() => {
+    const justUpdated = sessionStorage.getItem(UPDATED_KEY)
+    if (justUpdated) {
+      sessionStorage.removeItem(UPDATED_KEY)
+      console.log('[Version] Mise a jour effectuee, grace period active')
+    }
+  }, [])
 
   // Fetch current version on mount
   useEffect(() => {
@@ -27,6 +39,9 @@ export function useVersionCheck() {
     if (!initialVersion) return
 
     const check = () => {
+      // Ne pas détecter de changement pendant la période de grâce
+      if (Date.now() - mountTime.current < GRACE_PERIOD) return
+
       fetch(`${VERSION_URL}?_=${Date.now()}`)
         .then(r => r.json())
         .then(data => {
@@ -42,12 +57,21 @@ export function useVersionCheck() {
     return () => clearInterval(interval)
   }, [initialVersion])
 
-  // Listen for SW update messages
+  // Listen for SW update messages — mais ignorer pendant la période de grâce
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
 
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'SW_UPDATED') {
+        // Ignorer si on vient de charger la page (< 15s) ou si on vient de faire une MAJ
+        if (Date.now() - mountTime.current < GRACE_PERIOD) {
+          console.log('[Version] SW_UPDATED ignore (grace period)')
+          return
+        }
+        if (sessionStorage.getItem(UPDATED_KEY)) {
+          console.log('[Version] SW_UPDATED ignore (just updated)')
+          return
+        }
         console.log('[Version] Service Worker mis a jour')
         setUpdateAvailable(true)
       }
@@ -57,8 +81,11 @@ export function useVersionCheck() {
     return () => navigator.serviceWorker.removeEventListener('message', handleMessage)
   }, [])
 
-  // Force update: clear caches + reload
+  // Force update: marquer, nettoyer caches, recharger
   const forceUpdate = useCallback(async () => {
+    // Marquer qu'on vient de faire une MAJ (survit au reload via sessionStorage)
+    try { sessionStorage.setItem(UPDATED_KEY, Date.now().toString()) } catch {}
+
     try {
       // Unregister all service workers
       if ('serviceWorker' in navigator) {
