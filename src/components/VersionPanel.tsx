@@ -2,17 +2,29 @@
 
 import { useState } from 'react'
 
-export const APP_VERSION = 'V2.0 Beta 007'
+export const APP_VERSION = 'V2.0 Beta 008'
 export const APP_VERSION_DATE = '2026-04-03'
 
 const CHANGELOG = [
+  {
+    version: 'V2.0 Beta 008',
+    date: '03/04/2026',
+    items: [
+      'Textes alternatifs complets sur toutes les images, icones et emojis (RGAA 79%)',
+      'Correction lecture messages vocaux sur smartphone (upload audio serveur)',
+      'Support types audio : webm, mp4, ogg, wav, mp3',
+      'Saisie code PIN : champ unique compatible auto-fill SMS iOS/Android',
+      'Format SMS WebOTP pour auto-remplissage Android natif',
+      'Lien cliquable https:// dans les SMS',
+      'Auto-focus et scroll formulaire PIN sur mobile',
+    ],
+  },
   {
     version: 'V2.0 Beta 007',
     date: '03/04/2026',
     items: [
       'Header compact : selecteur de langue en dropdown (10 langues)',
-      'Panneau RGAA cliquable avec detail des criteres (79%)',
-      'Textes alternatifs complets sur toutes les images et icones',
+      'Panneau RGAA cliquable avec detail des criteres',
       'Ecran CGU bloquant pour les beneficiaires',
       'Bulle IA deplacable (drag & drop)',
       'Detection automatique de mise a jour',
@@ -21,8 +33,6 @@ const CHANGELOG = [
       'Filtre campagne dans la file active',
       'Suivi de delivrance SMS/Email (webhooks Vonage + Brevo)',
       'Badge version et panneau info sur espace conseiller',
-      'Lien cliquable dans les SMS (https://)',
-      'Amelioration saisie code PIN sur mobile (auto-focus, scroll)',
     ],
   },
   {
