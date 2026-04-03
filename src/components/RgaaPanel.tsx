@@ -11,7 +11,7 @@ const RGAA_ITEMS = [
   { label: 'Interligne ajustable', status: 'ok' as const },
   { label: 'Mode contraste renforce', status: 'ok' as const },
   { label: 'Animations reductibles', status: 'ok' as const },
-  { label: 'Lecture vocale (TTS)', status: 'ok' as const },
+  { label: 'Lecture vocale (TTS) sur chaque message', status: 'ok' as const },
   { label: 'Support multilingue (10 langues)', status: 'ok' as const },
   { label: 'Formulaires accessibles', status: 'ok' as const },
   { label: 'Textes alternatifs images', status: 'partial' as const, note: 'Partiel sur les avatars' },

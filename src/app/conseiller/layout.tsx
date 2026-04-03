@@ -7,6 +7,7 @@ import { ConseillerProvider, type ConseillerInfo } from '@/components/conseiller
 import PushNotificationManager from '@/components/PushNotificationManager'
 import AiAssistantPanel from '@/components/conseiller/AiAssistantPanel'
 import RgaaPanel from '@/components/RgaaPanel'
+import VersionPanel from '@/components/VersionPanel'
 import { useAppBrand } from '@/hooks/useAppBrand'
 import { useHeartbeat } from '@/hooks/useHeartbeat'
 
@@ -317,6 +318,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
                   )}
                 </Link>
               )}
+              <VersionPanel />
               <RgaaPanel variant="dark" />
               <span className="text-xs lg:text-sm text-gray-500 hidden md:block">
                 {conseiller?.structure?.nom}

@@ -21,6 +21,9 @@
 //   OVH_SMS_ACCOUNT=xxx / OVH_SMS_LOGIN=xxx / OVH_SMS_PASSWORD=xxx / OVH_SMS_SENDER=CatchUp
 
 import nodemailer from 'nodemailer'
+import { v4 as uuidv4 } from 'uuid'
+import { db } from '@/data/db'
+import { notificationLog } from '@/data/schema'
 
 // Utiliser une indirection pour empêcher Next.js d'inliner les process.env au build time
 // En standalone mode, Next.js remplace env.XXX par la valeur connue au build
@@ -28,9 +31,11 @@ const env = process['env'] as Record<string, string | undefined>
 
 const NOTIFICATION_MODE = env.NOTIFICATION_MODE || (env.NODE_ENV === 'production' ? 'email' : 'console')
 
-interface NotificationResult {
+export interface NotificationResult {
   sent: boolean
   channel: 'sms' | 'email' | 'console'
+  fournisseur?: 'vonage' | 'ovh' | 'smtp' | 'o365' | 'brevo' | 'console'
+  externalMessageId?: string
   error?: string
 }
 
@@ -80,12 +85,12 @@ async function sendSmsVonage(telephone: string, message: string): Promise<Notifi
     const msg = data.messages?.[0]
 
     if (msg?.status === '0') {
-      console.log(`[SMS] Envoyé à +${to} via Vonage (${msg['message-price']} EUR)`)
-      return { sent: true, channel: 'sms' }
+      console.log(`[SMS] Envoyé à +${to} via Vonage (${msg['message-price']} EUR, id: ${msg['message-id']})`)
+      return { sent: true, channel: 'sms', fournisseur: 'vonage', externalMessageId: msg['message-id'] }
     } else {
       const errText = msg?.['error-text'] || 'Unknown error'
       console.error(`[SMS] Vonage erreur: ${errText} (status: ${msg?.status})`)
-      return { sent: false, channel: 'sms', error: errText }
+      return { sent: false, channel: 'sms', fournisseur: 'vonage', error: errText }
     }
   } catch (error) {
     console.error('[SMS] Vonage send error:', error)
@@ -115,11 +120,11 @@ async function sendSmsOvh(telephone: string, message: string): Promise<Notificat
 
     const text = await response.text()
     if (text.includes('OK')) {
-      console.log(`[SMS] Envoyé à ${formatted}`)
-      return { sent: true, channel: 'sms' }
+      console.log(`[SMS] Envoyé à ${formatted} via OVH`)
+      return { sent: true, channel: 'sms', fournisseur: 'ovh' }
     } else {
       console.error(`[SMS] Erreur OVH: ${text}`)
-      return { sent: false, channel: 'sms', error: text }
+      return { sent: false, channel: 'sms', fournisseur: 'ovh', error: text }
     }
   } catch (error) {
     console.error('[SMS] Erreur envoi:', error)
@@ -241,15 +246,15 @@ async function sendEmailO365(to: string, subject: string, body: string): Promise
 
     if (response.ok || response.status === 202) {
       console.log(`[EMAIL] Envoyé à ${to} via Office 365`)
-      return { sent: true, channel: 'email' }
+      return { sent: true, channel: 'email', fournisseur: 'o365' }
     }
 
     const errText = await response.text()
     console.error(`[EMAIL] O365 erreur (${response.status}): ${errText}`)
-    return { sent: false, channel: 'email', error: errText }
+    return { sent: false, channel: 'email', fournisseur: 'o365', error: errText }
   } catch (error) {
     console.error('[EMAIL] O365 send error:', error)
-    return { sent: false, channel: 'email', error: String(error) }
+    return { sent: false, channel: 'email', fournisseur: 'o365', error: String(error) }
   }
 }
 
@@ -298,10 +303,10 @@ async function sendEmailSmtp(to: string, subject: string, body: string): Promise
     })
 
     console.log(`[EMAIL] Envoyé à ${to} via SMTP ${smtpHost}`)
-    return { sent: true, channel: 'email' }
+    return { sent: true, channel: 'email', fournisseur: 'smtp' }
   } catch (error) {
     console.error(`[EMAIL] SMTP error:`, error)
-    return { sent: false, channel: 'email', error: String(error) }
+    return { sent: false, channel: 'email', fournisseur: 'smtp', error: String(error) }
   }
 }
 
@@ -352,8 +357,10 @@ async function sendEmail(to: string, subject: string, body: string): Promise<Not
       })
 
       if (response.ok) {
-        console.log(`[EMAIL] Envoyé à ${to} via Brevo`)
-        return { sent: true, channel: 'email' }
+        let brevoMsgId: string | undefined
+        try { const d = await response.json(); brevoMsgId = d?.messageId } catch { /* ignore */ }
+        console.log(`[EMAIL] Envoyé à ${to} via Brevo (id: ${brevoMsgId || '?'})`)
+        return { sent: true, channel: 'email', fournisseur: 'brevo', externalMessageId: brevoMsgId }
       }
       console.error(`[EMAIL] Brevo erreur: ${await response.text()}`)
     } catch (error) {
@@ -373,7 +380,7 @@ function sendConsole(contact: string, message: string): NotificationResult {
   console.log(`║  Destinataire: ${contact.padEnd(25)}║`)
   console.log(`║  ${message.padEnd(41)}║`)
   console.log(`╚══════════════════════════════════════════╝\n`)
-  return { sent: true, channel: 'console' }
+  return { sent: true, channel: 'console', fournisseur: 'console' }
 }
 
 // ─── Point d'entrée principal ───
@@ -458,4 +465,36 @@ export async function sendRdvNotification(
   }
 
   return sendConsole(contact, message)
+}
+
+// ─── Logger de notification (enregistre chaque envoi pour le suivi de délivrance) ───
+export async function logNotification(params: {
+  referralId?: string
+  priseEnChargeId?: string
+  destinataire: string
+  destinataireType: 'beneficiaire' | 'tiers'
+  type: 'pin_code' | 'rdv_rappel' | 'relance' | 'tiers_invitation'
+  result: NotificationResult
+}): Promise<void> {
+  try {
+    const now = new Date().toISOString()
+    await db.insert(notificationLog).values({
+      id: uuidv4(),
+      referralId: params.referralId || null,
+      priseEnChargeId: params.priseEnChargeId || null,
+      destinataire: params.destinataire,
+      destinataireType: params.destinataireType,
+      canal: params.result.channel,
+      fournisseur: params.result.fournisseur || 'unknown',
+      externalMessageId: params.result.externalMessageId || null,
+      statut: params.result.sent ? 'envoye' : 'echoue',
+      erreur: params.result.error || null,
+      type: params.type,
+      creeLe: now,
+      misAJourLe: now,
+    })
+    console.log(`[NotifLog] ${params.result.channel}/${params.result.fournisseur} → ${params.result.sent ? 'envoye' : 'echoue'} (${params.destinataire})`)
+  } catch (e) {
+    console.error('[NotifLog] Erreur log notification:', e)
+  }
 }

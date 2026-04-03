@@ -449,6 +449,24 @@ export const codeVerification = pgTable('code_verification', {
   creeLe: text('cree_le').notNull(),
 })
 
+// === JOURNAL DE NOTIFICATIONS (delivery tracking) ===
+
+export const notificationLog = pgTable('notification_log', {
+  id: text('id').primaryKey(),
+  referralId: text('referral_id').references(() => referral.id),
+  priseEnChargeId: text('prise_en_charge_id'),
+  destinataire: text('destinataire').notNull(),
+  destinataireType: text('destinataire_type').notNull(), // 'beneficiaire' | 'tiers'
+  canal: text('canal').notNull(), // 'sms' | 'email' | 'console'
+  fournisseur: text('fournisseur').notNull(), // 'vonage' | 'ovh' | 'smtp' | 'o365' | 'brevo' | 'console'
+  externalMessageId: text('external_message_id'), // ID retourné par le fournisseur pour le suivi
+  statut: text('statut').default('envoye'), // 'envoye' | 'delivre' | 'echoue' | 'rebond' | 'spam' | 'ouvert'
+  erreur: text('erreur'),
+  type: text('type').notNull(), // 'pin_code' | 'rdv_rappel' | 'relance' | 'tiers_invitation'
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
 // === SUIVI D'ACTIVITÉS (CEJ) ===
 
 export const categorieActivite = pgTable('categorie_activite', {
