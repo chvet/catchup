@@ -5,18 +5,20 @@ import { hasSignificantProfile } from '@/core/profile-parser'
 import { useAppBrand } from '@/hooks/useAppBrand'
 
 // Drapeaux SVG inline — aucune dépendance externe
+/* eslint-disable react/jsx-key */
 const FLAGS: Record<string, React.ReactNode> = {
-  fr: <svg viewBox="0 0 30 20"><rect width="10" height="20" fill="#002395"/><rect x="10" width="10" height="20" fill="#fff"/><rect x="20" width="10" height="20" fill="#ED2939"/></svg>,
-  gb: <svg viewBox="0 0 30 20"><rect width="30" height="20" fill="#012169"/><path d="M0,0L30,20M30,0L0,20" stroke="#fff" strokeWidth="4"/><path d="M0,0L30,20M30,0L0,20" stroke="#C8102E" strokeWidth="2.5"/><path d="M15,0V20M0,10H30" stroke="#fff" strokeWidth="6"/><path d="M15,0V20M0,10H30" stroke="#C8102E" strokeWidth="3.5"/></svg>,
-  dz: <svg viewBox="0 0 30 20"><rect width="15" height="20" fill="#006633"/><rect x="15" width="15" height="20" fill="#fff"/><circle cx="16" cy="10" r="5" fill="#D21034"/><circle cx="17.5" cy="10" r="4" fill="#fff"/><path d="M17,6.5L18,9.5H15L17,7.5L13.5,9.5L15.5,9.5Z" fill="#D21034" transform="translate(-0.5,0.5)"/></svg>,
-  pt: <svg viewBox="0 0 30 20"><rect width="12" height="20" fill="#006600"/><rect x="12" width="18" height="20" fill="#FF0000"/><circle cx="12" cy="10" r="4" fill="#FFCC00"/></svg>,
-  tr: <svg viewBox="0 0 30 20"><rect width="30" height="20" fill="#E30A17"/><circle cx="12" cy="10" r="5" fill="#fff"/><circle cx="13.5" cy="10" r="4" fill="#E30A17"/><polygon points="17,10 14.5,8.5 14.5,11.5 17,10 14,10 15.5,7.5 15.5,12.5" fill="#fff"/></svg>,
-  it: <svg viewBox="0 0 30 20"><rect width="10" height="20" fill="#009246"/><rect x="10" width="10" height="20" fill="#fff"/><rect x="20" width="10" height="20" fill="#CE2B37"/></svg>,
-  es: <svg viewBox="0 0 30 20"><rect width="30" height="5" fill="#AA151B"/><rect y="5" width="30" height="10" fill="#F1BF00"/><rect y="15" width="30" height="5" fill="#AA151B"/></svg>,
-  de: <svg viewBox="0 0 30 20"><rect width="30" height="7" fill="#000"/><rect y="7" width="30" height="6" fill="#DD0000"/><rect y="13" width="30" height="7" fill="#FFCC00"/></svg>,
-  ro: <svg viewBox="0 0 30 20"><rect width="10" height="20" fill="#002B7F"/><rect x="10" width="10" height="20" fill="#FCD116"/><rect x="20" width="10" height="20" fill="#CE1126"/></svg>,
-  cn: <svg viewBox="0 0 30 20"><rect width="30" height="20" fill="#DE2910"/><polygon points="5,3 6,6 3,4.5 7,4.5 4,6" fill="#FFDE00"/><polygon points="10,1.5 10.4,2.7 9.3,2 10.7,2 9.6,2.7" fill="#FFDE00"/><polygon points="12,3.5 12.4,4.7 11.3,4 12.7,4 11.6,4.7" fill="#FFDE00"/><polygon points="12,6.5 12.4,7.7 11.3,7 12.7,7 11.6,7.7" fill="#FFDE00"/><polygon points="10,8.5 10.4,9.7 9.3,9 10.7,9 9.6,9.7" fill="#FFDE00"/></svg>,
+  fr: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="10" height="20" fill="#002395"/><rect x="10" width="10" height="20" fill="#fff"/><rect x="20" width="10" height="20" fill="#ED2939"/></svg>,
+  gb: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><rect width="60" height="40" fill="#012169"/><line x1="0" y1="0" x2="60" y2="40" stroke="#fff" strokeWidth="8"/><line x1="60" y1="0" x2="0" y2="40" stroke="#fff" strokeWidth="8"/><line x1="0" y1="0" x2="60" y2="40" stroke="#C8102E" strokeWidth="4"/><line x1="60" y1="0" x2="0" y2="40" stroke="#C8102E" strokeWidth="4"/><rect x="24" width="12" height="40" fill="#fff"/><rect y="16" width="60" height="8" fill="#fff"/><rect x="26" width="8" height="40" fill="#C8102E"/><rect y="17" width="60" height="6" fill="#C8102E"/></svg>,
+  dz: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="15" height="20" fill="#006233"/><rect x="15" width="15" height="20" fill="#fff"/><circle cx="16.5" cy="10" r="5" fill="#D21034"/><circle cx="18" cy="10" r="4" fill="#fff"/><polygon points="16.5,6 17.5,9 20.5,9 18,11 19,14 16.5,12 14,14 15,11 12.5,9 15.5,9" fill="#D21034"/></svg>,
+  pt: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="12" height="20" fill="#006600"/><rect x="12" width="18" height="20" fill="#FF0000"/><circle cx="12" cy="10" r="4" fill="#FFCC00"/><circle cx="12" cy="10" r="2.5" fill="#FF0000"/></svg>,
+  tr: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="20" fill="#E30A17"/><circle cx="11" cy="10" r="5" fill="#fff"/><circle cx="12.5" cy="10" r="4" fill="#E30A17"/><polygon points="17,10 14.7,8.3 14.7,11.7" fill="#fff"/></svg>,
+  it: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="10" height="20" fill="#009246"/><rect x="10" width="10" height="20" fill="#fff"/><rect x="20" width="10" height="20" fill="#CE2B37"/></svg>,
+  es: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="5" fill="#AA151B"/><rect y="5" width="30" height="10" fill="#F1BF00"/><rect y="15" width="30" height="5" fill="#AA151B"/></svg>,
+  de: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="7" fill="#000"/><rect y="7" width="30" height="6" fill="#DD0000"/><rect y="13" width="30" height="7" fill="#FFCC00"/></svg>,
+  ro: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="10" height="20" fill="#002B7F"/><rect x="10" width="10" height="20" fill="#FCD116"/><rect x="20" width="10" height="20" fill="#CE1126"/></svg>,
+  zh: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="20" fill="#DE2910"/><polygon points="5,2 6.2,5.7 2.2,3.5 7.8,3.5 3.8,5.7" fill="#FFDE00"/><polygon points="11,1 11.5,2.5 9.8,1.7 12.2,1.7 10.5,2.5" fill="#FFDE00"/><polygon points="13,3 13.5,4.5 11.8,3.7 14.2,3.7 12.5,4.5" fill="#FFDE00"/><polygon points="13,6 13.5,7.5 11.8,6.7 14.2,6.7 12.5,7.5" fill="#FFDE00"/><polygon points="11,8 11.5,9.5 9.8,8.7 12.2,8.7 10.5,9.5" fill="#FFDE00"/></svg>,
 }
+/* eslint-enable react/jsx-key */
 
 export const LANGUAGES = [
   { code: 'fr', label: 'Français' },

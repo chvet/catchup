@@ -5,7 +5,20 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { v4 as uuidv4 } from 'uuid'
 import MessageBubble from './MessageBubble'
-import ChatHeader, { type LangCode } from './ChatHeader'
+import ChatHeader, { type LangCode, LANGUAGES } from './ChatHeader'
+
+const LANG_SWITCH_MESSAGES: Record<string, string> = {
+  fr: 'Je souhaite continuer notre conversation en français.',
+  en: 'I would like to continue our conversation in English.',
+  ar: 'أريد متابعة محادثتنا باللغة العربية.',
+  pt: 'Gostaria de continuar a nossa conversa em português.',
+  tr: 'Konuşmamıza Türkçe devam etmek istiyorum.',
+  it: 'Vorrei continuare la nostra conversazione in italiano.',
+  es: 'Me gustaría continuar nuestra conversación en español.',
+  de: 'Ich möchte unser Gespräch auf Deutsch fortsetzen.',
+  ro: 'Aș dori să continuăm conversația noastră în română.',
+  zh: '我想用中文继续我们的对话。',
+}
 import ChatInput from './ChatInput'
 import SuggestionChips from './SuggestionChips'
 import ProfilePanel from './ProfilePanel'
@@ -799,7 +812,13 @@ export default function ChatApp() {
           }
         }}
         selectedLang={selectedLang}
-        onLangChange={(lang) => { setSelectedLang(lang); saveToLS(LS_LANG, lang) }}
+        onLangChange={(lang) => {
+          if (lang === selectedLang) return
+          setSelectedLang(lang)
+          saveToLS(LS_LANG, lang)
+          const msg = LANG_SWITCH_MESSAGES[lang]
+          if (msg) append({ role: 'user', content: msg })
+        }}
       />
 
       {/* Bandeau accompagnement actif */}
