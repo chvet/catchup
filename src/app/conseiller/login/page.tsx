@@ -122,7 +122,7 @@ function LoginForm() {
           <img
             src="/logo-catchup.png?v=3"
             alt="Catch'Up"
-            className="h-16 w-auto mx-auto mb-3"
+            className="w-40 h-auto mx-auto mb-3"
           />
           <p className="text-catchup-primary text-lg">Espace Conseiller</p>
           {structureInfo ? (
