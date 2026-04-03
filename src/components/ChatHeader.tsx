@@ -128,41 +128,45 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
             </svg>
           </button>
 
-          {/* Dropdown drapeaux — grille 5×2 */}
+          {/* Dropdown drapeaux — grille adaptative */}
           {langOpen && (
-            <div
-              className="absolute top-full right-0 mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-200 p-2.5 z-50 w-[220px]"
-              role="listbox"
-              aria-label="Choisir une langue"
-            >
-              <div className="grid grid-cols-5 gap-1.5">
-                {LANGUAGES.map(({ code, label }) => (
-                  <button
-                    key={code}
-                    onClick={() => { onLangChange(code); setLangOpen(false) }}
-                    className={`group flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all ${
-                      selectedLang === code
-                        ? 'bg-catchup-primary/10 ring-2 ring-catchup-primary'
-                        : 'hover:bg-gray-100'
-                    }`}
-                    title={label}
-                    role="option"
-                    aria-selected={selectedLang === code}
-                  >
-                    <span className={`w-8 h-5.5 rounded-sm overflow-hidden border block ${
-                      selectedLang === code ? 'border-catchup-primary' : 'border-gray-200 group-hover:border-gray-400'
-                    }`}>
-                      {FLAGS[code]}
-                    </span>
-                    <span className={`text-[9px] leading-tight ${
-                      selectedLang === code ? 'text-catchup-primary font-semibold' : 'text-gray-500'
-                    }`}>
-                      {code.toUpperCase()}
-                    </span>
-                  </button>
-                ))}
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setLangOpen(false)} aria-hidden="true" />
+              <div
+                className="fixed left-2 right-2 sm:absolute sm:left-auto sm:right-0 sm:w-[220px] top-auto mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-200 p-2.5 z-50"
+                style={{ top: langRef.current ? langRef.current.getBoundingClientRect().bottom + 6 : undefined }}
+                role="listbox"
+                aria-label="Choisir une langue"
+              >
+                <div className="grid grid-cols-5 gap-1.5">
+                  {LANGUAGES.map(({ code, label }) => (
+                    <button
+                      key={code}
+                      onClick={() => { onLangChange(code); setLangOpen(false) }}
+                      className={`group flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all ${
+                        selectedLang === code
+                          ? 'bg-catchup-primary/10 ring-2 ring-catchup-primary'
+                          : 'hover:bg-gray-100'
+                      }`}
+                      title={label}
+                      role="option"
+                      aria-selected={selectedLang === code}
+                    >
+                      <span className={`w-8 h-[22px] rounded-sm overflow-hidden border block ${
+                        selectedLang === code ? 'border-catchup-primary' : 'border-gray-200 group-hover:border-gray-400'
+                      }`}>
+                        {FLAGS[code]}
+                      </span>
+                      <span className={`text-[9px] leading-tight ${
+                        selectedLang === code ? 'text-catchup-primary font-semibold' : 'text-gray-500'
+                      }`}>
+                        {code.toUpperCase()}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
 
