@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import AccessibilityPanel from '@/components/AccessibilityPanel'
 
 export const metadata: Metadata = {
   title: "Catch'Up — Ton guide orientation",
@@ -15,8 +16,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
   themeColor: '#6C63FF',
 }
 
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: `try{var s=JSON.parse(localStorage.getItem('catchup-a11y')||'{}'),r=document.documentElement;if(s.fontSize===1)r.classList.add('a11y-font-1');if(s.fontSize===2)r.classList.add('a11y-font-2');if(s.highContrast)r.classList.add('a11y-contrast');if(s.reducedMotion)r.classList.add('a11y-reduced-motion');if(s.lineSpacing)r.classList.add('a11y-spacing')}catch(e){}` }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://agents.jaeprive.fr" />
@@ -39,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="font-sans antialiased bg-catchup-bg overflow-x-hidden">
         {children}
+        <AccessibilityPanel />
         <script
           dangerouslySetInnerHTML={{
             __html: `
