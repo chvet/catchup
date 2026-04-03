@@ -35,8 +35,23 @@ function applySettings(s: A11ySettings) {
   root.classList.toggle('a11y-spacing', s.lineSpacing)
 }
 
-export default function AccessibilityPanel() {
-  const [open, setOpen] = useState(false)
+interface Props {
+  /** Si fourni, le panneau est contrôlé de l'extérieur (ex: header) */
+  open?: boolean
+  onClose?: () => void
+  /** Lecture vocale globale */
+  ttsEnabled?: boolean
+  onToggleTts?: () => void
+}
+
+export default function AccessibilityPanel({ open: controlledOpen, onClose, ttsEnabled, onToggleTts }: Props) {
+  // Si pas contrôlé, gestion interne (bouton flottant)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+  const close = isControlled ? (onClose || (() => {})) : () => setInternalOpen(false)
+  const toggle = isControlled ? (onClose || (() => {})) : () => setInternalOpen(v => !v)
+
   const [settings, setSettings] = useState<A11ySettings>(loadSettings)
 
   // Apply on mount and changes
@@ -64,37 +79,40 @@ export default function AccessibilityPanel() {
 
   return (
     <>
-      {/* Floating button */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        className={`fixed bottom-4 left-4 z-50 w-11 h-11 rounded-full shadow-lg border-2 flex items-center justify-center transition-all duration-200
-          ${hasChanges
-            ? 'bg-catchup-primary text-white border-catchup-primary'
-            : 'bg-white text-gray-600 border-gray-200 hover:border-catchup-primary hover:text-catchup-primary'
-          }
-          focus-visible:ring-2 focus-visible:ring-catchup-primary focus-visible:outline-none`}
-        title="Accessibilite"
-        aria-label="Ouvrir le panneau d'accessibilite"
-        aria-expanded={open}
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-          <circle cx="12" cy="4.5" r="2" fill="currentColor" stroke="none" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5m0 0l-3 6m3-6l3 6M5 10l7 1 7-1" />
-        </svg>
-        {hasChanges && (
-          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-catchup-secondary rounded-full border-2 border-white" />
-        )}
-      </button>
+      {/* Floating button — seulement si pas contrôlé depuis l'extérieur */}
+      {!isControlled && (
+        <button
+          onClick={toggle}
+          className={`fixed bottom-4 left-4 z-50 w-11 h-11 rounded-full shadow-lg border-2 flex items-center justify-center transition-all duration-200
+            ${hasChanges
+              ? 'bg-catchup-primary text-white border-catchup-primary'
+              : 'bg-white text-gray-600 border-gray-200 hover:border-catchup-primary hover:text-catchup-primary'
+            }
+            focus-visible:ring-2 focus-visible:ring-catchup-primary focus-visible:outline-none`}
+          title="Accessibilite"
+          aria-label="Ouvrir le panneau d'accessibilite"
+          aria-expanded={open}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <circle cx="12" cy="4.5" r="2" fill="currentColor" stroke="none" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5m0 0l-3 6m3-6l3 6M5 10l7 1 7-1" />
+          </svg>
+          {hasChanges && (
+            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-catchup-secondary rounded-full border-2 border-white" />
+          )}
+        </button>
+      )}
 
       {/* Backdrop */}
       {open && (
-        <div className="fixed inset-0 z-50 bg-black/20" onClick={() => setOpen(false)} aria-hidden="true" />
+        <div className="fixed inset-0 z-50 bg-black/20" onClick={close} aria-hidden="true" />
       )}
 
-      {/* Panel */}
+      {/* Panel — position différente selon le mode */}
       {open && (
         <div
-          className="fixed bottom-20 left-4 z-50 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+          className={`fixed z-50 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden
+            ${isControlled ? 'top-16 right-4' : 'bottom-20 left-4'}`}
           role="dialog"
           aria-label="Parametres d'accessibilite"
         >
@@ -108,7 +126,7 @@ export default function AccessibilityPanel() {
               <h2 className="text-sm font-semibold text-gray-800">Accessibilite</h2>
             </div>
             <button
-              onClick={() => setOpen(false)}
+              onClick={close}
               className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
               aria-label="Fermer"
             >
@@ -120,6 +138,16 @@ export default function AccessibilityPanel() {
 
           {/* Options */}
           <div className="px-5 py-4 space-y-5">
+
+            {/* Lecture vocale globale */}
+            {onToggleTts !== undefined && (
+              <ToggleOption
+                label="Lecture vocale"
+                description="Lire les messages a voix haute"
+                checked={!!ttsEnabled}
+                onChange={() => onToggleTts?.()}
+              />
+            )}
 
             {/* Font size */}
             <div>

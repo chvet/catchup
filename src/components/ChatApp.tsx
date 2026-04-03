@@ -41,6 +41,7 @@ import {
   type GameState, type GameEvent,
 } from '@/core/gamification'
 import { WebTTSAdapter } from '@/platform/web/web-tts'
+import AccessibilityPanel from './AccessibilityPanel'
 
 const tts = typeof window !== 'undefined' ? new WebTTSAdapter() : null
 
@@ -108,6 +109,7 @@ export default function ChatApp() {
   const [showProfile, setShowProfile] = useState(false)
   const [dynamicSuggestions, setDynamicSuggestions] = useState<DynamicSuggestion[] | null>(null)
   const [rgaaMode, setRgaaMode] = useState(false)
+  const [a11yOpen, setA11yOpen] = useState(false)
   const [ttsEnabled, setTtsEnabled] = useState(false)
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null)
   const [fromQuiz, setFromQuiz] = useState(false)
@@ -797,10 +799,10 @@ export default function ChatApp() {
         streak={gameState?.streakActuel ?? 0}
         hasMessages={hasMessages}
         onToggleProfile={() => setShowProfile(!showProfile)}
-        onToggleRgaa={() => setRgaaMode(!rgaaMode)}
+        onToggleA11y={() => setA11yOpen(v => !v)}
         onToggleTts={toggleTts}
         onReset={handleReset}
-        rgaaMode={rgaaMode}
+        a11yOpen={a11yOpen}
         ttsEnabled={ttsEnabled}
         authPrenom={authUser?.prenom || null}
         onAuthClick={() => {
@@ -819,6 +821,14 @@ export default function ChatApp() {
           const msg = LANG_SWITCH_MESSAGES[lang]
           if (msg) append({ role: 'user', content: msg })
         }}
+      />
+
+      {/* Panneau accessibilité (contrôlé depuis le header) */}
+      <AccessibilityPanel
+        open={a11yOpen}
+        onClose={() => setA11yOpen(false)}
+        ttsEnabled={ttsEnabled}
+        onToggleTts={toggleTts}
       />
 
       {/* Bandeau accompagnement actif */}

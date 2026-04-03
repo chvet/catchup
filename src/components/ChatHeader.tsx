@@ -40,10 +40,10 @@ interface Props {
   streak?: number
   hasMessages?: boolean
   onToggleProfile: () => void
-  onToggleRgaa: () => void
+  onToggleA11y: () => void
   onToggleTts: () => void
   onReset: () => void
-  rgaaMode: boolean
+  a11yOpen: boolean
   ttsEnabled: boolean
   authPrenom?: string | null
   onAuthClick?: () => void
@@ -51,7 +51,7 @@ interface Props {
   onLangChange: (lang: LangCode) => void
 }
 
-export default function ChatHeader({ profile, streak = 0, hasMessages = false, onToggleProfile, onToggleRgaa, onToggleTts, onReset, rgaaMode, ttsEnabled, authPrenom, onAuthClick, selectedLang, onLangChange }: Props) {
+export default function ChatHeader({ profile, streak = 0, hasMessages = false, onToggleProfile, onToggleA11y, onToggleTts, onReset, a11yOpen, ttsEnabled, authPrenom, onAuthClick, selectedLang, onLangChange }: Props) {
   const hasProfile = hasSignificantProfile(profile)
   const brandConfig = useAppBrand()
 
@@ -94,26 +94,19 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           </HeaderBtn>
         )}
 
-        <HeaderBtn
-          onClick={onToggleTts}
-          active={ttsEnabled}
-          title={ttsEnabled ? 'Désactiver la voix' : 'Activer la voix'}
+        {/* Bouton accessibilité (ouvre le panneau avec TTS + options visuelles) */}
+        <button
+          onClick={onToggleA11y}
+          className={`p-2 rounded-full transition-colors ${a11yOpen ? 'bg-white/25' : 'hover:bg-white/10'}`}
+          title="Accessibilité"
+          aria-label="Ouvrir les paramètres d'accessibilité"
+          aria-expanded={a11yOpen}
         >
-          {ttsEnabled ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M11 5L6 9H2v6h4l5 4V5z" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-          )}
-        </HeaderBtn>
-
-        <HeaderBtn
-          onClick={onToggleRgaa}
-          active={rgaaMode}
-          title={rgaaMode ? 'Désactiver accessibilité' : 'Mode accessibilité'}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-        </HeaderBtn>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <circle cx="12" cy="4.5" r="2" fill="currentColor" stroke="none" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5m0 0l-3 6m3-6l3 6M5 10l7 1 7-1" />
+          </svg>
+        </button>
 
         {onAuthClick && (
           <button
@@ -152,24 +145,29 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
       </div>
     </header>
 
-    {/* ── Barre de drapeaux / sélection de langue ── */}
-    <div className="bg-gradient-to-r from-catchup-primary/90 to-indigo-600/90 px-3 py-1.5 flex items-center gap-1.5 overflow-x-auto scrollbar-hide border-t border-white/10">
-      {LANGUAGES.map(({ code, label }) => (
-        <button
-          key={code}
-          onClick={() => onLangChange(code)}
-          className={`flex-shrink-0 w-9 h-6 rounded-sm overflow-hidden transition-all border ${
-            selectedLang === code
-              ? 'scale-110 ring-2 ring-white/60 border-white/80 shadow-md'
-              : 'hover:scale-105 opacity-70 hover:opacity-100 border-white/20'
-          }`}
-          title={label}
-          aria-label={label}
-          aria-pressed={selectedLang === code}
-        >
-          {FLAGS[code]}
-        </button>
-      ))}
+    {/* ── Barre de drapeaux + badge RGAA ── */}
+    <div className="bg-gradient-to-r from-catchup-primary/90 to-indigo-600/90 px-3 py-1.5 flex items-center gap-1.5 border-t border-white/10">
+      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide flex-1">
+        {LANGUAGES.map(({ code, label }) => (
+          <button
+            key={code}
+            onClick={() => onLangChange(code)}
+            className={`flex-shrink-0 w-9 h-6 rounded-sm overflow-hidden transition-all border ${
+              selectedLang === code
+                ? 'scale-110 ring-2 ring-white/60 border-white/80 shadow-md'
+                : 'hover:scale-105 opacity-70 hover:opacity-100 border-white/20'
+            }`}
+            title={label}
+            aria-label={label}
+            aria-pressed={selectedLang === code}
+          >
+            {FLAGS[code]}
+          </button>
+        ))}
+      </div>
+      <span className="flex-shrink-0 text-[10px] text-white/60 font-medium tracking-wide" title="Taux de conformité RGAA estimé">
+        RGAA 72%
+      </span>
     </div>
     </>
   )
