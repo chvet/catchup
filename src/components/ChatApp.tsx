@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { v4 as uuidv4 } from 'uuid'
 import MessageBubble from './MessageBubble'
-import ChatHeader from './ChatHeader'
+import ChatHeader, { type LangCode } from './ChatHeader'
 import ChatInput from './ChatInput'
 import SuggestionChips from './SuggestionChips'
 import ProfilePanel from './ProfilePanel'
@@ -44,6 +44,7 @@ const LS_BENEFICIAIRE_INFO = 'catchup_beneficiaire_info'
 const LS_STRUCTURE_SLUG = 'catchup_structure_slug'
 const LS_CAMPAGNE_ID = 'catchup_campagne_id'
 const LS_USER_PRENOM = 'catchup_user_prenom'
+const LS_LANG = 'catchup_lang'
 
 interface StructureInfo {
   nom: string
@@ -115,6 +116,7 @@ export default function ChatApp() {
   const [structureInfo, setStructureInfo] = useState<StructureInfo | null>(null)
   const [campagneId, setCampagneId] = useState<string | null>(null)
   const [showFichesSearch, setShowFichesSearch] = useState(false)
+  const [selectedLang, setSelectedLang] = useState<LangCode>(() => loadFromLS<LangCode>(LS_LANG, 'fr'))
 
   // ── Données vocales par message (audioUrl + durée + transcription) ──
   const voiceDataMap = useRef<Map<string, { audioUrl: string; duration: number; transcription?: string }>>(new Map())
@@ -242,7 +244,7 @@ export default function ChatApp() {
     api: '/api/chat',
     id: sessionId,
     initialMessages: loadFromLS<Message[]>(LS_MESSAGES_KEY, []),
-    body: { profile, messageCount: 0, fromQuiz, fragilityLevel: currentFragility, userName: savedPrenom || profile.name || undefined },
+    body: { profile, messageCount: 0, fromQuiz, fragilityLevel: currentFragility, userName: savedPrenom || profile.name || undefined, language: selectedLang !== 'fr' ? selectedLang : undefined },
     onFinish: (message) => {
       const extracted = extractProfileFromMessage(message.content)
       if (extracted) {
@@ -796,6 +798,8 @@ export default function ChatApp() {
             setShowAuthModal(true)
           }
         }}
+        selectedLang={selectedLang}
+        onLangChange={(lang) => { setSelectedLang(lang); saveToLS(LS_LANG, lang) }}
       />
 
       {/* Bandeau accompagnement actif */}

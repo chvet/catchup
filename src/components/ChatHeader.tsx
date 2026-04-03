@@ -4,6 +4,21 @@ import { UserProfile } from '@/core/types'
 import { hasSignificantProfile } from '@/core/profile-parser'
 import { useAppBrand } from '@/hooks/useAppBrand'
 
+export const LANGUAGES = [
+  { code: 'fr', flag: '🇫🇷', label: 'Français' },
+  { code: 'en', flag: '🇬🇧', label: 'English' },
+  { code: 'ar', flag: '🇩🇿', label: 'العربية' },
+  { code: 'pt', flag: '🇵🇹', label: 'Português' },
+  { code: 'tr', flag: '🇹🇷', label: 'Türkçe' },
+  { code: 'it', flag: '🇮🇹', label: 'Italiano' },
+  { code: 'es', flag: '🇪🇸', label: 'Español' },
+  { code: 'de', flag: '🇩🇪', label: 'Deutsch' },
+  { code: 'ro', flag: '🇷🇴', label: 'Română' },
+  { code: 'zh', flag: '🇨🇳', label: '中文' },
+] as const
+
+export type LangCode = typeof LANGUAGES[number]['code']
+
 interface Props {
   profile: UserProfile
   streak?: number
@@ -16,13 +31,16 @@ interface Props {
   ttsEnabled: boolean
   authPrenom?: string | null
   onAuthClick?: () => void
+  selectedLang: LangCode
+  onLangChange: (lang: LangCode) => void
 }
 
-export default function ChatHeader({ profile, streak = 0, hasMessages = false, onToggleProfile, onToggleRgaa, onToggleTts, onReset, rgaaMode, ttsEnabled, authPrenom, onAuthClick }: Props) {
+export default function ChatHeader({ profile, streak = 0, hasMessages = false, onToggleProfile, onToggleRgaa, onToggleTts, onReset, rgaaMode, ttsEnabled, authPrenom, onAuthClick, selectedLang, onLangChange }: Props) {
   const hasProfile = hasSignificantProfile(profile)
   const brandConfig = useAppBrand()
 
   return (
+    <>
     <header className="bg-gradient-to-r from-catchup-primary to-indigo-600 text-white px-3 py-2.5 flex items-center gap-3 shadow-lg z-30">
       <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm">
         {brandConfig.logo.startsWith('/') ? (
@@ -117,6 +135,27 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
         </button>
       </div>
     </header>
+
+    {/* ── Barre de drapeaux / sélection de langue ── */}
+    <div className="bg-gradient-to-r from-catchup-primary/90 to-indigo-600/90 px-3 py-1.5 flex items-center gap-1 overflow-x-auto scrollbar-hide border-t border-white/10">
+      {LANGUAGES.map(({ code, flag, label }) => (
+        <button
+          key={code}
+          onClick={() => onLangChange(code)}
+          className={`text-lg flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+            selectedLang === code
+              ? 'bg-white/30 scale-110 ring-2 ring-white/50'
+              : 'hover:bg-white/15 opacity-70 hover:opacity-100'
+          }`}
+          title={label}
+          aria-label={label}
+          aria-pressed={selectedLang === code}
+        >
+          {flag}
+        </button>
+      ))}
+    </div>
+    </>
   )
 }
 
