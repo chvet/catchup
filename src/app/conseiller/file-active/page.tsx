@@ -37,6 +37,7 @@ interface ReferralItem {
     label: string
   }
   derniereActivite?: string | null
+  campagneId?: string | null
   // Double file active fields
   matchScore?: number | null
   horsChamp?: boolean | null
@@ -341,7 +342,9 @@ export default function FileActivePage() {
   const [filters, setFilters] = useState({
     statut: '',
     urgence: '',
+    campagneId: '',
   })
+  const [campagnes, setCampagnes] = useState<{ id: string; designation: string }[]>([])
   const [advancedFilters, setAdvancedFilters] = useState({
     search: '',
     localisation: '',
@@ -426,6 +429,18 @@ export default function FileActivePage() {
     fetchData()
   }, [fetchData])
 
+  // Charger la liste des campagnes de la structure
+  useEffect(() => {
+    fetch('/api/conseiller/campagnes')
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCampagnes(data.map((c: { id: string; designation: string }) => ({ id: c.id, designation: c.designation })))
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   // Charger les deux files au démarrage (pour les compteurs des onglets)
   useEffect(() => {
     fetchSourceData()
@@ -509,6 +524,11 @@ export default function FileActivePage() {
     // Apply urgence filter on all tabs
     if (filters.urgence) {
       filtered = filtered.filter(r => r.priorite === filters.urgence)
+    }
+
+    // Apply campagne filter
+    if (filters.campagneId) {
+      filtered = filtered.filter(r => r.campagneId === filters.campagneId)
     }
 
     // Advanced filters
@@ -819,6 +839,19 @@ export default function FileActivePage() {
             <option value="critique">Critique</option>
           </select>
 
+          {campagnes.length > 0 && (
+            <select
+              value={filters.campagneId}
+              onChange={e => setFilters(f => ({ ...f, campagneId: e.target.value }))}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary max-w-[200px]"
+            >
+              <option value="">Toutes campagnes</option>
+              {campagnes.map(c => (
+                <option key={c.id} value={c.id}>{c.designation}</option>
+              ))}
+            </select>
+          )}
+
           {isAdmin && (
             <button
               onClick={() => {
@@ -992,6 +1025,11 @@ export default function FileActivePage() {
                   <th className={thClass} onClick={() => handleSort('localisation')}>
                     Localisation{sortArrow('localisation')}
                   </th>
+                  {campagnes.length > 0 && (
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                      Campagne
+                    </th>
+                  )}
                   <th className={thClass} onClick={() => handleSort('attente')}>
                     Attente{sortArrow('attente')}
                   </th>
@@ -1057,6 +1095,17 @@ export default function FileActivePage() {
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {r.localisation ? `\uD83D\uDCCD ${r.localisation}` : '\u2014'}
                       </td>
+                      {campagnes.length > 0 && (
+                        <td className="px-4 py-3 text-sm">
+                          {r.campagneId ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 max-w-[150px] truncate">
+                              {campagnes.find(c => c.id === r.campagneId)?.designation || r.campagneId}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">{'\u2014'}</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <span className={`text-sm font-medium ${
                           r.attente.heures > 48 ? 'text-red-600' :

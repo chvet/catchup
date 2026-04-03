@@ -113,6 +113,7 @@ export async function GET(request: Request) {
         source: referral.source,
         motif: referral.motif,
         moyenContact: referral.moyenContact,
+        campagneId: referral.campagneId,
         creeLe: referral.creeLe,
         // Profil RIASEC
         r: profilRiasec.r,
