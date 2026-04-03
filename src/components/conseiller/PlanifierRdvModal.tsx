@@ -99,7 +99,7 @@ export default function PlanifierRdvModal({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <span className="text-xl">📅</span>
+            <span className="text-xl" role="img" aria-label="Planifier rendez-vous">📅</span>
             <h2 className="text-lg font-semibold text-gray-800">Planifier un rendez-vous</h2>
           </div>
           <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>

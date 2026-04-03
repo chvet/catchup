@@ -995,7 +995,7 @@ export default function ChatApp() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
             <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
-              <span className="text-2xl">⚠️</span>
+              <span className="text-2xl" role="img" aria-label="Attention">⚠️</span>
             </div>
             <h3 className="text-lg font-bold text-gray-800 mb-2">Tu es sur(e) ?</h3>
             {referralStatus === 'prise_en_charge' ? (
@@ -1070,7 +1070,7 @@ export default function ChatApp() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
             <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
-              <span className="text-2xl">{referralStatus === 'prise_en_charge' ? '⚠️' : '🤔'}</span>
+              <span className="text-2xl" role="img" aria-label={referralStatus === 'prise_en_charge' ? 'Attention' : 'Réflexion'}>{referralStatus === 'prise_en_charge' ? '⚠️' : '🤔'}</span>
             </div>
             <h3 className="text-lg font-bold text-gray-800 mb-2">
               {referralStatus === 'prise_en_charge' ? 'Quitter ton accompagnement ?' : 'Annuler ta demande ?'}
@@ -1129,11 +1129,11 @@ export default function ChatApp() {
               />
             ) : (
               /* ── Formulaire PIN inline ── */
-              <div className="flex-1 flex flex-col items-center justify-center px-6">
-                <div className="w-full max-w-sm">
+              <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 overflow-y-auto">
+                <div className="w-full max-w-sm py-6">
                   <div className="text-center mb-6">
                     <div className="w-16 h-16 mx-auto rounded-full bg-green-50 flex items-center justify-center mb-3">
-                      <span className="text-3xl">🔑</span>
+                      <span className="text-3xl" role="img" aria-label="Clé d'accès">🔑</span>
                     </div>
                     <h3 className="text-lg font-bold text-gray-800 mb-1">Accéder au chat conseiller</h3>
                     <p className="text-sm text-gray-500">
@@ -1144,13 +1144,17 @@ export default function ChatApp() {
                   <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
                     {/* Email / téléphone */}
                     <div className="mb-4">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Votre email ou téléphone</label>
+                      <label htmlFor="pin-email" className="block text-xs font-medium text-gray-600 mb-1">Votre email ou téléphone</label>
                       <input
+                        id="pin-email"
                         type="text"
                         value={pinEmail}
                         onChange={e => { setPinEmail(e.target.value); setPinError('') }}
                         placeholder="exemple@email.com ou 0612345678"
-                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition text-sm text-gray-800"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        enterKeyHint="next"
+                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition text-sm text-gray-800 text-base"
                       />
                     </div>
 
@@ -1179,11 +1183,13 @@ export default function ChatApp() {
                             ref={el => { pinInputRefs.current[i] = el }}
                             type="text"
                             inputMode="numeric"
+                            pattern="[0-9]*"
                             autoComplete={i === 0 ? 'one-time-code' : 'off'}
                             maxLength={1}
                             value={digit}
                             onChange={e => handlePinCodeChange(i, e.target.value)}
                             onKeyDown={e => handlePinKeyDown(i, e)}
+                            aria-label={`Chiffre ${i + 1} du code`}
                             className="w-10 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition text-gray-800"
                           />
                         ))}
@@ -1191,7 +1197,7 @@ export default function ChatApp() {
                     </div>
 
                     {pinError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg p-2.5 mb-3">
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg p-2.5 mb-3" role="alert">
                         {pinError}
                       </div>
                     )}
@@ -1199,7 +1205,7 @@ export default function ChatApp() {
                     <button
                       onClick={handlePinVerify}
                       disabled={pinVerifying || pinCode.some(c => c === '') || !pinEmail.trim()}
-                      className="w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[48px]"
                     >
                       {pinVerifying ? 'Vérification...' : 'Accéder au chat'}
                     </button>
@@ -1252,7 +1258,7 @@ export default function ChatApp() {
                       <div className="mt-6 w-full max-w-xs">
                         <div className="rounded-2xl px-4 py-3 shadow-sm bg-white text-gray-800 border border-amber-100">
                           <div className="flex items-center gap-2">
-                            <span className="text-amber-500 inline-block animate-spin" style={{ animationDuration: '2s' }}>⏳</span>
+                            <span className="text-amber-500 inline-block animate-spin" role="img" aria-label="En attente" style={{ animationDuration: '2s' }}>⏳</span>
                             <p className="text-sm leading-relaxed">
                               Ta demande est en cours de traitement. Un conseiller te contactera bient&ocirc;t 😊
                             </p>
@@ -1295,7 +1301,7 @@ export default function ChatApp() {
                     <div className="max-w-[85%] md:max-w-[65%]">
                       <div className="msg-bubble rounded-2xl rounded-bl-sm px-3.5 py-2.5 shadow-sm bg-white text-gray-800">
                         <div className="flex items-center gap-2">
-                          <span className="text-amber-500 inline-block animate-spin" style={{ animationDuration: '2s' }}>⏳</span>
+                          <span className="text-amber-500 inline-block animate-spin" role="img" aria-label="En attente" style={{ animationDuration: '2s' }}>⏳</span>
                           <p className="text-[15px] leading-relaxed">
                             Ta demande est en cours de traitement. Un conseiller te contactera bient&ocirc;t 😊
                           </p>

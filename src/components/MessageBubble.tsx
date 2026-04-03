@@ -42,7 +42,7 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
       {!isUser && (
         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5 shadow-sm overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/favicon-catchup.png?v=3" alt="Catch'Up" className="w-6 h-6 object-contain" />
+          <img src="/favicon-catchup.png?v=3" alt="Avatar assistant Catch'Up" className="w-6 h-6 object-contain" />
         </div>
       )}
 
@@ -108,7 +108,7 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
       {isUser && (
         <div className="w-8 h-8 rounded-full flex-shrink-0 ml-1.5 mt-0.5 shadow-sm overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={genre ? AVATAR_BY_GENRE[genre] || '/avatar-neutre.svg' : '/avatar-neutre.svg'} alt="Vous" className="w-8 h-8" />
+          <img src={genre ? AVATAR_BY_GENRE[genre] || '/avatar-neutre.svg' : '/avatar-neutre.svg'} alt={genre === 'M' ? 'Avatar utilisateur masculin' : genre === 'F' ? 'Avatar utilisateur féminin' : 'Avatar utilisateur'} className="w-8 h-8" />
         </div>
       )}
     </div>

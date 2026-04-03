@@ -187,7 +187,7 @@ export default function MesRendezVous({ token }: MesRendezVousProps) {
     return (
       <div className="px-4 py-6">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-lg">📅</span>
+          <span className="text-lg" role="img" aria-label="Rendez-vous">📅</span>
           <h2 className="text-base font-semibold text-gray-900">Mes rendez-vous</h2>
         </div>
         <div className="flex justify-center py-8">
@@ -202,7 +202,7 @@ export default function MesRendezVous({ token }: MesRendezVousProps) {
     return (
       <div className="px-4 py-6">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-lg">📅</span>
+          <span className="text-lg" role="img" aria-label="Rendez-vous">📅</span>
           <h2 className="text-base font-semibold text-gray-900">Mes rendez-vous</h2>
         </div>
         <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl p-4">
@@ -221,7 +221,7 @@ export default function MesRendezVous({ token }: MesRendezVousProps) {
     <div className="px-4 py-6">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-lg">📅</span>
+        <span className="text-lg" role="img" aria-label="Rendez-vous">📅</span>
         <h2 className="text-base font-semibold text-gray-900">Mes rendez-vous</h2>
         <span className="ml-auto text-xs text-gray-400">
           {upcoming.length > 0 ? `${upcoming.length} à venir` : ''}
@@ -231,7 +231,7 @@ export default function MesRendezVous({ token }: MesRendezVousProps) {
       {/* Empty state */}
       {upcoming.length === 0 && (
         <div className="text-center py-10">
-          <div className="text-4xl mb-3">🗓️</div>
+          <div className="text-4xl mb-3" role="img" aria-label="Calendrier vide">🗓️</div>
           <p className="text-gray-500 text-sm">
             Pas de rendez-vous prévu pour le moment
           </p>

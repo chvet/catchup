@@ -906,7 +906,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
       {joursInactif >= 3 && !ruptured && (
         <div className="mx-6 mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-lg">⚠️</span>
+            <span className="text-lg" role="img" aria-label="Alerte inactivité">⚠️</span>
             <p className="text-sm text-yellow-800 font-medium">
               Aucun message depuis {joursInactif} jour{joursInactif > 1 ? 's' : ''}
             </p>

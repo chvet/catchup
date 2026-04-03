@@ -97,7 +97,7 @@ export default function RdvCard({ rdv, viewerType, onAccept, onDecline, onResend
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
           <div className="flex items-center gap-2.5">
-            <span className="text-xl">📅</span>
+            <span className="text-xl" role="img" aria-label="Rendez-vous">📅</span>
             <h3 className="text-sm font-semibold text-gray-900">{titre}</h3>
           </div>
           {isAccepted && (

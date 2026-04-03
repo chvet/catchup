@@ -14,7 +14,7 @@ const RGAA_ITEMS = [
   { label: 'Lecture vocale (TTS) sur chaque message', status: 'ok' as const },
   { label: 'Support multilingue (10 langues)', status: 'ok' as const },
   { label: 'Formulaires accessibles', status: 'ok' as const },
-  { label: 'Textes alternatifs images', status: 'partial' as const, note: 'Partiel sur les avatars' },
+  { label: 'Textes alternatifs images et icones', status: 'ok' as const },
   { label: 'Sous-titres / transcriptions audio', status: 'missing' as const, note: 'Prevu prochainement' },
   { label: 'Compatible lecteurs d\'ecran (NVDA/VoiceOver)', status: 'partial' as const, note: 'Tests en cours' },
   { label: 'Documentation accessibilite', status: 'missing' as const, note: 'En redaction' },

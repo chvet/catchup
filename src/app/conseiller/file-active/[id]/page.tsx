@@ -525,7 +525,7 @@ export default function CaseDetailPage() {
                   <div className="px-6 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-catchup-primary/20 flex items-center justify-center">
-                        <span className="text-sm">🤖</span>
+                        <span className="text-sm" role="img" aria-label="Intelligence artificielle">🤖</span>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-700">

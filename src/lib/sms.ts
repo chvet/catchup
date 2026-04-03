@@ -402,9 +402,11 @@ export async function sendPinCode(
   const { type, prenom, conseillerPrenom, structureNom } = options
 
   const host = env.PUBLIC_HOST || 'catchup.jaeprive.fr'
+  // Format SMS compatible WebOTP (Android) : dernière ligne @domain #code
+  // iOS détecte automatiquement les codes à 6 chiffres via autoComplete="one-time-code"
   const message = type === 'beneficiaire'
-    ? `${prenom ? prenom + ', votre' : 'Votre'} conseiller${conseillerPrenom ? ' ' + conseillerPrenom : ''}${structureNom ? ' (' + structureNom + ')' : ''} vous accompagne sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur ${host}/accompagnement`
-    : `Vous êtes invité(e) à rejoindre un accompagnement sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nRendez-vous sur ${host}/tiers`
+    ? `${prenom ? prenom + ', votre' : 'Votre'} conseiller${conseillerPrenom ? ' ' + conseillerPrenom : ''}${structureNom ? ' (' + structureNom + ')' : ''} vous accompagne sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nhttps://${host}/accompagnement\n\n@${host} #${code}`
+    : `Vous êtes invité(e) à rejoindre un accompagnement sur Catch'Up.\n\nVotre code d'accès : ${code}\n\nhttps://${host}/tiers\n\n@${host} #${code}`
 
   const subject = type === 'beneficiaire'
     ? `Catch'Up — Votre code d'accès`

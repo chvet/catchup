@@ -384,8 +384,8 @@ export default function StructuresPage() {
 
                 {/* Info row */}
                 <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
-                  <span>👤 {s.ageMin}-{s.ageMax} ans</span>
-                  <span>📊 Capacité : {s.capaciteMax}</span>
+                  <span><span role="img" aria-label="Tranche d'âge">👤</span> {s.ageMin}-{s.ageMax} ans</span>
+                  <span><span role="img" aria-label="Capacité">📊</span> Capacité : {s.capaciteMax}</span>
                 </div>
 
                 {/* Stats row */}

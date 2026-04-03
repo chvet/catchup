@@ -662,16 +662,16 @@ export default function StructureDetailPage() {
       {isAdmin && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            <span className="mr-2">🏢</span>Logo de la structure
+            <span className="mr-2" role="img" aria-label="Structure">🏢</span>Logo de la structure
           </h3>
           <div className="flex items-center gap-6">
             {/* Preview */}
             <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden bg-gray-50 flex-shrink-0">
               {logoPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`${logoPreview}?t=${Date.now()}`} alt="Logo" className="w-full h-full object-contain" />
+                <img src={`${logoPreview}?t=${Date.now()}`} alt={`Logo de la structure ${structure?.nom || ''}`} className="w-full h-full object-contain" />
               ) : (
-                <span className="text-gray-300 text-2xl">🏢</span>
+                <span className="text-gray-300 text-2xl" role="img" aria-label="Aucun logo">🏢</span>
               )}
             </div>
             <div className="flex-1">

@@ -111,20 +111,20 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
   }
 
   const navItems = [
-    { href: '/conseiller', label: 'Dashboard', icon: '📊', exact: true },
-    { href: '/conseiller/agenda', label: 'Agenda', icon: '📅' },
-    { href: '/conseiller/file-active', label: 'File active', icon: '📋', alert: true },
+    { href: '/conseiller', label: 'Dashboard', icon: '📊', iconLabel: 'Tableau de bord', exact: true },
+    { href: '/conseiller/agenda', label: 'Agenda', icon: '📅', iconLabel: 'Calendrier' },
+    { href: '/conseiller/file-active', label: 'File active', icon: '📋', iconLabel: 'Liste des dossiers', alert: true },
     ...(conseiller?.role === 'admin_structure' || conseiller?.role === 'super_admin'
       ? [
-          { href: '/conseiller/campagnes', label: 'Campagnes', icon: '🎯' },
-          { href: '/conseiller/structures', label: 'Structures', icon: '🏢' },
-          { href: '/conseiller/conseillers', label: 'Conseillers', icon: '👥' },
+          { href: '/conseiller/campagnes', label: 'Campagnes', icon: '🎯', iconLabel: 'Objectifs campagnes' },
+          { href: '/conseiller/structures', label: 'Structures', icon: '🏢', iconLabel: 'Bâtiment structures' },
+          { href: '/conseiller/conseillers', label: 'Conseillers', icon: '👥', iconLabel: 'Équipe conseillers' },
         ]
       : []),
     ...(conseiller?.role === 'super_admin' || conseiller?.role === 'admin_structure'
-      ? [{ href: '/conseiller/admin', label: 'Administration', icon: '⚙️' }]
+      ? [{ href: '/conseiller/admin', label: 'Administration', icon: '⚙️', iconLabel: 'Paramètres administration' }]
       : []),
-    { href: '/conseiller/parametres', label: 'Paramètres', icon: '🔧' },
+    { href: '/conseiller/parametres', label: 'Paramètres', icon: '🔧', iconLabel: 'Réglages' },
   ]
 
   return (
@@ -212,7 +212,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
                     }
                   `}
                 >
-                  <span className="text-lg relative">
+                  <span className="text-lg relative" role="img" aria-label={item.iconLabel}>
                     {item.icon}
                     {!sidebarOpen && !isMobile && showBadge && (
                       <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">

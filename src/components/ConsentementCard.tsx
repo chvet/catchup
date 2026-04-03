@@ -28,7 +28,7 @@ export default function ConsentementCard({ consentement, viewerType, onApprove, 
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-2.5 px-4 pt-3.5 pb-2">
-          <span className="text-xl">🤝</span>
+          <span className="text-xl" role="img" aria-label="Consentement intervenant">🤝</span>
           <h3 className="text-sm font-semibold text-gray-900">
             Demande d&apos;ajout d&apos;un intervenant
           </h3>
@@ -45,13 +45,13 @@ export default function ConsentementCard({ consentement, viewerType, onApprove, 
         {/* Status indicators */}
         <div className="px-4 pb-3 space-y-1.5">
           <div className="flex items-center gap-2 text-xs">
-            <span>{conseillerApprouve ? '✅' : '⏳'}</span>
+            <span role="img" aria-label={conseillerApprouve ? 'Approuvé' : 'En attente'}>{conseillerApprouve ? '✅' : '⏳'}</span>
             <span className={conseillerApprouve ? 'text-emerald-600' : 'text-gray-500'}>
               {conseillerApprouve ? 'Conseiller approuvé' : 'En attente conseiller'}
             </span>
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <span>{beneficiaireApprouve ? '✅' : '⏳'}</span>
+            <span role="img" aria-label={beneficiaireApprouve ? 'Approuvé' : 'En attente'}>{beneficiaireApprouve ? '✅' : '⏳'}</span>
             <span className={beneficiaireApprouve ? 'text-emerald-600' : 'text-gray-500'}>
               {beneficiaireApprouve ? 'Bénéficiaire approuvé' : 'En attente bénéficiaire'}
             </span>

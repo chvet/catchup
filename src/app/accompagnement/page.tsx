@@ -23,7 +23,7 @@ const LS_ACCOMP_KEY = 'catchup_accompagnement'
 export default function AccompagnementPage() {
   const [session, setSession] = useState<SessionInfo | null>(null)
   const [email, setEmail] = useState('')
-  const [code, setCode] = useState(['', '', '', '', '', ''])
+  const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -31,7 +31,9 @@ export default function AccompagnementPage() {
   const [resendSuccess, setResendSuccess] = useState(false)
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
   const [quitting, setQuitting] = useState(false)
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const codeInputRef = useRef<HTMLInputElement | null>(null)
+  const emailRef = useRef<HTMLInputElement | null>(null)
+  const formRef = useRef<HTMLDivElement | null>(null)
 
   // Charger la session existante depuis localStorage
   useEffect(() => {
@@ -45,40 +47,29 @@ export default function AccompagnementPage() {
     setLoading(false)
   }, [])
 
-  // Gestion de la saisie du code PIN (chaque chiffre dans un input séparé)
-  const handleCodeChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return // chiffres uniquement
-    const newCode = [...code]
-    newCode[index] = value.slice(-1) // un seul chiffre
-    setCode(newCode)
+  // Auto-focus sur le champ email au chargement (quand pas de session)
+  useEffect(() => {
+    if (!loading && !session) {
+      // Petit délai pour s'assurer que le DOM est prêt (surtout sur mobile)
+      const timer = setTimeout(() => {
+        emailRef.current?.focus()
+        // Scroll le formulaire dans la vue sur mobile
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [loading, session])
+
+  // Gestion de la saisie du code PIN (champ unique pour compatibilité auto-fill iOS/Android)
+  const handleCodeChange = (value: string) => {
+    const cleaned = value.replace(/\D/g, '').slice(0, 6)
+    setCode(cleaned)
     setError('')
-
-    // Auto-focus sur le champ suivant
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus()
-    }
-  }
-
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !code[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus()
-    }
-  }
-
-  // Coller un code complet
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault()
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-    if (pasted.length === 6) {
-      setCode(pasted.split(''))
-      inputRefs.current[5]?.focus()
-    }
   }
 
   // Vérifier le code
   const handleVerify = async () => {
-    const codeStr = code.join('')
-    if (codeStr.length !== 6) {
+    if (code.length !== 6) {
       setError('Saisissez les 6 chiffres de votre code')
       return
     }
@@ -94,7 +85,7 @@ export default function AccompagnementPage() {
       const res = await fetch('/api/accompagnement/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), code: codeStr }),
+        body: JSON.stringify({ email: email.trim(), code }),
       })
 
       const data = await res.json()
@@ -127,9 +118,9 @@ export default function AccompagnementPage() {
     setVerifying(false)
   }
 
-  // Auto-submit quand le code est complet
+  // Auto-submit quand le code est complet (6 chiffres)
   useEffect(() => {
-    if (code.every(c => c !== '') && email.trim()) {
+    if (code.length === 6 && email.trim()) {
       handleVerify()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,7 +129,7 @@ export default function AccompagnementPage() {
   const handleLogout = () => {
     localStorage.removeItem(LS_ACCOMP_KEY)
     setSession(null)
-    setCode(['', '', '', '', '', ''])
+    setCode('')
     setEmail('')
   }
 
@@ -157,7 +148,7 @@ export default function AccompagnementPage() {
         {/* Header compact */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-catchup-dark text-white">
           <div className="flex items-center gap-2">
-            <span className="text-lg">🤝</span>
+            <span className="text-lg" role="img" aria-label="Accompagnement">🤝</span>
             <div>
               <span className="text-sm font-semibold">Mon conseiller : {session.conseillerPrenom}</span>
               {session.structureNom && (
@@ -198,7 +189,7 @@ export default function AccompagnementPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
               <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
-                <span className="text-2xl">⚠️</span>
+                <span className="text-2xl" role="img" aria-label="Attention">⚠️</span>
               </div>
               <h3 className="text-lg font-bold text-gray-800 mb-2">Quitter l&apos;accompagnement ?</h3>
               <div className="text-sm text-gray-500 mb-5 space-y-2">
@@ -241,135 +232,146 @@ export default function AccompagnementPage() {
 
   // ── Pas de session → formulaire de vérification PIN ──
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-catchup-dark to-[#16213E] flex flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Catch&apos;Up</h1>
-          <p className="text-catchup-primary text-lg">Espace Accompagnement</p>
-          <p className="text-gray-400 text-sm mt-2">
-            Un conseiller vous accompagne ! Saisissez le code que vous avez reçu.
-          </p>
-        </div>
-
-        {/* Formulaire */}
-        <div className="bg-white rounded-2xl shadow-xl p-6">
-          {/* Email */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Votre email ou téléphone
-            </label>
-            <input
-              type="text"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setError('') }}
-              placeholder="exemple@email.com ou 0612345678"
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-catchup-primary focus:border-transparent outline-none transition text-gray-800"
-            />
+    <div className="min-h-[100dvh] bg-gradient-to-br from-catchup-dark to-[#16213E] overflow-y-auto">
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] px-4 py-8">
+        <div className="w-full max-w-sm">
+          {/* Logo */}
+          <div className="text-center mb-6 sm:mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2">Catch&apos;Up</h1>
+            <p className="text-catchup-primary text-lg">Espace Accompagnement</p>
+            <p className="text-gray-400 text-sm mt-2">
+              Un conseiller vous accompagne ! Saisissez le code que vous avez reçu.
+            </p>
           </div>
 
-          {/* Code PIN 6 chiffres */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Code de vérification (6 chiffres)
-            </label>
-            {/* Input caché pour autocomplete iOS/Android (Web OTP API) */}
-            <input
-              type="text"
-              autoComplete="one-time-code"
-              inputMode="numeric"
-              className="sr-only"
-              aria-hidden="true"
-              tabIndex={-1}
-              onChange={e => {
-                const val = e.target.value.replace(/\D/g, '').slice(0, 6)
-                if (val.length === 6) {
-                  setCode(val.split(''))
-                  inputRefs.current[5]?.focus()
-                }
-              }}
-            />
-            <div className="flex gap-2 justify-center" onPaste={handlePaste}>
-              {code.map((digit, i) => (
+          {/* Formulaire */}
+          <div ref={formRef} className="bg-white rounded-2xl shadow-xl p-5 sm:p-6">
+            {/* Email */}
+            <div className="mb-4 sm:mb-5">
+              <label htmlFor="accomp-email" className="block text-sm font-medium text-gray-700 mb-1">
+                Votre email ou téléphone
+              </label>
+              <input
+                id="accomp-email"
+                ref={emailRef}
+                type="text"
+                value={email}
+                onChange={e => { setEmail(e.target.value); setError('') }}
+                onFocus={() => {
+                  // Sur mobile, scroll le formulaire pour rester visible au-dessus du clavier
+                  setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
+                }}
+                placeholder="exemple@email.com ou 0612345678"
+                autoCapitalize="none"
+                autoCorrect="off"
+                enterKeyHint="next"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-catchup-primary focus:border-transparent outline-none transition text-gray-800 text-base"
+              />
+            </div>
+
+            {/* Code PIN 6 chiffres — champ unique pour auto-fill iOS/Android */}
+            <div className="mb-4 sm:mb-5">
+              <label htmlFor="accomp-code" className="block text-sm font-medium text-gray-700 mb-2">
+                Code de vérification (6 chiffres)
+              </label>
+              {/* Champ unique visible — compatible auto-fill SMS (iOS) et WebOTP (Android) */}
+              <div className="relative">
                 <input
-                  key={i}
-                  ref={el => { inputRefs.current[i] = el }}
+                  id="accomp-code"
+                  ref={codeInputRef}
                   type="text"
                   inputMode="numeric"
-                  autoComplete={i === 0 ? 'one-time-code' : 'off'}
-                  maxLength={1}
-                  value={digit}
-                  onChange={e => handleCodeChange(i, e.target.value)}
-                  onKeyDown={e => handleKeyDown(i, e)}
-                  className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-catchup-primary focus:border-catchup-primary outline-none transition text-gray-800"
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Erreur */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4">
-              {error}
-            </div>
-          )}
-
-          {/* Bouton */}
-          <button
-            onClick={handleVerify}
-            disabled={verifying || code.some(c => c === '') || !email.trim()}
-            className="w-full py-3 bg-catchup-primary text-white rounded-lg font-medium hover:bg-catchup-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {verifying ? 'Vérification...' : 'Accéder à mon accompagnement'}
-          </button>
-
-          <div className="text-center mt-4">
-            {resendSuccess ? (
-              <p className="text-xs text-green-600 font-medium">
-                Un nouveau code a ete envoye !
-              </p>
-            ) : (
-              <>
-                <p className="text-xs text-gray-400 mb-2">Vous n&apos;avez pas recu de code ?</p>
-                <button
-                  onClick={async () => {
-                    if (!email.trim() || resending) return
-                    setResending(true)
-                    try {
-                      const res = await fetch('/api/accompagnement/resend-code', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: email.trim() }),
-                      })
-                      if (res.ok) {
-                        setResendSuccess(true)
-                        setCode(['', '', '', '', '', ''])
-                        setError('')
-                        setTimeout(() => setResendSuccess(false), 30000)
-                      } else {
-                        const data = await res.json()
-                        setError(data.error || 'Erreur lors du renvoi')
-                      }
-                    } catch {
-                      setError('Erreur de connexion')
-                    }
-                    setResending(false)
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={code}
+                  onChange={e => handleCodeChange(e.target.value)}
+                  onFocus={() => {
+                    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
                   }}
-                  disabled={!email.trim() || resending}
-                  className="text-xs text-catchup-primary font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {resending ? 'Envoi en cours...' : 'Renvoyer un code'}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+                  enterKeyHint="done"
+                  aria-label="Code de vérification à 6 chiffres"
+                  className="w-full h-14 text-center text-2xl font-bold tracking-[0.5em] border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-catchup-primary focus:border-catchup-primary outline-none transition text-gray-800 bg-white"
+                  placeholder="••••••"
+                />
+                {/* Indicateur visuel des cases sous le champ */}
+                <div className="flex gap-2 justify-center mt-2 pointer-events-none" aria-hidden="true">
+                  {[0, 1, 2, 3, 4, 5].map(i => (
+                    <div
+                      key={i}
+                      className={`w-8 h-1 rounded-full transition-colors ${
+                        i < code.length ? 'bg-catchup-primary' : 'bg-gray-200'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
 
-        {/* Lien retour */}
-        <div className="text-center mt-6">
-          <a href="/" className="text-gray-400 text-sm hover:text-white transition">
-            ← Retour à Catch&apos;Up
-          </a>
+            {/* Erreur */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4" role="alert">
+                {error}
+              </div>
+            )}
+
+            {/* Bouton */}
+            <button
+              onClick={handleVerify}
+              disabled={verifying || code.length !== 6 || !email.trim()}
+              className="w-full py-3 bg-catchup-primary text-white rounded-lg font-medium hover:bg-catchup-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[48px]"
+            >
+              {verifying ? 'Vérification...' : 'Accéder à mon accompagnement'}
+            </button>
+
+            <div className="text-center mt-4">
+              {resendSuccess ? (
+                <p className="text-xs text-green-600 font-medium">
+                  Un nouveau code a ete envoye !
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-400 mb-2">Vous n&apos;avez pas recu de code ?</p>
+                  <button
+                    onClick={async () => {
+                      if (!email.trim() || resending) return
+                      setResending(true)
+                      try {
+                        const res = await fetch('/api/accompagnement/resend-code', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ email: email.trim() }),
+                        })
+                        if (res.ok) {
+                          setResendSuccess(true)
+                          setCode('')
+                          setError('')
+                          setTimeout(() => setResendSuccess(false), 30000)
+                        } else {
+                          const data = await res.json()
+                          setError(data.error || 'Erreur lors du renvoi')
+                        }
+                      } catch {
+                        setError('Erreur de connexion')
+                      }
+                      setResending(false)
+                    }}
+                    disabled={!email.trim() || resending}
+                    className="text-xs text-catchup-primary font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                  >
+                    {resending ? 'Envoi en cours...' : 'Renvoyer un code'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Lien retour */}
+          <div className="text-center mt-6 pb-4">
+            <a href="/" className="text-gray-400 text-sm hover:text-white transition">
+              ← Retour à Catch&apos;Up
+            </a>
+          </div>
         </div>
       </div>
     </div>

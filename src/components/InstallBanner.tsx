@@ -111,7 +111,7 @@ export default function InstallBanner({ messageCount }: { messageCount: number }
         <div className="mx-3 mb-2 md:mx-6 animate-fade-in">
           <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-catchup-primary/5 to-indigo-50 border border-catchup-primary/15 px-4 py-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-catchup-primary to-catchup-secondary flex items-center justify-center flex-shrink-0">
-              <span className="text-lg">📱</span>
+              <span className="text-lg" role="img" aria-label="Application mobile">📱</span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-800">

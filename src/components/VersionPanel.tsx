@@ -11,7 +11,8 @@ const CHANGELOG = [
     date: '03/04/2026',
     items: [
       'Header compact : selecteur de langue en dropdown (10 langues)',
-      'Panneau RGAA cliquable avec detail des criteres (71%)',
+      'Panneau RGAA cliquable avec detail des criteres (79%)',
+      'Textes alternatifs complets sur toutes les images et icones',
       'Ecran CGU bloquant pour les beneficiaires',
       'Bulle IA deplacable (drag & drop)',
       'Detection automatique de mise a jour',
@@ -20,6 +21,8 @@ const CHANGELOG = [
       'Filtre campagne dans la file active',
       'Suivi de delivrance SMS/Email (webhooks Vonage + Brevo)',
       'Badge version et panneau info sur espace conseiller',
+      'Lien cliquable dans les SMS (https://)',
+      'Amelioration saisie code PIN sur mobile (auto-focus, scroll)',
     ],
   },
   {
