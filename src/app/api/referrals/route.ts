@@ -35,6 +35,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('[Referral] POST reçu:', { prenom, typeContact, departement, age, structureSlug, campagneId })
+
     const now = new Date().toISOString()
     let resolvedUserId = utilisateurId
 

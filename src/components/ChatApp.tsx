@@ -1454,8 +1454,15 @@ export default function ChatApp() {
                 setStructuresSuggerees(result.structuresSuggerees)
                 setShowStructures(true)
               }
+            } else {
+              const errData = await res.json().catch(() => ({ error: 'Erreur serveur' }))
+              console.error('[Referral] Erreur:', res.status, errData)
+              alert(`Erreur lors de l'envoi : ${errData.error || 'Réessaie dans quelques instants.'}`)
             }
-          } catch { /* ignore */ }
+          } catch (err) {
+            console.error('[Referral] Exception:', err)
+            alert('Erreur de connexion. Vérifie ta connexion internet et réessaie.')
+          }
         }}
       />
 
