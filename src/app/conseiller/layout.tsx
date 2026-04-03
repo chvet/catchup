@@ -177,7 +177,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
             {/* Logo de la structure (sous le logo Catch'Up) */}
             {conseiller?.structure?.logoUrl && (
               <div className={`mt-3 flex ${(sidebarOpen || isMobile) ? 'items-center gap-3' : 'justify-center'}`}>
-                <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center overflow-hidden shadow-sm border border-gray-100">
+                <div className="w-12 h-12 rounded-lg bg-transparent flex items-center justify-center overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={conseiller.structure.logoUrl} alt={conseiller.structure.nom} className="w-10 h-10 object-contain" />
                 </div>

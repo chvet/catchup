@@ -202,10 +202,10 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           </svg>
         </button>
 
-        {/* Badge RGAA cliquable */}
+        {/* Badge RGAA cliquable — masqué sur mobile */}
         <button
           onClick={() => setRgaaOpen(v => !v)}
-          className={`px-1.5 py-0.5 rounded text-[10px] font-medium tracking-wide transition-colors ${
+          className={`hidden sm:inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium tracking-wide transition-colors ${
             rgaaOpen ? 'bg-white/25 text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/10'
           }`}
           title="Voir le detail de conformite RGAA"
