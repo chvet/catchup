@@ -15,7 +15,7 @@ const RGAA_ITEMS = [
   { label: 'Support multilingue (10 langues)', status: 'ok' as const },
   { label: 'Formulaires accessibles', status: 'ok' as const },
   { label: 'Textes alternatifs images et icones', status: 'ok' as const },
-  { label: 'Sous-titres / transcriptions audio', status: 'missing' as const, note: 'Prevu prochainement' },
+  { label: 'Sous-titres / transcriptions audio (Whisper)', status: 'ok' as const },
   { label: 'Compatible lecteurs d\'ecran (NVDA/VoiceOver)', status: 'partial' as const, note: 'Tests en cours' },
   { label: 'Documentation accessibilite', status: 'missing' as const, note: 'En redaction' },
 ] as const
