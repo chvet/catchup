@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { UserProfile, RIASEC_LABELS, RIASEC_COLORS, RIASEC_ICONS } from '@/core/types'
 import { hasSignificantProfile } from '@/core/profile-parser'
 import { getAllDimensions, getProfileSummary } from '@/core/riasec'
@@ -148,6 +148,7 @@ export default function ProfilePanel({ profile, messageCount = 0, gameState, onC
   const hasProfile = hasSignificantProfile(profile)
   const dimensions = getAllDimensions(profile)
   const maxScore = Math.max(...dimensions.map(d => d.score), 1)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   // Calcul de l'indice de confiance
   const confiance = calculerIndiceConfiance(profile, messageCount)
@@ -165,8 +166,38 @@ export default function ProfilePanel({ profile, messageCount = 0, gameState, onC
     prevNiveauRef.current = confiance.niveau
   }, [confiance.niveau])
 
+  // Focus trap + Escape to close
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') { onClose(); return }
+    if (e.key !== 'Tab') return
+    const panel = panelRef.current
+    if (!panel) return
+    const focusable = panel.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus() }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+  }, [onClose])
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown)
+    // Focus first focusable element on open
+    const panel = panelRef.current
+    if (panel) {
+      const firstBtn = panel.querySelector<HTMLElement>('button')
+      firstBtn?.focus()
+    }
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
+
   return (
-    <div className="fixed inset-0 sm:absolute sm:inset-y-0 sm:left-auto sm:right-0 sm:w-80 md:w-96 bg-white shadow-2xl z-40 slide-in-right flex flex-col" role="dialog" aria-label="Profil utilisateur">
+    <div ref={panelRef} className="fixed inset-0 sm:absolute sm:inset-y-0 sm:left-auto sm:right-0 sm:w-80 md:w-96 bg-white shadow-2xl z-40 slide-in-right flex flex-col" role="dialog" aria-modal="true" aria-label="Profil utilisateur">
       {/* Header */}
       <div className="bg-gradient-to-r from-catchup-primary to-indigo-600 text-white px-4 py-4">
         <div className="flex items-center justify-between mb-3">

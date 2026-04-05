@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 interface A11ySettings {
   fontSize: 0 | 1 | 2        // 0=normal, 1=grand, 2=tres grand
@@ -110,11 +110,10 @@ export default function AccessibilityPanel({ open: controlledOpen, onClose, ttsE
 
       {/* Panel — position différente selon le mode */}
       {open && (
-        <div
+        <A11yDialog
           className={`fixed z-50 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden
             ${isControlled ? 'top-16 right-4' : 'bottom-20 left-4'}`}
-          role="dialog"
-          aria-label="Parametres d'accessibilite"
+          onClose={close}
         >
           {/* Header */}
           <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
@@ -209,9 +208,47 @@ export default function AccessibilityPanel({ open: controlledOpen, onClose, ttsE
               </button>
             </div>
           )}
-        </div>
+        </A11yDialog>
       )}
     </>
+  )
+}
+
+/** Dialog wrapper with focus trap and Escape support */
+function A11yDialog({ className, onClose, children }: { className: string; onClose: () => void; children: React.ReactNode }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key !== 'Tab') return
+      const el = dialogRef.current
+      if (!el) return
+      const focusable = el.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus() }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus() }
+      }
+    }
+    document.addEventListener('keydown', handleKey)
+    const el = dialogRef.current
+    if (el) {
+      const firstBtn = el.querySelector<HTMLElement>('button')
+      firstBtn?.focus()
+    }
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
+  return (
+    <div ref={dialogRef} className={className} role="dialog" aria-modal="true" aria-label="Parametres d'accessibilite">
+      {children}
+    </div>
   )
 }
 

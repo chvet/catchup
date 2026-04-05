@@ -893,7 +893,7 @@ export default function ChatApp() {
   }
 
   return (
-    <div className={`h-[100dvh] w-full max-w-[100vw] flex flex-col overflow-hidden overflow-x-hidden ${rgaaMode ? 'rgaa-mode' : ''}`}>
+    <div id="main-content" className={`h-[100dvh] w-full max-w-[100vw] flex flex-col overflow-hidden overflow-x-hidden ${rgaaMode ? 'rgaa-mode' : ''}`} role="main" aria-label="Chat Catch'Up">
       <ChatHeader
         profile={profile}
         streak={gameState?.streakActuel ?? 0}
@@ -1193,7 +1193,7 @@ export default function ChatApp() {
           <>
             {/* ── Mode IA : chat normal ── */}
             <div className="flex-1 flex flex-col chat-bg min-w-0 w-full max-w-full" style={{ overflowX: 'clip', overflowY: 'hidden' }}>
-              <div className="flex-1 overflow-y-auto chat-scroll px-2 py-3 md:px-6 w-full max-w-full relative" style={{ overflowX: 'clip' }}>
+              <div className="flex-1 overflow-y-auto chat-scroll px-2 py-3 md:px-6 w-full max-w-full relative" style={{ overflowX: 'clip' }} role="log" aria-live="polite" aria-label="Messages de la conversation">
                 {/* TTS: le bouton de lecture est maintenant dans chaque bulle message */}
                 {!hasMessages && (
                   <div className="flex flex-col items-center justify-center h-full text-center px-4">

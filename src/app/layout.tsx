@@ -40,6 +40,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className="font-sans antialiased bg-catchup-bg overflow-x-hidden">
+        <a href="#main-content" className="skip-nav">
+          Aller au contenu principal
+        </a>
         {children}
         <UpdateBanner />
         <script

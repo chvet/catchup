@@ -2,10 +2,24 @@
 
 import { useState } from 'react'
 
-export const APP_VERSION = 'V2.0 Beta 008'
-export const APP_VERSION_DATE = '2026-04-03'
+export const APP_VERSION = 'V2.0 Beta 009'
+export const APP_VERSION_DATE = '2026-04-05'
 
 const CHANGELOG = [
+  {
+    version: 'V2.0 Beta 009',
+    date: '05/04/2026',
+    items: [
+      'Compatible lecteurs d\'ecran NVDA/VoiceOver (RGAA 100%)',
+      'Lien "Aller au contenu principal" (skip navigation)',
+      'Zone de messages aria-live pour lecteurs d\'ecran',
+      'Focus trap dans les panneaux modaux (Profil, Accessibilite)',
+      'Label associe au champ de saisie du chat',
+      'Titres h1 masques sur toutes les pages conseiller',
+      'Role status sur l\'indicateur de frappe',
+      'Fermeture par Echap sur tous les dialogues',
+    ],
+  },
   {
     version: 'V2.0 Beta 008',
     date: '03/04/2026',

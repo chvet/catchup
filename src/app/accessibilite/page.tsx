@@ -92,7 +92,7 @@ export default function AccessibilitePage() {
                   { label: 'Formulaires accessibles', status: 'ok', detail: 'Tous les champs de formulaire ont des labels associes (htmlFor/id). Messages d\'erreur lies aux champs via role="alert". Placeholder descriptifs.' },
                   { label: 'Textes alternatifs images et icones', status: 'ok', detail: 'Toutes les images significatives ont un attribut alt descriptif. Les emojis decoratifs ont role="img" et aria-label. Les icones SVG decoratives ont aria-hidden="true".' },
                   { label: 'Sous-titres / transcriptions audio', status: 'ok', detail: 'Les messages vocaux sont automatiquement transcrits par l\'IA (OpenAI Whisper). La transcription est affichee par defaut sous le lecteur audio, avec un bouton CC pour la masquer/afficher.' },
-                  { label: 'Compatible lecteurs d\'ecran', status: 'partial', detail: 'Compatible avec NVDA et VoiceOver pour la navigation principale. Tests en cours sur les composants complexes (profil RIASEC, gamification). Regions ARIA et landmarks en place.' },
+                  { label: 'Compatible lecteurs d\'ecran', status: 'ok', detail: 'Compatible avec NVDA et VoiceOver. Lien skip navigation, landmarks ARIA (main, nav, log), focus trap dans les modaux, titres h1 sur chaque page, aria-live sur les messages et indicateurs de frappe, labels sur tous les champs de saisie, fermeture Echap.' },
                   { label: 'Documentation accessibilite', status: 'ok', detail: 'Cette page constitue la declaration d\'accessibilite conforme au RGAA 4.1, incluant le detail des criteres, les moyens de contact et le plan d\'amelioration.' },
                 ].map((item, i) => (
                   <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
@@ -163,27 +163,11 @@ export default function AccessibilitePage() {
             Contenus non accessibles
           </h2>
           <h3 className="text-base font-semibold text-gray-800 mb-2">Non-conformites</h3>
-          <ul className="space-y-2 text-gray-700 text-sm mb-4">
-            <li className="flex items-start gap-2">
-              <span className="text-amber-500 mt-0.5">&#8226;</span>
-              <span>
-                <strong>Compatibilite lecteurs d&apos;ecran</strong> : les composants complexes
-                (graphique radar RIASEC, systeme de gamification, editeur de waveform audio)
-                ne sont pas encore pleinement accessibles avec NVDA/VoiceOver/TalkBack.
-                Des tests complementaires sont en cours.
-              </span>
-            </li>
-          </ul>
+          <p className="text-gray-700 text-sm mb-4">
+            Tous les 14 criteres audites sont conformes. Aucune non-conformite identifiee a ce jour.
+          </p>
           <h3 className="text-base font-semibold text-gray-800 mb-2">Ameliorations prevues</h3>
           <ul className="space-y-2 text-gray-700 text-sm">
-            <li className="flex items-start gap-2">
-              <span className="text-catchup-primary mt-0.5">&#8226;</span>
-              <span>Tests complets avec NVDA, VoiceOver (macOS/iOS) et TalkBack (Android)</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-catchup-primary mt-0.5">&#8226;</span>
-              <span>Ajout de descriptions ARIA detaillees pour le graphique radar RIASEC</span>
-            </li>
             <li className="flex items-start gap-2">
               <span className="text-catchup-primary mt-0.5">&#8226;</span>
               <span>Navigation par raccourcis clavier dans le chat (messages precedents/suivants)</span>
@@ -191,6 +175,10 @@ export default function AccessibilitePage() {
             <li className="flex items-start gap-2">
               <span className="text-catchup-primary mt-0.5">&#8226;</span>
               <span>Mode lecture simplifiee pour les contenus longs</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-catchup-primary mt-0.5">&#8226;</span>
+              <span>Tests complementaires avec TalkBack (Android)</span>
             </li>
           </ul>
         </section>

@@ -129,7 +129,10 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
 
   return (
     <ConseillerProvider value={conseiller}>
-      <div className="h-screen bg-gray-50 flex overflow-hidden">
+      <div className="h-screen bg-gray-50 flex overflow-hidden" role="application" aria-label="Espace conseiller Catch'Up">
+        <a href="#main-content" className="skip-nav">
+          Aller au contenu principal
+        </a>
 
         {/* Overlay mobile (clic en dehors ferme la sidebar) */}
         {isMobile && sidebarOpen && (
@@ -262,7 +265,7 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 h-full">
+        <main id="main-content" className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 h-full" role="main" aria-label="Contenu principal">
           {/* Topbar */}
           <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-20">
             <div className="flex items-center gap-3">
@@ -331,6 +334,16 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
 
           {/* Page content */}
           <div className="p-4 lg:p-6">
+            <h1 className="sr-only">
+              {pathname === '/conseiller' && 'Dashboard'}
+              {pathname.startsWith('/conseiller/agenda') && 'Agenda'}
+              {pathname.startsWith('/conseiller/file-active') && 'File active'}
+              {pathname.startsWith('/conseiller/structures') && 'Structures'}
+              {pathname.startsWith('/conseiller/conseillers') && 'Conseillers'}
+              {pathname.startsWith('/conseiller/admin') && 'Administration'}
+              {pathname.startsWith('/conseiller/parametres') && 'Paramètres'}
+              {pathname.startsWith('/conseiller/campagnes') && 'Campagnes'}
+            </h1>
             {children}
           </div>
         </main>

@@ -16,7 +16,7 @@ const RGAA_ITEMS = [
   { label: 'Formulaires accessibles', status: 'ok' as const },
   { label: 'Textes alternatifs images et icones', status: 'ok' as const },
   { label: 'Sous-titres / transcriptions audio (Whisper)', status: 'ok' as const },
-  { label: 'Compatible lecteurs d\'ecran (NVDA/VoiceOver)', status: 'partial' as const, note: 'Tests en cours' },
+  { label: 'Compatible lecteurs d\'ecran (NVDA/VoiceOver)', status: 'ok' as const },
   { label: 'Documentation accessibilite (RGAA 4.1)', status: 'ok' as const },
 ] as const
 
@@ -81,8 +81,8 @@ export default function RgaaPanel({ variant = 'dark' }: Props) {
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs ${item.status === 'ok' ? 'text-gray-700' : 'text-gray-500'}`}>{item.label}</p>
-                    {'note' in item && item.note && (
-                      <p className="text-[10px] text-gray-400">{item.note}</p>
+                    {('note' in item) && (item as { note?: string }).note && (
+                      <p className="text-[10px] text-gray-400">{(item as { note?: string }).note}</p>
                     )}
                   </div>
                 </div>

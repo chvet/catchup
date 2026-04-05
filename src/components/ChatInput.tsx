@@ -116,7 +116,7 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
     <div className="bg-white border-t border-gray-200 px-2 py-1 safe-area-bottom">
       {/* Indicateur de transcription */}
       {transcribing && (
-        <div className="flex items-center gap-2 px-3 py-1.5 mb-1 animate-fade-in">
+        <div className="flex items-center gap-2 px-3 py-1.5 mb-1 animate-fade-in" role="status" aria-live="polite">
           <div className="flex gap-1">
             <span className="w-1.5 h-1.5 bg-catchup-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
             <span className="w-1.5 h-1.5 bg-catchup-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -141,7 +141,9 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
             <EmojiPickerBtn onSelect={handleEmoji} />
           </div>
 
+          <label htmlFor="chat-input" className="sr-only">Votre message</label>
           <textarea
+            id="chat-input"
             ref={inputRef as React.LegacyRef<HTMLTextAreaElement>}
             value={input}
             onChange={onChange}
@@ -152,7 +154,9 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
             className="flex-1 min-w-0 resize-none bg-transparent py-2 pr-1 text-[15px] text-gray-800 placeholder-gray-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ maxHeight: '100px' }}
             autoFocus
+            aria-describedby="chat-input-hint"
           />
+          <span id="chat-input-hint" className="sr-only">Appuyez sur Entrée pour envoyer, Maj+Entrée pour un saut de ligne</span>
 
           {/* Micro inside input, right side */}
           <div className="flex items-center pr-1 pb-1.5 shrink-0">
@@ -165,6 +169,7 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
           type="submit"
           disabled={!input.trim() || isLoading || transcribing}
           className="p-2.5 rounded-full bg-catchup-primary text-white disabled:opacity-30 hover:bg-indigo-600 active:scale-95 transition-all shadow-sm disabled:shadow-none shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
+          aria-label="Envoyer le message"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
