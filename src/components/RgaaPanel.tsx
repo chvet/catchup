@@ -17,7 +17,7 @@ const RGAA_ITEMS = [
   { label: 'Textes alternatifs images et icones', status: 'ok' as const },
   { label: 'Sous-titres / transcriptions audio (Whisper)', status: 'ok' as const },
   { label: 'Compatible lecteurs d\'ecran (NVDA/VoiceOver)', status: 'partial' as const, note: 'Tests en cours' },
-  { label: 'Documentation accessibilite', status: 'missing' as const, note: 'En redaction' },
+  { label: 'Documentation accessibilite (RGAA 4.1)', status: 'ok' as const },
 ] as const
 
 export const RGAA_SCORE = Math.round(
@@ -90,7 +90,9 @@ export default function RgaaPanel({ variant = 'dark' }: Props) {
             </div>
 
             <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-400">Derniere evaluation : avril 2026</p>
+              <a href="/accessibilite" className="text-[10px] text-catchup-primary hover:underline" target="_blank" rel="noopener">
+                Declaration d&apos;accessibilite
+              </a>
               <button onClick={() => setOpen(false)} className="text-xs text-catchup-primary hover:underline">
                 Fermer
               </button>
