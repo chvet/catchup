@@ -1332,8 +1332,17 @@ export default function ChatApp() {
                 </div>
               )}
 
-              {/* ── Barre compacte : bouton mise en relation ── */}
-              {(!referralId || referralStatus === 'annulee' || referralStatus === 'terminee' || referralStatus === 'rupture') ? (
+              {/* ── Barre compacte : statut referral OU bouton mise en relation ── */}
+              {hasMessages && referralStatus === 'prise_en_charge' ? (
+                <div className="mx-2 md:mx-6 shrink-0">
+                  <button
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="w-full flex items-center justify-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded-full text-[11px] font-medium text-green-700 hover:bg-green-100 transition-colors"
+                  >
+                    <span>🤝</span><span>Ton conseiller {referralConseillerPrenom} est disponible — clique ici pour discuter</span>
+                  </button>
+                </div>
+              ) : (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee' || referralStatus === 'rupture') ? (
                 <div className="mx-3 md:mx-6 shrink-0">
                   <button
                     onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}

@@ -32,6 +32,7 @@ function EqBars() {
   )
 }
 
+
 export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, voiceData, genre }: Props) {
   const isUser = message.role === 'user'
   const msgDate = message.createdAt ? new Date(message.createdAt as string | number | Date) : new Date()

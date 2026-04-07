@@ -155,10 +155,10 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
           <div className="p-4 border-b border-white/10">
             <div className="flex items-center justify-between">
               {(sidebarOpen || isMobile) ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/favicon-catchup.png?v=3" alt={brandConfig.appName} className="w-8 h-8 object-contain" />
+                    <img src="/favicon-catchup.png?v=3" alt={brandConfig.appName} className="w-6 h-6 object-contain" />
                   </div>
                   <div>
                     <h1 className="text-lg font-bold text-catchup-primary leading-tight">{brandConfig.appName}</h1>
@@ -166,9 +166,9 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
                   </div>
                 </div>
               ) : (
-                <div className="mx-auto w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-sm">
+                <div className="mx-auto w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/favicon-catchup.png?v=3" alt={brandConfig.appName} className="w-8 h-8 object-contain" />
+                  <img src="/favicon-catchup.png?v=3" alt={brandConfig.appName} className="w-6 h-6 object-contain" />
                 </div>
               )}
               <button
