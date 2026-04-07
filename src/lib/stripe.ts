@@ -143,3 +143,102 @@ export function constructWebhookEvent(
 export function getPublishableKey(): string {
   return process.env.STRIPE_PUBLISHABLE_KEY || ''
 }
+
+// === STRIPE BILLING (abonnements recurrents) ===
+
+/**
+ * Cree un client Stripe pour une structure (facturation)
+ */
+export async function createBillingCustomer(
+  structureId: string,
+  email: string,
+  nom: string,
+): Promise<string> {
+  const stripe = getStripe()
+  const customer = await stripe.customers.create({
+    email,
+    name: nom,
+    metadata: { structureId },
+  })
+  return customer.id
+}
+
+/**
+ * Cree un abonnement Stripe pour un plan
+ */
+export async function createBillingSubscription(
+  customerId: string,
+  priceId: string,
+): Promise<{ subscriptionId: string; status: string }> {
+  const stripe = getStripe()
+  const subscription = await stripe.subscriptions.create({
+    customer: customerId,
+    items: [{ price: priceId }],
+    payment_behavior: 'default_incomplete',
+    expand: ['latest_invoice.payment_intent'],
+  })
+  return {
+    subscriptionId: subscription.id,
+    status: subscription.status,
+  }
+}
+
+/**
+ * Rapporte l'usage metered a Stripe (depassements)
+ */
+export async function reportMeteredUsage(
+  subscriptionItemId: string,
+  quantity: number,
+): Promise<void> {
+  const stripe = getStripe()
+  // Usage records are created via the meter events API or subscription items
+  await (stripe.subscriptionItems as unknown as { createUsageRecord: (id: string, params: { quantity: number; action: string }) => Promise<unknown> })
+    .createUsageRecord(subscriptionItemId, { quantity, action: 'set' })
+}
+
+/**
+ * Annule un abonnement Stripe
+ */
+export async function cancelBillingSubscription(
+  subscriptionId: string,
+): Promise<void> {
+  const stripe = getStripe()
+  await stripe.subscriptions.cancel(subscriptionId)
+}
+
+/**
+ * Retourne l'URL du portail client Stripe (self-service)
+ */
+export async function getCustomerPortalUrl(
+  customerId: string,
+  returnUrl: string,
+): Promise<string> {
+  const stripe = getStripe()
+  const session = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: returnUrl,
+  })
+  return session.url
+}
+
+/**
+ * Recupere les factures d'un client
+ */
+export async function getCustomerInvoices(
+  customerId: string,
+  limit = 10,
+) {
+  const stripe = getStripe()
+  const invoices = await stripe.invoices.list({
+    customer: customerId,
+    limit,
+  })
+  return invoices.data.map(inv => ({
+    id: inv.id,
+    montantCentimes: inv.amount_due,
+    statut: inv.status,
+    date: inv.created,
+    pdfUrl: inv.invoice_pdf,
+    hostedUrl: inv.hosted_invoice_url,
+  }))
+}

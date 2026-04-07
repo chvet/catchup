@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/data/db'
-import { paiement, stripeCompteStructure, referral, acceptationTarif } from '@/data/schema'
+import { paiement, stripeCompteStructure, referral, acceptationTarif, abonnement } from '@/data/schema'
 import { eq } from 'drizzle-orm'
 import { constructWebhookEvent } from '@/lib/stripe'
 
@@ -81,6 +81,53 @@ export async function POST(request: NextRequest) {
         }).where(eq(stripeCompteStructure.stripeAccountId, account.id))
 
         console.log(`[Stripe Webhook] Compte ${account.id} mis a jour: charges=${account.charges_enabled}`)
+        break
+      }
+
+      case 'customer.subscription.updated': {
+        const sub = event.data.object as { id: string; status: string }
+        const statutMap: Record<string, string> = {
+          active: 'active',
+          past_due: 'suspendue',
+          canceled: 'resiliee',
+          unpaid: 'suspendue',
+          trialing: 'essai',
+        }
+        const newStatut = statutMap[sub.status] || 'active'
+        await db.update(abonnement).set({
+          statut: newStatut,
+          misAJourLe: now,
+        }).where(eq(abonnement.stripeSubscriptionId, sub.id))
+        console.log(`[Stripe Webhook] Subscription ${sub.id} -> ${newStatut}`)
+        break
+      }
+
+      case 'customer.subscription.deleted': {
+        const sub = event.data.object as { id: string }
+        await db.update(abonnement).set({
+          statut: 'resiliee',
+          dateFin: now,
+          misAJourLe: now,
+        }).where(eq(abonnement.stripeSubscriptionId, sub.id))
+        console.log(`[Stripe Webhook] Subscription ${sub.id} resiliee`)
+        break
+      }
+
+      case 'invoice.paid': {
+        const invoice = event.data.object as unknown as { id: string; subscription?: string }
+        console.log(`[Stripe Webhook] Facture payee: ${invoice.id} (sub: ${invoice.subscription || 'N/A'})`)
+        break
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as unknown as { id: string; subscription?: string }
+        if (invoice.subscription) {
+          await db.update(abonnement).set({
+            statut: 'suspendue',
+            misAJourLe: now,
+          }).where(eq(abonnement.stripeSubscriptionId, invoice.subscription))
+        }
+        console.log(`[Stripe Webhook] Facture echouee: ${invoice.id}`)
         break
       }
 

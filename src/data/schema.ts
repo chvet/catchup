@@ -604,3 +604,98 @@ export const stripeCompteStructure = pgTable('stripe_compte_structure', {
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
+
+// === MODÈLE ÉCONOMIQUE : ABONNEMENTS, CONVENTIONS, USAGE ===
+
+export const conventionTerritoriale = pgTable('convention_territoriale', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(), // 'departement' | 'region'
+  nom: text('nom').notNull(),
+  departements: text('departements'), // JSON array
+  regions: text('regions'), // JSON array
+  montantAnnuelHtCentimes: integer('montant_annuel_ht_centimes').notNull(),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  stripeCustomerId: text('stripe_customer_id'),
+  limiteStructures: integer('limite_structures').notNull(),
+  limiteBeneficiaires: integer('limite_beneficiaires').notNull(),
+  limiteConversations: integer('limite_conversations').notNull(),
+  limiteSms: integer('limite_sms').notNull(),
+  contactNom: text('contact_nom'),
+  contactEmail: text('contact_email'),
+  contactTelephone: text('contact_telephone'),
+  dateDebut: text('date_debut').notNull(),
+  dateFin: text('date_fin').notNull(),
+  statut: text('statut').default('active'), // 'active' | 'suspendue' | 'resiliee'
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const conventionStructure = pgTable('convention_structure', {
+  id: text('id').primaryKey(),
+  conventionId: text('convention_id').notNull().references(() => conventionTerritoriale.id),
+  structureId: text('structure_id').notNull().references(() => structure.id),
+  dateAjout: text('date_ajout').notNull(),
+  statut: text('statut').default('active'), // 'active' | 'retiree'
+  creeLe: text('cree_le').notNull(),
+})
+
+export const abonnement = pgTable('abonnement', {
+  id: text('id').primaryKey(),
+  structureId: text('structure_id').notNull().references(() => structure.id),
+  plan: text('plan').notNull(), // 'starter' | 'pro' | 'premium' | 'pay_per_outcome'
+  conventionId: text('convention_id').references(() => conventionTerritoriale.id),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  stripeCustomerId: text('stripe_customer_id'),
+  stripePriceId: text('stripe_price_id'),
+  montantMensuelHtCentimes: integer('montant_mensuel_ht_centimes').notNull(),
+  // Limites du plan (denormalisees pour lookup rapide)
+  limiteConseillers: integer('limite_conseillers'), // NULL = illimite
+  limiteBeneficiaires: integer('limite_beneficiaires').notNull(),
+  limiteConversations: integer('limite_conversations').notNull(),
+  limiteSms: integer('limite_sms').notNull(),
+  // Pay-per-outcome
+  socleInclus: integer('socle_inclus').default(0),
+  // Prix depassement en centimes
+  prixDepassementConversation: integer('prix_depassement_conversation').default(2), // 0.02 EUR
+  prixDepassementSms: integer('prix_depassement_sms').default(8), // 0.08 EUR
+  // Dates
+  dateDebut: text('date_debut').notNull(),
+  dateFin: text('date_fin'),
+  periodeEssai: integer('periode_essai').default(0),
+  statut: text('statut').default('active'), // 'active' | 'suspendue' | 'resiliee' | 'essai'
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const usageStructure = pgTable('usage_structure', {
+  id: text('id').primaryKey(),
+  structureId: text('structure_id').notNull().references(() => structure.id),
+  mois: text('mois').notNull(), // 'YYYY-MM'
+  conversationsIa: integer('conversations_ia').default(0),
+  smsEnvoyes: integer('sms_envoyes').default(0),
+  beneficiairesActifs: integer('beneficiaires_actifs').default(0),
+  conseillersActifs: integer('conseillers_actifs').default(0),
+  conseillersSurplus: integer('conseillers_surplus').default(0),
+  conversationsDepassement: integer('conversations_depassement').default(0),
+  smsDepassement: integer('sms_depassement').default(0),
+  montantDepassementCentimes: integer('montant_depassement_centimes').default(0),
+  stripeUsageRecordId: text('stripe_usage_record_id'),
+  rapporteLe: text('rapporte_le'),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const evenementFacturable = pgTable('evenement_facturable', {
+  id: text('id').primaryKey(),
+  structureId: text('structure_id').notNull().references(() => structure.id),
+  abonnementId: text('abonnement_id').notNull().references(() => abonnement.id),
+  type: text('type').notNull(), // 'orientation_reussie' | 'accompagnement_termine' | 'profil_riasec_fiable' | 'satisfaction_elevee'
+  montantCentimes: integer('montant_centimes').notNull(), // 500, 1500, 200, 100
+  referenceId: text('reference_id').notNull(),
+  referenceType: text('reference_type').notNull(), // 'prise_en_charge' | 'indice_confiance' | 'enquete_satisfaction'
+  mois: text('mois').notNull(), // 'YYYY-MM'
+  facture: integer('facture').default(0), // 0=pending, 1=billed
+  stripeInvoiceItemId: text('stripe_invoice_item_id'),
+  details: text('details'), // JSON
+  creeLe: text('cree_le').notNull(),
+})
