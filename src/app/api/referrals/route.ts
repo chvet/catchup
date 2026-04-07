@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/data/db'
-import { conversation, message, utilisateur, referral, profilRiasec, structure, priseEnCharge, messageDirect, evenementAudit } from '@/data/schema'
+import { campagne, conversation, message, utilisateur, referral, profilRiasec, structure, priseEnCharge, messageDirect, evenementAudit } from '@/data/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
@@ -205,6 +205,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 5c. Si campagneId fourni, résoudre la structure de la campagne
+    //     (garantit le routage même si structureSlug est absent)
+    if (!structureSuggereIdFromSlug && campagneId) {
+      const campagneMatch = await db
+        .select({ structureId: campagne.structureId })
+        .from(campagne)
+        .where(eq(campagne.id, campagneId))
+      if (campagneMatch.length > 0 && campagneMatch[0].structureId) {
+        structureSuggereIdFromSlug = campagneMatch[0].structureId
+      }
+    }
+
     // 6. Matching: get active structures
     const activeStructures = await db
       .select()
@@ -322,7 +334,7 @@ export async function POST(request: NextRequest) {
 
     // 8. Create referral
     const referralId = uuidv4()
-    const referralSource = structureSlug ? 'sourcee' : 'generique'
+    const referralSource = (structureSlug || structureSuggereIdFromSlug) ? 'sourcee' : 'generique'
     await db.insert(referral).values({
       id: referralId,
       utilisateurId: resolvedUserId,
