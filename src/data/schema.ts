@@ -124,6 +124,7 @@ export const referral = pgTable('referral', {
   localisation: text('localisation'),
   genre: text('genre'),
   ageBeneficiaire: integer('age_beneficiaire'),
+  preferenceStructure: text('preference_structure'), // 'privee' | 'publique' | 'indifferent'
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),
   recontacteLe: text('recontacte_le'),
@@ -189,6 +190,8 @@ export const structure = pgTable('structure', {
   parcoureoId: text('parcoureo_id'),
   promptPersonnalise: text('prompt_personnalise'), // Custom AI behavior prompt set by admin_structure
   logoUrl: text('logo_url'), // Structure logo (relative path to uploaded image)
+  statut: text('statut').default('public'), // 'public' | 'prive_non_lucratif' | 'lucratif'
+  tauxTva: real('taux_tva').default(20.0), // Taux TVA en % (20, 10, 5.5, 0) — utilisé pour structures lucratives
   actif: integer('actif').default(1),
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),
@@ -523,4 +526,81 @@ export const alerteDecrochage = pgTable('alerte_decrochage', {
   actionPrise: text('action_prise'),
   creeLe: text('cree_le').notNull(),
   traiteeLe: text('traitee_le'),
+})
+
+// === TARIFICATION & PAIEMENT (structures privées) ===
+
+export const tarification = pgTable('tarification', {
+  id: text('id').primaryKey(),
+  structureId: text('structure_id').notNull().references(() => structure.id),
+  libelle: text('libelle').notNull(),
+  description: text('description'),
+  montantHtCentimes: integer('montant_ht_centimes').notNull(), // Prix HT en centimes
+  montantTtcCentimes: integer('montant_ttc_centimes').notNull(), // Prix TTC en centimes (calculé via tauxTva)
+  montantCentimes: integer('montant_centimes').notNull(), // Alias TTC pour compatibilité
+  devise: text('devise').default('EUR'),
+  dureeJours: integer('duree_jours'),
+  actif: integer('actif').default(1),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const conditionsCommerciales = pgTable('conditions_commerciales', {
+  id: text('id').primaryKey(),
+  structureId: text('structure_id').notNull().references(() => structure.id),
+  nom: text('nom').notNull(),
+  fichierNom: text('fichier_nom').notNull(),
+  fichierUrl: text('fichier_url').notNull(),
+  typeMime: text('type_mime'),
+  tailleFichier: integer('taille_fichier'),
+  version: integer('version').default(1),
+  actif: integer('actif').default(1),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const acceptationTarif = pgTable('acceptation_tarif', {
+  id: text('id').primaryKey(),
+  referralId: text('referral_id').notNull().references(() => referral.id),
+  utilisateurId: text('utilisateur_id').notNull().references(() => utilisateur.id),
+  structureId: text('structure_id').notNull().references(() => structure.id),
+  tarificationId: text('tarification_id').notNull().references(() => tarification.id),
+  conditionsId: text('conditions_id').references(() => conditionsCommerciales.id),
+  montantHtCentimes: integer('montant_ht_centimes').notNull(),
+  montantTtcCentimes: integer('montant_ttc_centimes').notNull(),
+  montantCentimes: integer('montant_centimes').notNull(), // Alias TTC pour compatibilité
+  statut: text('statut').default('en_attente'), // 'en_attente' | 'acceptee' | 'refusee' | 'expiree'
+  accepteeLe: text('acceptee_le'),
+  refuseeLe: text('refusee_le'),
+  ipAcceptation: text('ip_acceptation'),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const paiement = pgTable('paiement', {
+  id: text('id').primaryKey(),
+  acceptationTarifId: text('acceptation_tarif_id').notNull().references(() => acceptationTarif.id),
+  priseEnChargeId: text('prise_en_charge_id').references(() => priseEnCharge.id),
+  stripePaymentIntentId: text('stripe_payment_intent_id'),
+  stripeCheckoutSessionId: text('stripe_checkout_session_id'),
+  montantCentimes: integer('montant_centimes').notNull(),
+  devise: text('devise').default('EUR'),
+  statut: text('statut').default('en_attente'), // 'en_attente' | 'en_cours' | 'reussi' | 'echoue' | 'rembourse'
+  methode: text('methode'),
+  recuUrl: text('recu_url'),
+  erreur: text('erreur'),
+  paieLe: text('paie_le'),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
+
+export const stripeCompteStructure = pgTable('stripe_compte_structure', {
+  id: text('id').primaryKey(),
+  structureId: text('structure_id').notNull().references(() => structure.id),
+  stripeAccountId: text('stripe_account_id').notNull(),
+  statut: text('statut').default('en_cours'), // 'en_cours' | 'actif' | 'suspendu'
+  chargesActives: integer('charges_actives').default(0),
+  detailsComplets: integer('details_complets').default(0),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
 })

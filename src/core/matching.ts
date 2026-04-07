@@ -11,6 +11,7 @@ export interface MatchingCriteria {
   riasecDominant: string[]
   urgence: 'normale' | 'haute' | 'critique'
   fragilite: 'none' | 'low' | 'medium' | 'high'
+  preferenceStructure?: 'privee' | 'publique' | 'indifferent' | null
 }
 
 export interface StructureData {
@@ -25,6 +26,13 @@ export interface StructureData {
   capaciteMax: number
   casActifs: number
   actif: boolean
+  statut?: 'public' | 'prive_non_lucratif' | 'lucratif'
+}
+
+export interface TarifInfo {
+  id: string
+  libelle: string
+  montantCentimes: number
 }
 
 export interface MatchingResult {
@@ -33,6 +41,8 @@ export interface MatchingResult {
   score: number
   raisons: string[]
   tauxRemplissage: number
+  statut: string
+  tarifs?: TarifInfo[]
 }
 
 // === MAPPING DÉPARTEMENTS → RÉGIONS ===
@@ -156,6 +166,11 @@ export function matcherStructures(
   for (const s of structures) {
     if (!s.actif) continue
 
+    // === FILTRE PRÉFÉRENCE GRATUIT/PAYANT ===
+    const sStatut = s.statut || 'public'
+    if (criteria.preferenceStructure === 'privee' && sStatut !== 'lucratif') continue
+    if (criteria.preferenceStructure === 'publique' && sStatut === 'lucratif') continue
+
     // === FILTRES ÉLIMINATOIRES ===
 
     // Géo : département doit matcher (sauf si pas de localisation connue)
@@ -230,6 +245,7 @@ export function matcherStructures(
       score: Math.min(100, score),
       raisons,
       tauxRemplissage: Math.round(tauxRemplissage * 100),
+      statut: sStatut,
     })
   }
 

@@ -25,7 +25,7 @@ import ProfilePanel from './ProfilePanel'
 import TypingIndicator from './TypingIndicator'
 // InstallBanner désactivé pour le moment — sera réactivé quand l'app native existera
 import { UserProfile, EMPTY_PROFILE } from '@/core/types'
-import { extractProfileFromMessage, extractSuggestionsFromMessage, cleanMessageContent, mergeProfiles, type DynamicSuggestion } from '@/core/profile-parser'
+import { extractProfileFromMessage, extractSuggestionsFromMessage, extractGeolocRequest, cleanMessageContent, mergeProfiles, type DynamicSuggestion } from '@/core/profile-parser'
 import { calculerIndiceConfiance } from '@/core/confidence'
 import { getFragilityLevel, type FragilityLevel } from '@/core/fragility-detector'
 import ReferralStatusTag from './ReferralStatusTag'
@@ -35,6 +35,7 @@ import { useAppBrand } from '@/hooks/useAppBrand'
 // Lazy-load heavy modal components (only shown on user action)
 const ReferralModal = dynamic(() => import('./ReferralModal'), { ssr: false })
 const FichesSearchOverlay = dynamic(() => import('./FichesSearchOverlay'), { ssr: false })
+const GeolocWidget = dynamic(() => import('./GeolocWidget'), { ssr: false })
 const DocumentsPanel = dynamic(() => import('./DocumentsPanel'), { ssr: false })
 import {
   loadGameState, saveGameState, updateStreak,
@@ -61,6 +62,7 @@ const LS_CAMPAGNE_ID = 'catchup_campagne_id'
 const LS_USER_PRENOM = 'catchup_user_prenom'
 const LS_LANG = 'catchup_lang'
 const LS_CGU_ACCEPTED = 'catchup_cgu_accepted'
+const LS_USER_LOCATION = 'catchup_user_location'
 
 interface StructureInfo {
   nom: string
@@ -111,6 +113,9 @@ export default function ChatApp() {
   const [showProfile, setShowProfile] = useState(false)
   const [dynamicSuggestions, setDynamicSuggestions] = useState<DynamicSuggestion[] | null>(null)
   const [rgaaMode, setRgaaMode] = useState(false)
+  const [userLocation, setUserLocation] = useState<{ type: string; value: string; label: string } | null>(() => loadFromLS(LS_USER_LOCATION, null))
+  const [showGeolocWidget, setShowGeolocWidget] = useState(false)
+  const [geolocRequestedForMsg, setGeolocRequestedForMsg] = useState<string | null>(null)
   const [a11yOpen, setA11yOpen] = useState(false)
   const [cguAccepted, setCguAccepted] = useState(() => loadFromLS<boolean>(LS_CGU_ACCEPTED, false))
   const [ttsEnabled, setTtsEnabled] = useState(false)
@@ -270,7 +275,7 @@ export default function ChatApp() {
     api: '/api/chat',
     id: sessionId,
     initialMessages: loadFromLS<Message[]>(LS_MESSAGES_KEY, []),
-    body: { profile, messageCount: 0, fromQuiz, fragilityLevel: currentFragility, userName: savedPrenom || profile.name || undefined, language: selectedLang !== 'fr' ? selectedLang : undefined },
+    body: { profile, messageCount: 0, fromQuiz, fragilityLevel: currentFragility, userName: savedPrenom || profile.name || undefined, language: selectedLang !== 'fr' ? selectedLang : undefined, userLocation },
     onFinish: (message) => {
       const extracted = extractProfileFromMessage(message.content)
       if (extracted) {
@@ -284,6 +289,11 @@ export default function ChatApp() {
       const suggestions = extractSuggestionsFromMessage(message.content)
       if (suggestions && suggestions.length > 0) {
         setDynamicSuggestions(suggestions)
+      }
+      // Détecter la demande de géolocalisation
+      if (extractGeolocRequest(message.content) && !userLocation) {
+        setShowGeolocWidget(true)
+        setGeolocRequestedForMsg(message.id)
       }
       if (ttsEnabled && message.role === 'assistant') {
         setSpeakingMsgId(message.id)
@@ -1251,18 +1261,31 @@ export default function ChatApp() {
                 )}
 
                 {messages.map((msg) => (
-                  <MessageBubble
-                    key={msg.id}
-                    message={{
-                      ...msg,
-                      content: cleanMessageContent(msg.content),
-                    }}
-                    isSpeaking={speakingMsgId === msg.id}
-                    onSpeak={() => handleSpeak(msg.id, msg.content)}
-                    rgaaMode={rgaaMode}
-                    voiceData={voiceDataMap.current.get(msg.content)}
-                    genre={profile.genre}
-                  />
+                  <div key={msg.id}>
+                    <MessageBubble
+                      message={{
+                        ...msg,
+                        content: cleanMessageContent(msg.content),
+                      }}
+                      isSpeaking={speakingMsgId === msg.id}
+                      onSpeak={() => handleSpeak(msg.id, msg.content)}
+                      rgaaMode={rgaaMode}
+                      voiceData={voiceDataMap.current.get(msg.content)}
+                      genre={profile.genre}
+                    />
+                    {showGeolocWidget && geolocRequestedForMsg === msg.id && (
+                      <GeolocWidget onLocationSelected={(loc) => {
+                        setUserLocation(loc)
+                        saveToLS(LS_USER_LOCATION, loc)
+                        setShowGeolocWidget(false)
+                        if (loc.type !== 'aucune' && loc.label) {
+                          append({ role: 'user', content: `Je suis \u00E0 ${loc.label}` })
+                        } else if (loc.type === 'aucune') {
+                          append({ role: 'user', content: 'Peu importe la localisation, je suis mobile' })
+                        }
+                      }} />
+                    )}
+                  </div>
                 ))}
 
                 {isLoading && <TypingIndicator />}

@@ -63,6 +63,7 @@ export async function GET(request: Request) {
         longitude: structure.longitude,
         webhookUrl: structure.webhookUrl,
         parcoureoId: structure.parcoureoId,
+        statut: structure.statut,
         actif: structure.actif,
         creeLe: structure.creeLe,
         misAJourLe: structure.misAJourLe,
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { nom, type, departements, regions, ageMin, ageMax, specialites, genrePreference, capaciteMax, webhookUrl, parcoureoId, slug: slugInput, adresse, codePostal, ville, latitude, longitude } = body
+    const { nom, type, departements, regions, ageMin, ageMax, specialites, genrePreference, capaciteMax, webhookUrl, parcoureoId, slug: slugInput, adresse, codePostal, ville, latitude, longitude, statut } = body
 
     if (!nom || typeof nom !== 'string' || nom.trim().length === 0) {
       return jsonError('Le nom est requis', 400)
@@ -105,6 +106,14 @@ export async function POST(request: Request) {
 
     if (!departements || !Array.isArray(departements) || departements.length === 0) {
       return jsonError('Au moins un departement est requis', 400)
+    }
+
+    // Validate statut if provided
+    if (statut !== undefined) {
+      const validStatuts = ['public', 'prive_non_lucratif', 'lucratif']
+      if (!validStatuts.includes(statut)) {
+        return jsonError(`Statut invalide. Valeurs acceptees: ${validStatuts.join(', ')}`, 400)
+      }
     }
 
     // Generate or validate slug
@@ -137,6 +146,7 @@ export async function POST(request: Request) {
       longitude: longitude || null,
       webhookUrl: webhookUrl || null,
       parcoureoId: parcoureoId || null,
+      statut: statut || 'public',
       actif: 1,
       creeLe: now,
       misAJourLe: now,

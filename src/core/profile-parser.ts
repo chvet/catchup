@@ -56,6 +56,13 @@ export function extractProfileFromMessage(content: string): UserProfile | null {
 }
 
 /**
+ * Détecte si le message IA contient le tag <!--GEOLOC_REQUEST-->
+ */
+export function extractGeolocRequest(content: string): boolean {
+  return content.includes('<!--GEOLOC_REQUEST-->')
+}
+
+/**
  * Supprime le bloc <!--PROFILE:...--> du contenu affiché.
  * Gère aussi les blocs partiels pendant le streaming
  * (ex: "<!--PROFILE:{" qui n'est pas encore fermé par "-->")
@@ -65,14 +72,17 @@ export function cleanMessageContent(content: string): string {
   let cleaned = content.replace(/<!--PROFILE:.*?-->/g, '')
   // 2. Supprimer les blocs SUGGESTIONS complets
   cleaned = cleaned.replace(/<!--SUGGESTIONS:.*?-->/g, '')
-  // 3. Supprimer les blocs PROFILE partiels en cours de streaming
+  // 3. Supprimer les blocs GEOLOC_REQUEST complets
+  cleaned = cleaned.replace(/<!--GEOLOC_REQUEST-->/g, '')
+  // 4. Supprimer les blocs PROFILE partiels en cours de streaming
   cleaned = cleaned.replace(/<!--PROFILE:[\s\S]*$/, '')
-  // 4. Supprimer les blocs SUGGESTIONS partiels en cours de streaming
+  // 5. Supprimer les blocs SUGGESTIONS partiels en cours de streaming
   cleaned = cleaned.replace(/<!--SUGGESTIONS:[\s\S]*$/, '')
-  // 5. Supprimer un début de bloc encore plus partiel (ex: "<!--PR", "<!--SU")
+  // 6. Supprimer un début de bloc encore plus partiel (ex: "<!--PR", "<!--SU", "<!--GE")
   cleaned = cleaned.replace(/<!--P(?:R(?:O(?:F(?:I(?:L(?:E?)?)?)?)?)?)?$/, '')
   cleaned = cleaned.replace(/<!--S(?:U(?:G(?:G(?:E(?:S(?:T(?:I(?:O(?:N(?:S?)?)?)?)?)?)?)?)?)?)?$/, '')
-  // 6. Supprimer les tout premiers caractères du commentaire HTML en cours
+  cleaned = cleaned.replace(/<!--G(?:E(?:O(?:L(?:O(?:C(?:_(?:R(?:E(?:Q(?:U(?:E(?:S(?:T?)?)?)?)?)?)?)?)?)?)?)?)?)?$/, '')
+  // 7. Supprimer les tout premiers caractères du commentaire HTML en cours
   cleaned = cleaned.replace(/<!-?-?$/, '')
   return cleaned.trim()
 }

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/data/db'
-import { campagne, conversation, message, utilisateur, referral, profilRiasec, structure, priseEnCharge, messageDirect, evenementAudit } from '@/data/schema'
+import { campagne, conversation, message, utilisateur, referral, profilRiasec, structure, priseEnCharge, messageDirect, evenementAudit, tarification } from '@/data/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
-import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
+import { matcherStructures, type MatchingCriteria, type StructureData, type TarifInfo } from '@/core/matching'
 import { openai } from '@ai-sdk/openai'
 import { generateText } from 'ai'
 import { recordUsage } from '@/lib/token-guard'
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
       fragilityLevel,
       structureSlug,
       campagneId,
+      preferenceStructure,
     } = body
 
     if (!conversationId || !utilisateurId) {
@@ -248,6 +249,7 @@ export async function POST(request: NextRequest) {
           capaciteMax: s.capaciteMax ?? 50,
           casActifs: casActifsResult[0]?.count ?? 0,
           actif: true,
+          statut: (s.statut as 'public' | 'prive_non_lucratif' | 'lucratif') || 'public',
         }
       })
     )
@@ -271,6 +273,7 @@ export async function POST(request: NextRequest) {
       riasecDominant,
       urgence: priorite === 'critique' ? 'critique' : priorite === 'haute' ? 'haute' : 'normale',
       fragilite: fragilityLevel ?? 'none',
+      preferenceStructure: preferenceStructure || null,
     }
 
     const matchResults = matcherStructures(matchingCriteria, structureDataList)
@@ -356,6 +359,7 @@ export async function POST(request: NextRequest) {
       localisation: departement ?? null,
       genre: genre ?? null,
       ageBeneficiaire: age ?? null,
+      preferenceStructure: preferenceStructure || null,
       creeLe: now,
       misAJourLe: now,
     })
@@ -386,20 +390,37 @@ export async function POST(request: NextRequest) {
       syncBeneficiaireToParcoureo(syncProfile).catch(() => {})
     }
 
-    // 9. Return response — inclut les top 3 structures pour affichage au bénéficiaire
-    const top3 = matchResults.slice(0, 3).map(m => ({
-      nom: m.structureNom,
-      score: m.score,
-      raisons: m.raisons || [],
-    }))
+    // 9. Load tarifs for private structures in results
+    const matchResultsWithTarifs = await Promise.all(
+      matchResults.slice(0, 3).map(async (m) => {
+        let tarifs: TarifInfo[] = []
+        if (m.statut === 'lucratif') {
+          const tarifRows = await db.select({
+            id: tarification.id,
+            libelle: tarification.libelle,
+            montantCentimes: tarification.montantCentimes,
+          }).from(tarification)
+            .where(and(eq(tarification.structureId, m.structureId), eq(tarification.actif, 1)))
+          tarifs = tarifRows
+        }
+        return {
+          structureId: m.structureId,
+          nom: m.structureNom,
+          score: m.score,
+          raisons: m.raisons || [],
+          statut: m.statut,
+          tarifs,
+        }
+      })
+    )
 
     return NextResponse.json({
       referralId,
       priorite,
       structureSuggeree: bestMatch
-        ? { nom: bestMatch.structureNom, score: bestMatch.score }
+        ? { nom: bestMatch.structureNom, score: bestMatch.score, statut: bestMatch.statut }
         : null,
-      structuresSuggerees: top3,
+      structuresSuggerees: matchResultsWithTarifs,
     })
   } catch (error) {
     console.error('[referrals] Error:', error)

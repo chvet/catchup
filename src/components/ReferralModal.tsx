@@ -117,6 +117,7 @@ interface ReferralModalProps {
     typeContact: 'email' | 'telephone'
     departement: string
     age: number
+    preferenceStructure?: 'privee' | 'publique' | 'indifferent'
   }) => void
   urgency: 'immediate' | 'gentle'
   reason?: string
@@ -160,6 +161,7 @@ export default function ReferralModal({
   const [geoStatus, setGeoStatus] = useState<'idle' | 'asking' | 'loading' | 'done' | 'denied'>('idle')
   const [geoCity, setGeoCity] = useState<string | null>(null)
   const [codePostalInput, setCodePostalInput] = useState('')
+  const [preferenceStructure, setPreferenceStructure] = useState<'privee' | 'publique' | 'indifferent'>('indifferent')
 
   // Sync suggested values when they change
   useEffect(() => {
@@ -289,6 +291,7 @@ export default function ReferralModal({
         typeContact,
         departement,
         age: parseInt(age, 10),
+        preferenceStructure,
       })
     } finally {
       setIsSubmitting(false)
@@ -561,6 +564,66 @@ export default function ReferralModal({
                 <p className="text-red-500 text-xs mt-1">{errors.age}</p>
               )}
             </div>
+
+            {/* Preference structure */}
+            {!structureSlug && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type d&apos;accompagnement souhait&eacute;
+                </label>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreferenceStructure('publique')}
+                    className={`w-full p-3 rounded-xl border-2 text-left transition-all ${
+                      preferenceStructure === 'publique'
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-medium text-gray-800">Structure publique ou associative</span>
+                        <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">Gratuit</span>
+                      </div>
+                      {preferenceStructure === 'publique' && <span className="text-green-500">&#x2713;</span>}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreferenceStructure('privee')}
+                    className={`w-full p-3 rounded-xl border-2 text-left transition-all ${
+                      preferenceStructure === 'privee'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-medium text-gray-800">Coach ou prestataire priv&eacute;</span>
+                        <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">Payant</span>
+                      </div>
+                      {preferenceStructure === 'privee' && <span className="text-blue-500">&#x2713;</span>}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Les tarifs seront affich&eacute;s avant tout engagement</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreferenceStructure('indifferent')}
+                    className={`w-full p-3 rounded-xl border-2 text-left transition-all ${
+                      preferenceStructure === 'indifferent'
+                        ? 'border-gray-500 bg-gray-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-800">Peu importe</span>
+                      {preferenceStructure === 'indifferent' && <span className="text-gray-500">&#x2713;</span>}
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Submit */}
             <button

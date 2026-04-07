@@ -166,12 +166,20 @@ export async function PUT(request: Request, { params }: Params) {
       }
     }
 
+    // Validate statut if provided
+    if (body.statut !== undefined) {
+      const validStatuts = ['public', 'prive_non_lucratif', 'lucratif']
+      if (!validStatuts.includes(body.statut)) {
+        return jsonError(`Statut invalide. Valeurs acceptees: ${validStatuts.join(', ')}`, 400)
+      }
+    }
+
     // Build the update object (only allowed fields)
     const allowedFields = [
       'nom', 'slug', 'type', 'departements', 'regions', 'ageMin', 'ageMax',
       'specialites', 'genrePreference', 'capaciteMax', 'webhookUrl', 'parcoureoId', 'actif',
       'adresse', 'codePostal', 'ville', 'latitude', 'longitude',
-      'promptPersonnalise',
+      'promptPersonnalise', 'statut', 'tauxTva',
     ]
 
     const updateData: Record<string, unknown> = { misAJourLe: new Date().toISOString() }

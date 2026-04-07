@@ -13,6 +13,8 @@ interface StructureDetail {
   nom: string
   slug?: string
   type: string
+  statut?: string
+  tauxTva?: number
   departements: string
   ageMin: number
   ageMax: number
@@ -28,6 +30,28 @@ interface StructureDetail {
   logoUrl?: string | null
   nbConseillers?: number
   nbCasActifs?: number
+}
+
+interface TarifItem {
+  id: string
+  libelle: string
+  description?: string | null
+  montantHtCentimes: number
+  montantTtcCentimes: number
+  montantCentimes: number
+  devise: string
+  dureeJours?: number | null
+  actif: number
+}
+
+interface ConditionsItem {
+  id: string
+  nom: string
+  fichierNom: string
+  fichierUrl: string
+  version: number
+  actif: number
+  creeLe: string
 }
 
 interface ConseillerItem {
@@ -57,6 +81,25 @@ const TYPE_COLORS: Record<string, string> = {
   privee: 'bg-pink-100 text-pink-700',
   autre: 'bg-gray-100 text-gray-700',
 }
+
+const STATUT_STRUCTURE_LABELS: Record<string, string> = {
+  public: 'Public',
+  prive_non_lucratif: 'Priv\u00E9 Non Lucratif',
+  lucratif: 'Lucratif',
+}
+
+const STATUT_STRUCTURE_COLORS: Record<string, string> = {
+  public: 'bg-green-100 text-green-700',
+  prive_non_lucratif: 'bg-amber-100 text-amber-700',
+  lucratif: 'bg-blue-100 text-blue-700',
+}
+
+const TVA_OPTIONS = [
+  { value: 20, label: '20% (taux normal)' },
+  { value: 10, label: '10% (taux interm\u00E9diaire)' },
+  { value: 5.5, label: '5,5% (taux r\u00E9duit)' },
+  { value: 0, label: '0% (exon\u00E9r\u00E9)' },
+]
 
 const ROLE_LABELS: Record<string, string> = {
   conseiller: 'Conseiller',
@@ -111,6 +154,18 @@ export default function StructureDetailPage() {
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
 
+  // Visibilite
+  const [statutSaving, setStatutSaving] = useState(false)
+
+  // Tarification (structures privees)
+  const [tarifs, setTarifs] = useState<TarifItem[]>([])
+  const [tarifForm, setTarifForm] = useState({ libelle: '', description: '', montantHtEuros: '', dureeJours: '' })
+  const [tarifSaving, setTarifSaving] = useState(false)
+
+  // Conditions commerciales
+  const [conditions, setConditions] = useState<ConditionsItem[]>([])
+  const [conditionsUploading, setConditionsUploading] = useState(false)
+
   const isAdmin = conseiller?.role === 'admin_structure' || conseiller?.role === 'super_admin'
   const isSuperAdmin = conseiller?.role === 'super_admin'
 
@@ -132,10 +187,37 @@ export default function StructureDetailPage() {
     }
   }, [structureId])
 
+  const fetchTarifs = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/conseiller/structures/${structureId}/tarifications`)
+      if (res.ok) {
+        const data = await res.json()
+        setTarifs(data.data || [])
+      }
+    } catch { /* ignore */ }
+  }, [structureId])
+
+  const fetchConditions = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/conseiller/structures/${structureId}/conditions`)
+      if (res.ok) {
+        const data = await res.json()
+        setConditions(data.data || [])
+      }
+    } catch { /* ignore */ }
+  }, [structureId])
+
   useEffect(() => {
     if (!isAdmin) return
     fetchData()
   }, [isAdmin, fetchData])
+
+  useEffect(() => {
+    if (structure?.statut === 'lucratif') {
+      fetchTarifs()
+      fetchConditions()
+    }
+  }, [structure?.statut, fetchTarifs, fetchConditions])
 
   useEffect(() => {
     if (structure) {
@@ -360,6 +442,84 @@ export default function StructureDetailPage() {
     }
   }
 
+  const handleStatutChange = async (newStatut: string) => {
+    setStatutSaving(true)
+    try {
+      const res = await fetch(`/api/conseiller/structures/${structureId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statut: newStatut }),
+      })
+      if (res.ok) await fetchData()
+    } finally {
+      setStatutSaving(false)
+    }
+  }
+
+  const handleTauxTvaChange = async (newTaux: number) => {
+    try {
+      const res = await fetch(`/api/conseiller/structures/${structureId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tauxTva: newTaux }),
+      })
+      if (res.ok) await fetchData()
+    } catch { /* ignore */ }
+  }
+
+  const handleTarifAdd = async () => {
+    if (!tarifForm.libelle.trim() || !tarifForm.montantHtEuros) return
+    setTarifSaving(true)
+    try {
+      const res = await fetch(`/api/conseiller/structures/${structureId}/tarifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          libelle: tarifForm.libelle.trim(),
+          description: tarifForm.description.trim() || null,
+          montantHtCentimes: Math.round(parseFloat(tarifForm.montantHtEuros) * 100),
+          dureeJours: tarifForm.dureeJours ? parseInt(tarifForm.dureeJours) : null,
+        }),
+      })
+      if (res.ok) {
+        setTarifForm({ libelle: '', description: '', montantHtEuros: '', dureeJours: '' })
+        await fetchTarifs()
+      }
+    } finally {
+      setTarifSaving(false)
+    }
+  }
+
+  const handleTarifToggle = async (tarifId: string, currentActif: number) => {
+    await fetch(`/api/conseiller/structures/${structureId}/tarifications/${tarifId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actif: currentActif ? 0 : 1 }),
+    })
+    await fetchTarifs()
+  }
+
+  const handleConditionsUpload = async (file: File, nom: string) => {
+    setConditionsUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('nom', nom)
+      const res = await fetch(`/api/conseiller/structures/${structureId}/conditions`, {
+        method: 'POST',
+        body: fd,
+      })
+      if (res.ok) {
+        await fetchConditions()
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Erreur' }))
+        alert(err.error || 'Erreur lors de l\'upload')
+      }
+    } finally {
+      setConditionsUploading(false)
+    }
+  }
+
   const deps = parseSafe(structure.departements)
   const specs = parseSafe(structure.specialites)
 
@@ -483,9 +643,14 @@ export default function StructureDetailPage() {
           <div className="flex items-start justify-between mb-4">
             <div>
               <h2 className="text-xl font-bold text-gray-800">{structure.nom}</h2>
-              <span className={`inline-block mt-1 px-3 py-1 text-xs rounded-full font-medium ${TYPE_COLORS[structure.type] || TYPE_COLORS.autre}`}>
-                {TYPE_LABELS[structure.type] || structure.type}
-              </span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium ${TYPE_COLORS[structure.type] || TYPE_COLORS.autre}`}>
+                  {TYPE_LABELS[structure.type] || structure.type}
+                </span>
+                <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium ${STATUT_STRUCTURE_COLORS[structure.statut || 'public'] || STATUT_STRUCTURE_COLORS.public}`}>
+                  {STATUT_STRUCTURE_LABELS[structure.statut || 'public'] || 'Public'}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -878,6 +1043,208 @@ export default function StructureDetailPage() {
                 {promptSaving ? 'Enregistrement...' : 'Enregistrer le prompt'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Statut juridique de la structure */}
+      {isAdmin && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Statut de la structure</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            D&eacute;finit le statut juridique : public (gratuit), priv&eacute; non lucratif (gratuit) ou lucratif (payant avec tarification).
+          </p>
+          <div className="flex gap-3">
+            {(['public', 'prive_non_lucratif', 'lucratif'] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => handleStatutChange(v)}
+                disabled={statutSaving}
+                className={`flex-1 py-3 px-4 rounded-xl border-2 text-sm font-medium transition-all ${
+                  (structure.statut || 'public') === v
+                    ? v === 'public' ? 'border-green-500 bg-green-50 text-green-700'
+                    : v === 'lucratif' ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-amber-500 bg-amber-50 text-amber-700'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                <div className="font-semibold">{STATUT_STRUCTURE_LABELS[v]}</div>
+                <div className="text-xs mt-1 opacity-75">
+                  {v === 'public' && 'Accompagnement gratuit'}
+                  {v === 'lucratif' && 'Prestations payantes (HT/TTC)'}
+                  {v === 'prive_non_lucratif' && 'Gratuit (association, fondation)'}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Taux TVA — visible uniquement pour les structures lucratives */}
+          {structure.statut === 'lucratif' && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Taux de TVA applicable</label>
+              <select
+                value={structure.tauxTva ?? 20}
+                onChange={e => handleTauxTvaChange(parseFloat(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-300"
+              >
+                {TVA_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tarification — uniquement pour structures privees */}
+      {isAdmin && structure.statut === 'lucratif' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Tarification</h3>
+
+          {/* Liste des tarifs existants */}
+          {tarifs.length > 0 ? (
+            <div className="space-y-2 mb-6">
+              {tarifs.map(t => (
+                <div key={t.id} className={`flex items-center justify-between p-3 rounded-lg border ${t.actif ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'}`}>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{t.libelle}</p>
+                    {t.description && <p className="text-xs text-gray-500 mt-0.5">{t.description}</p>}
+                    {t.dureeJours && <p className="text-xs text-gray-400">Dur&eacute;e : {t.dureeJours} jours</p>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-gray-800">
+                        {(t.montantTtcCentimes / 100).toFixed(2)} &euro; TTC
+                      </span>
+                      <span className="block text-xs text-gray-500">
+                        {(t.montantHtCentimes / 100).toFixed(2)} &euro; HT
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleTarifToggle(t.id, t.actif)}
+                      className={`relative w-10 h-5 rounded-full transition-colors ${t.actif ? 'bg-green-500' : 'bg-gray-300'}`}
+                    >
+                      <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${t.actif ? 'left-5' : 'left-0.5'}`} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 mb-4">Aucun tarif configur&eacute;.</p>
+          )}
+
+          {/* Formulaire d'ajout */}
+          <div className="border border-dashed border-gray-200 rounded-lg p-4">
+            <p className="text-sm font-medium text-gray-700 mb-3">Ajouter un tarif</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                type="text"
+                placeholder="Libell&eacute; (ex: Bilan de comp&eacute;tences)"
+                value={tarifForm.libelle}
+                onChange={e => setTarifForm(f => ({ ...f, libelle: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+              />
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Montant HT en EUR"
+                value={tarifForm.montantHtEuros}
+                onChange={e => setTarifForm(f => ({ ...f, montantHtEuros: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+              />
+              <input
+                type="text"
+                placeholder="Description (optionnel)"
+                value={tarifForm.description}
+                onChange={e => setTarifForm(f => ({ ...f, description: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+              />
+              <input
+                type="number"
+                min="1"
+                placeholder="Dur&eacute;e en jours (optionnel)"
+                value={tarifForm.dureeJours}
+                onChange={e => setTarifForm(f => ({ ...f, dureeJours: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
+              />
+            </div>
+            <button
+              onClick={handleTarifAdd}
+              disabled={tarifSaving || !tarifForm.libelle.trim() || !tarifForm.montantHtEuros}
+              className="mt-3 px-4 py-2 bg-catchup-primary text-white rounded-lg text-sm font-medium hover:bg-catchup-primary/90 transition-colors disabled:opacity-50"
+            >
+              {tarifSaving ? 'Ajout...' : 'Ajouter le tarif'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Conditions commerciales — uniquement pour structures privees */}
+      {isAdmin && structure.statut === 'lucratif' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Conditions commerciales</h3>
+
+          {/* Conditions existantes */}
+          {conditions.length > 0 ? (
+            <div className="space-y-2 mb-4">
+              {conditions.map(c => (
+                <div key={c.id} className={`flex items-center justify-between p-3 rounded-lg border ${c.actif ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-gray-50 opacity-60'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">📄</span>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{c.nom}</p>
+                      <p className="text-xs text-gray-500">
+                        v{c.version} &mdash; {c.fichierNom} &mdash; {new Date(c.creeLe).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {c.actif ? (
+                      <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">Active</span>
+                    ) : (
+                      <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full">Archive</span>
+                    )}
+                    <a
+                      href={c.fichierUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2 py-1 text-xs text-catchup-primary hover:underline"
+                    >
+                      T&eacute;l&eacute;charger
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 mb-4">Aucun document de conditions commerciales.</p>
+          )}
+
+          {/* Upload nouveau document */}
+          <div className="border border-dashed border-gray-200 rounded-lg p-4">
+            <p className="text-sm font-medium text-gray-700 mb-2">
+              {conditions.some(c => c.actif) ? 'Mettre a jour les conditions' : 'Ajouter des conditions commerciales'}
+            </p>
+            <p className="text-xs text-gray-500 mb-3">Format PDF uniquement, max 10 Mo. La version pr&eacute;c&eacute;dente sera archiv&eacute;e.</p>
+            <label className="inline-flex items-center gap-2 px-4 py-2 bg-catchup-primary text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-catchup-primary/90 transition-colors">
+              {conditionsUploading ? 'Envoi...' : 'Choisir un fichier PDF'}
+              <input
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                disabled={conditionsUploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const nom = prompt('Nom du document (ex: CGV Janvier 2026)')
+                  if (!nom || nom.trim().length === 0) return
+                  await handleConditionsUpload(file, nom)
+                  e.target.value = ''
+                }}
+              />
+            </label>
           </div>
         </div>
       )}
