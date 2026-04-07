@@ -604,3 +604,21 @@ export const stripeCompteStructure = pgTable('stripe_compte_structure', {
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
+
+// === CLÉS API (accès externe) ===
+
+export const apiKey = pgTable('api_key', {
+  id: text('id').primaryKey(),
+  nom: text('nom').notNull(),
+  cle: text('cle').notNull().unique(),
+  prefixe: text('prefixe').notNull(),
+  structureId: text('structure_id').references(() => structure.id),
+  permissions: text('permissions').notNull(),
+  rateLimitParMinute: integer('rate_limit_par_minute').default(60),
+  actif: integer('actif').default(1),
+  derniereUtilisation: text('derniere_utilisation'),
+  nbAppels: integer('nb_appels').default(0),
+  expireLe: text('expire_le'),
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})
