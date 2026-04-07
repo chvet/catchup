@@ -25,6 +25,10 @@ export type JournalEventType =
   | 'rupture_beneficiaire'
   | 'transfert_generique'
   | 'transfert_structure'
+  | 'tarif_accepte'
+  | 'tarif_refuse'
+  | 'paiement_reussi'
+  | 'paiement_echoue'
 
 export type ActeurType = 'conseiller' | 'beneficiaire' | 'tiers' | 'systeme'
 

@@ -166,12 +166,20 @@ export async function PUT(request: Request, { params }: Params) {
       }
     }
 
+    // Validate visibilite if provided
+    if (body.visibilite !== undefined) {
+      const validVisibilites = ['publique', 'privee', 'associative']
+      if (!validVisibilites.includes(body.visibilite)) {
+        return jsonError(`Visibilite invalide. Valeurs acceptees: ${validVisibilites.join(', ')}`, 400)
+      }
+    }
+
     // Build the update object (only allowed fields)
     const allowedFields = [
       'nom', 'slug', 'type', 'departements', 'regions', 'ageMin', 'ageMax',
       'specialites', 'genrePreference', 'capaciteMax', 'webhookUrl', 'parcoureoId', 'actif',
       'adresse', 'codePostal', 'ville', 'latitude', 'longitude',
-      'promptPersonnalise',
+      'promptPersonnalise', 'visibilite',
     ]
 
     const updateData: Record<string, unknown> = { misAJourLe: new Date().toISOString() }

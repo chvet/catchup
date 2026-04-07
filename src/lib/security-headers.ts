@@ -27,10 +27,10 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
     "img-src 'self' data: blob: https://api.qrserver.com https://*.tile.openstreetmap.org",
     // Fonts : self
     "font-src 'self' data:",
-    // Connexions API : self + OpenAI (chat IA)
-    "connect-src 'self' https://api.openai.com https://geo.api.gouv.fr https://api-adresse.data.gouv.fr",
-    // Frames : self uniquement
-    "frame-src 'self'",
+    // Connexions API : self + OpenAI (chat IA) + Stripe
+    "connect-src 'self' https://api.openai.com https://geo.api.gouv.fr https://api-adresse.data.gouv.fr https://api.stripe.com https://checkout.stripe.com",
+    // Frames : self + Stripe Checkout
+    "frame-src 'self' https://checkout.stripe.com https://js.stripe.com",
     // Media : self + blob (TTS audio playback)
     "media-src 'self' blob:",
     // Objets/embeds : aucun (bloque Flash, PDF embeds, etc.)
@@ -62,7 +62,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
   // (limite la surface d'attaque : pas de géoloc, etc.)
   response.headers.set(
     'Permissions-Policy',
-    'camera=(self), microphone=(self), geolocation=(self), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
+    'camera=(self), microphone=(self), geolocation=(self), payment=(self), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
   )
 
   // ── X-DNS-Prefetch-Control — Désactive le DNS prefetch ──
