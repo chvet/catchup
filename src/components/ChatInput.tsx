@@ -135,7 +135,7 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
         <FileAttachment onFile={handleFile} />
 
         {/* Zone de saisie : [emoji | texte | micro] */}
-        <div className="flex-1 flex items-end gap-0 bg-gray-50 border border-gray-200 rounded-2xl focus-within:border-catchup-primary focus-within:ring-2 focus-within:ring-catchup-primary/30 transition-all duration-200 min-w-0 overflow-hidden">
+        <div className="flex-1 flex items-end gap-0 bg-white border-2 border-gray-400 rounded-2xl focus-within:border-catchup-primary focus-within:ring-2 focus-within:ring-catchup-primary/30 transition-all duration-200 min-w-0 overflow-hidden shadow-sm">
           {/* Emoji button inside input, left side */}
           <div className="flex items-center pl-1 pb-1.5 shrink-0">
             <EmojiPickerBtn onSelect={handleEmoji} />
@@ -151,7 +151,7 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
             placeholder="Message..."
             rows={1}
             disabled={isLoading || transcribing}
-            className="flex-1 min-w-0 resize-none bg-transparent py-2 pr-1 text-[15px] text-gray-800 placeholder-gray-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 min-w-0 resize-none bg-transparent py-2 pr-1 text-[15px] text-gray-900 placeholder-gray-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ maxHeight: '100px' }}
             autoFocus
             aria-describedby="chat-input-hint"

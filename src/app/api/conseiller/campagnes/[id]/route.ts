@@ -4,7 +4,7 @@
 
 import { getConseillerFromHeaders, hasRole, jsonError, jsonSuccess } from '@/lib/api-helpers'
 import { db } from '@/data/db'
-import { campagne, campagneAssignation, conseiller, priseEnCharge } from '@/data/schema'
+import { campagne, campagneAssignation, conseiller, priseEnCharge, referral } from '@/data/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -34,16 +34,16 @@ export async function GET(
       .leftJoin(conseiller, eq(campagneAssignation.conseillerId, conseiller.id))
       .where(eq(campagneAssignation.campagneId, c.id))
 
-    // Avancement par conseiller
+    // Avancement par conseiller — compte les PEC liées à des referrals de cette campagne
     const detailConseillers = await Promise.all(
       assignations.map(async (a) => {
         const result = await db
           .select({ count: sql<number>`COUNT(*)` })
           .from(priseEnCharge)
+          .innerJoin(referral, eq(priseEnCharge.referralId, referral.id))
           .where(and(
             eq(priseEnCharge.conseillerId, a.conseillerId),
-            sql`${priseEnCharge.creeLe} >= ${c.dateDebut}`,
-            sql`${priseEnCharge.creeLe} <= ${c.dateFin}`,
+            eq(referral.campagneId, c.id),
             sql`${priseEnCharge.statut} NOT IN ('annulee', 'abandonnee')`
           ))
         return {

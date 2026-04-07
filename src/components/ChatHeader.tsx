@@ -42,6 +42,8 @@ interface Props {
   streak?: number
   hasMessages?: boolean
   onToggleProfile: () => void
+  onToggleDocuments: () => void
+  onToggleFiches: () => void
   onToggleA11y: () => void
   onToggleTts: () => void
   onReset: () => void
@@ -53,7 +55,7 @@ interface Props {
   onLangChange: (lang: LangCode) => void
 }
 
-export default function ChatHeader({ profile, streak = 0, hasMessages = false, onToggleProfile, onToggleA11y, onToggleTts, onReset, a11yOpen, ttsEnabled, authPrenom, onAuthClick, selectedLang, onLangChange }: Props) {
+export default function ChatHeader({ profile, streak = 0, hasMessages = false, onToggleProfile, onToggleDocuments, onToggleFiches, onToggleA11y, onToggleTts, onReset, a11yOpen, ttsEnabled, authPrenom, onAuthClick, selectedLang, onLangChange }: Props) {
   const hasProfile = hasSignificantProfile(profile)
   const brandConfig = useAppBrand()
   const [langOpen, setLangOpen] = useState(false)
@@ -188,6 +190,29 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
         <div className="hidden sm:block">
           <RgaaPanel variant="light" />
         </div>
+
+        <button
+          onClick={onToggleFiches}
+          className="p-2 rounded-full hover:bg-white/10 transition-colors relative"
+          title="Explorer les metiers"
+          aria-label="Explorer les metiers"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8" strokeWidth={2} />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" strokeWidth={2} strokeLinecap="round" />
+          </svg>
+        </button>
+
+        <button
+          onClick={onToggleDocuments}
+          className="p-2 rounded-full hover:bg-white/10 transition-colors relative"
+          title="Mes documents"
+          aria-label="Mes documents"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+        </button>
 
         {onAuthClick && (
           <button

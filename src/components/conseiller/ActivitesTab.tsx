@@ -85,13 +85,13 @@ export default function ActivitesTab({ referralId }: { referralId: string }) {
         fetch(`/api/conseiller/file-active/${referralId}/activites?semaine=${semaine}`),
         fetch(`/api/conseiller/file-active/${referralId}/activites/semaine?semaine=${semaine}`),
       ])
-      const cats = await catRes.json()
-      const decls = await declRes.json()
-      const sem = await semRes.json()
+      const cats = catRes.ok ? await catRes.json() : []
+      const decls = declRes.ok ? await declRes.json() : []
+      const sem = semRes.ok ? await semRes.json() : null
       setCategories(Array.isArray(cats) ? cats : [])
       setDeclarations(Array.isArray(decls) ? decls : decls.data || [])
-      setResume(sem.data || sem)
-      setObjectifInput(String((sem.data || sem)?.objectifHeures ?? 5))
+      setResume(sem?.data || sem)
+      setObjectifInput(String((sem?.data || sem)?.objectifHeures ?? 5))
     } catch (err) {
       console.error('[ActivitesTab] Erreur:', err)
     }
@@ -157,7 +157,7 @@ export default function ActivitesTab({ referralId }: { referralId: string }) {
   }
   const isCurrentWeek = semaine === getMondayISO(new Date())
 
-  const progressPct = resume ? Math.min(100, Math.round((resume.totalHeures / resume.objectifHeures) * 100)) : 0
+  const progressPct = resume?.objectifHeures ? Math.min(100, Math.round((resume.totalHeures / resume.objectifHeures) * 100)) : 0
   const progressColor = progressPct >= 70 ? 'bg-green-500' : progressPct >= 30 ? 'bg-amber-500' : 'bg-red-400'
 
   if (loading) {
@@ -210,7 +210,7 @@ export default function ActivitesTab({ referralId }: { referralId: string }) {
         </div>
 
         {/* Répartition par catégorie */}
-        {resume && Object.keys(resume.parCategorie).length > 0 && (
+        {resume?.parCategorie && Object.keys(resume.parCategorie).length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             {Object.entries(resume.parCategorie).map(([code, data]) => {
               const cat = catMap[code]

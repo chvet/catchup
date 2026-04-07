@@ -35,6 +35,7 @@ import { useAppBrand } from '@/hooks/useAppBrand'
 // Lazy-load heavy modal components (only shown on user action)
 const ReferralModal = dynamic(() => import('./ReferralModal'), { ssr: false })
 const FichesSearchOverlay = dynamic(() => import('./FichesSearchOverlay'), { ssr: false })
+const DocumentsPanel = dynamic(() => import('./DocumentsPanel'), { ssr: false })
 import {
   loadGameState, saveGameState, updateStreak,
   evaluateJaugeActions, checkBadges,
@@ -133,6 +134,7 @@ export default function ChatApp() {
   const [structureInfo, setStructureInfo] = useState<StructureInfo | null>(null)
   const [campagneId, setCampagneId] = useState<string | null>(null)
   const [showFichesSearch, setShowFichesSearch] = useState(false)
+  const [showDocuments, setShowDocuments] = useState(false)
   const [selectedLang, setSelectedLang] = useState<LangCode>(() => loadFromLS<LangCode>(LS_LANG, 'fr'))
 
   // ── Données vocales par message (audioUrl + durée + transcription) ──
@@ -899,6 +901,8 @@ export default function ChatApp() {
         streak={gameState?.streakActuel ?? 0}
         hasMessages={hasMessages}
         onToggleProfile={() => setShowProfile(!showProfile)}
+        onToggleDocuments={() => setShowDocuments(!showDocuments)}
+        onToggleFiches={() => setShowFichesSearch(!showFichesSearch)}
         onToggleA11y={() => setA11yOpen(v => !v)}
         onToggleTts={toggleTts}
         onReset={handleReset}
@@ -1476,6 +1480,12 @@ export default function ChatApp() {
           </div>
         </div>
       )}
+
+      {/* Panel documents */}
+      <DocumentsPanel
+        isOpen={showDocuments}
+        onClose={() => setShowDocuments(false)}
+      />
 
       {/* Overlay de recherche de fiches métiers */}
       <FichesSearchOverlay

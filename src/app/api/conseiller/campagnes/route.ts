@@ -3,36 +3,23 @@
 
 import { getConseillerFromHeaders, hasRole, jsonError, jsonSuccess } from '@/lib/api-helpers'
 import { db } from '@/data/db'
-import { campagne, campagneAssignation, conseiller, priseEnCharge, structure } from '@/data/schema'
+import { campagne, campagneAssignation, conseiller, priseEnCharge, referral, structure } from '@/data/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 
 const MAX_CAMPAGNES_PER_STRUCTURE = 3
 
-async function computeAvancement(campagneId: string, dateDebut: string, dateFin: string): Promise<number> {
-  // Récupérer les conseillers assignés
-  const assignations = await db
-    .select({ conseillerId: campagneAssignation.conseillerId })
-    .from(campagneAssignation)
-    .where(eq(campagneAssignation.campagneId, campagneId))
-
-  if (assignations.length === 0) return 0
-
-  // Compter les PEC dans la période pour ces conseillers
-  let total = 0
-  for (const a of assignations) {
-    const result = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(priseEnCharge)
-      .where(and(
-        eq(priseEnCharge.conseillerId, a.conseillerId),
-        sql`${priseEnCharge.creeLe} >= ${dateDebut}`,
-        sql`${priseEnCharge.creeLe} <= ${dateFin}`,
-        sql`${priseEnCharge.statut} NOT IN ('annulee', 'abandonnee')`
-      ))
-    total += result[0]?.count || 0
-  }
-  return total
+async function computeAvancement(campagneId: string): Promise<number> {
+  // Compter les PEC liées à des referrals issus de cette campagne
+  const result = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(priseEnCharge)
+    .innerJoin(referral, eq(priseEnCharge.referralId, referral.id))
+    .where(and(
+      eq(referral.campagneId, campagneId),
+      sql`${priseEnCharge.statut} NOT IN ('annulee', 'abandonnee')`
+    ))
+  return result[0]?.count || 0
 }
 
 export async function GET(request: Request) {
@@ -63,7 +50,7 @@ export async function GET(request: Request) {
           .leftJoin(conseiller, eq(campagneAssignation.conseillerId, conseiller.id))
           .where(eq(campagneAssignation.campagneId, c.id))
 
-        const avancement = await computeAvancement(c.id, c.dateDebut, c.dateFin)
+        const avancement = await computeAvancement(c.id)
         const pourcentage = c.quantiteObjectif > 0
           ? Math.min(100, Math.round((avancement / c.quantiteObjectif) * 100))
           : 0

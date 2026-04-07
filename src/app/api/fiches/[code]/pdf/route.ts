@@ -376,11 +376,16 @@ export async function GET(
       .replace(/\s+/g, '_')
       .substring(0, 80)
 
+    const inline = request.nextUrl.searchParams.get('inline') === '1'
+    const disposition = inline
+      ? `inline; filename="Fiche_${safeName}_${code}.pdf"`
+      : `attachment; filename="Fiche_${safeName}_${code}.pdf"`
+
     return new NextResponse(pdfBuffer as unknown as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="Fiche_${safeName}_${code}.pdf"`,
+        'Content-Disposition': disposition,
         'Cache-Control': 'public, max-age=86400',
       },
     })

@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
+
+const PdfViewerModal = lazy(() => import('./PdfViewerModal'))
 
 interface FicheMetier {
   code_rome: string
@@ -122,6 +124,7 @@ export default function FicheMetierModal({ codeRome, isOpen, onClose, onInterest
   const [fiche, setFiche] = useState<FicheMetier | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showPdf, setShowPdf] = useState(false)
 
   useEffect(() => {
     if (!isOpen || !codeRome) return
@@ -246,25 +249,35 @@ export default function FicheMetierModal({ codeRome, isOpen, onClose, onInterest
             </button>
           )}
           {fiche && (
-            <a
-              href={`/api/fiches/${encodeURIComponent(codeRome)}/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => setShowPdf(true)}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-catchup-primary/30 text-catchup-primary text-sm font-semibold hover:bg-catchup-primary/5 active:bg-catchup-primary/10 transition-colors mb-2"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
               </svg>
-              T&eacute;l&eacute;charger en PDF
-            </a>
+              Voir le PDF
+            </button>
           )}
           <p className="text-[10px] text-gray-400 text-center">
             Source : Fondation JAE — Parcoureo
           </p>
         </div>
       </div>
+
+      {showPdf && fiche && (
+        <Suspense fallback={null}>
+          <PdfViewerModal
+            codeRome={codeRome}
+            nom={fiche.nom_epicene}
+            isOpen={showPdf}
+            onClose={() => setShowPdf(false)}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
