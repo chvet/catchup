@@ -13,7 +13,8 @@ interface StructureDetail {
   nom: string
   slug?: string
   type: string
-  visibilite?: string
+  statut?: string
+  tauxTva?: number
   departements: string
   ageMin: number
   ageMax: number
@@ -35,6 +36,8 @@ interface TarifItem {
   id: string
   libelle: string
   description?: string | null
+  montantHtCentimes: number
+  montantTtcCentimes: number
   montantCentimes: number
   devise: string
   dureeJours?: number | null
@@ -79,17 +82,24 @@ const TYPE_COLORS: Record<string, string> = {
   autre: 'bg-gray-100 text-gray-700',
 }
 
-const VISIBILITE_LABELS: Record<string, string> = {
-  publique: 'Publique',
-  privee: 'Privee',
-  associative: 'Associative',
+const STATUT_STRUCTURE_LABELS: Record<string, string> = {
+  public: 'Public',
+  prive_non_lucratif: 'Priv\u00E9 Non Lucratif',
+  lucratif: 'Lucratif',
 }
 
-const VISIBILITE_COLORS: Record<string, string> = {
-  publique: 'bg-green-100 text-green-700',
-  privee: 'bg-blue-100 text-blue-700',
-  associative: 'bg-amber-100 text-amber-700',
+const STATUT_STRUCTURE_COLORS: Record<string, string> = {
+  public: 'bg-green-100 text-green-700',
+  prive_non_lucratif: 'bg-amber-100 text-amber-700',
+  lucratif: 'bg-blue-100 text-blue-700',
 }
+
+const TVA_OPTIONS = [
+  { value: 20, label: '20% (taux normal)' },
+  { value: 10, label: '10% (taux interm\u00E9diaire)' },
+  { value: 5.5, label: '5,5% (taux r\u00E9duit)' },
+  { value: 0, label: '0% (exon\u00E9r\u00E9)' },
+]
 
 const ROLE_LABELS: Record<string, string> = {
   conseiller: 'Conseiller',
@@ -145,11 +155,11 @@ export default function StructureDetailPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
 
   // Visibilite
-  const [visibiliteSaving, setVisibiliteSaving] = useState(false)
+  const [statutSaving, setStatutSaving] = useState(false)
 
   // Tarification (structures privees)
   const [tarifs, setTarifs] = useState<TarifItem[]>([])
-  const [tarifForm, setTarifForm] = useState({ libelle: '', description: '', montantEuros: '', dureeJours: '' })
+  const [tarifForm, setTarifForm] = useState({ libelle: '', description: '', montantHtEuros: '', dureeJours: '' })
   const [tarifSaving, setTarifSaving] = useState(false)
 
   // Conditions commerciales
@@ -203,11 +213,11 @@ export default function StructureDetailPage() {
   }, [isAdmin, fetchData])
 
   useEffect(() => {
-    if (structure?.visibilite === 'privee') {
+    if (structure?.statut === 'lucratif') {
       fetchTarifs()
       fetchConditions()
     }
-  }, [structure?.visibilite, fetchTarifs, fetchConditions])
+  }, [structure?.statut, fetchTarifs, fetchConditions])
 
   useEffect(() => {
     if (structure) {
@@ -432,22 +442,33 @@ export default function StructureDetailPage() {
     }
   }
 
-  const handleVisibiliteChange = async (newVis: string) => {
-    setVisibiliteSaving(true)
+  const handleStatutChange = async (newStatut: string) => {
+    setStatutSaving(true)
     try {
       const res = await fetch(`/api/conseiller/structures/${structureId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visibilite: newVis }),
+        body: JSON.stringify({ statut: newStatut }),
       })
       if (res.ok) await fetchData()
     } finally {
-      setVisibiliteSaving(false)
+      setStatutSaving(false)
     }
   }
 
+  const handleTauxTvaChange = async (newTaux: number) => {
+    try {
+      const res = await fetch(`/api/conseiller/structures/${structureId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tauxTva: newTaux }),
+      })
+      if (res.ok) await fetchData()
+    } catch { /* ignore */ }
+  }
+
   const handleTarifAdd = async () => {
-    if (!tarifForm.libelle.trim() || !tarifForm.montantEuros) return
+    if (!tarifForm.libelle.trim() || !tarifForm.montantHtEuros) return
     setTarifSaving(true)
     try {
       const res = await fetch(`/api/conseiller/structures/${structureId}/tarifications`, {
@@ -456,12 +477,12 @@ export default function StructureDetailPage() {
         body: JSON.stringify({
           libelle: tarifForm.libelle.trim(),
           description: tarifForm.description.trim() || null,
-          montantCentimes: Math.round(parseFloat(tarifForm.montantEuros) * 100),
+          montantHtCentimes: Math.round(parseFloat(tarifForm.montantHtEuros) * 100),
           dureeJours: tarifForm.dureeJours ? parseInt(tarifForm.dureeJours) : null,
         }),
       })
       if (res.ok) {
-        setTarifForm({ libelle: '', description: '', montantEuros: '', dureeJours: '' })
+        setTarifForm({ libelle: '', description: '', montantHtEuros: '', dureeJours: '' })
         await fetchTarifs()
       }
     } finally {
@@ -626,8 +647,8 @@ export default function StructureDetailPage() {
                 <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium ${TYPE_COLORS[structure.type] || TYPE_COLORS.autre}`}>
                   {TYPE_LABELS[structure.type] || structure.type}
                 </span>
-                <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium ${VISIBILITE_COLORS[structure.visibilite || 'publique'] || VISIBILITE_COLORS.publique}`}>
-                  {VISIBILITE_LABELS[structure.visibilite || 'publique'] || 'Publique'}
+                <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium ${STATUT_STRUCTURE_COLORS[structure.statut || 'public'] || STATUT_STRUCTURE_COLORS.public}`}>
+                  {STATUT_STRUCTURE_LABELS[structure.statut || 'public'] || 'Public'}
                 </span>
               </div>
             </div>
@@ -1026,41 +1047,57 @@ export default function StructureDetailPage() {
         </div>
       )}
 
-      {/* Visibilite — type de structure (publique/privee/associative) */}
+      {/* Statut juridique de la structure */}
       {isAdmin && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Visibilit&eacute; de la structure</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Statut de la structure</h3>
           <p className="text-sm text-gray-500 mb-4">
-            D&eacute;finit si la structure est publique (gratuite), associative (gratuite) ou priv&eacute;e (payante avec tarification).
+            D&eacute;finit le statut juridique : public (gratuit), priv&eacute; non lucratif (gratuit) ou lucratif (payant avec tarification).
           </p>
           <div className="flex gap-3">
-            {(['publique', 'privee', 'associative'] as const).map(v => (
+            {(['public', 'prive_non_lucratif', 'lucratif'] as const).map(v => (
               <button
                 key={v}
-                onClick={() => handleVisibiliteChange(v)}
-                disabled={visibiliteSaving}
+                onClick={() => handleStatutChange(v)}
+                disabled={statutSaving}
                 className={`flex-1 py-3 px-4 rounded-xl border-2 text-sm font-medium transition-all ${
-                  (structure.visibilite || 'publique') === v
-                    ? v === 'publique' ? 'border-green-500 bg-green-50 text-green-700'
-                    : v === 'privee' ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  (structure.statut || 'public') === v
+                    ? v === 'public' ? 'border-green-500 bg-green-50 text-green-700'
+                    : v === 'lucratif' ? 'border-blue-500 bg-blue-50 text-blue-700'
                     : 'border-amber-500 bg-amber-50 text-amber-700'
                     : 'border-gray-200 text-gray-500 hover:border-gray-300'
                 }`}
               >
-                <div className="font-semibold">{VISIBILITE_LABELS[v]}</div>
+                <div className="font-semibold">{STATUT_STRUCTURE_LABELS[v]}</div>
                 <div className="text-xs mt-1 opacity-75">
-                  {v === 'publique' && 'Accompagnement gratuit'}
-                  {v === 'privee' && 'Tarifs + paiement'}
-                  {v === 'associative' && 'Gratuit (association)'}
+                  {v === 'public' && 'Accompagnement gratuit'}
+                  {v === 'lucratif' && 'Prestations payantes (HT/TTC)'}
+                  {v === 'prive_non_lucratif' && 'Gratuit (association, fondation)'}
                 </div>
               </button>
             ))}
           </div>
+
+          {/* Taux TVA — visible uniquement pour les structures lucratives */}
+          {structure.statut === 'lucratif' && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Taux de TVA applicable</label>
+              <select
+                value={structure.tauxTva ?? 20}
+                onChange={e => handleTauxTvaChange(parseFloat(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-300"
+              >
+                {TVA_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
       {/* Tarification — uniquement pour structures privees */}
-      {isAdmin && structure.visibilite === 'privee' && (
+      {isAdmin && structure.statut === 'lucratif' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Tarification</h3>
 
@@ -1075,9 +1112,14 @@ export default function StructureDetailPage() {
                     {t.dureeJours && <p className="text-xs text-gray-400">Dur&eacute;e : {t.dureeJours} jours</p>}
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-gray-800">
-                      {(t.montantCentimes / 100).toFixed(2)} {t.devise || 'EUR'}
-                    </span>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-gray-800">
+                        {(t.montantTtcCentimes / 100).toFixed(2)} &euro; TTC
+                      </span>
+                      <span className="block text-xs text-gray-500">
+                        {(t.montantHtCentimes / 100).toFixed(2)} &euro; HT
+                      </span>
+                    </div>
                     <button
                       onClick={() => handleTarifToggle(t.id, t.actif)}
                       className={`relative w-10 h-5 rounded-full transition-colors ${t.actif ? 'bg-green-500' : 'bg-gray-300'}`}
@@ -1107,9 +1149,9 @@ export default function StructureDetailPage() {
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="Montant en EUR"
-                value={tarifForm.montantEuros}
-                onChange={e => setTarifForm(f => ({ ...f, montantEuros: e.target.value }))}
+                placeholder="Montant HT en EUR"
+                value={tarifForm.montantHtEuros}
+                onChange={e => setTarifForm(f => ({ ...f, montantHtEuros: e.target.value }))}
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-catchup-primary"
               />
               <input
@@ -1130,7 +1172,7 @@ export default function StructureDetailPage() {
             </div>
             <button
               onClick={handleTarifAdd}
-              disabled={tarifSaving || !tarifForm.libelle.trim() || !tarifForm.montantEuros}
+              disabled={tarifSaving || !tarifForm.libelle.trim() || !tarifForm.montantHtEuros}
               className="mt-3 px-4 py-2 bg-catchup-primary text-white rounded-lg text-sm font-medium hover:bg-catchup-primary/90 transition-colors disabled:opacity-50"
             >
               {tarifSaving ? 'Ajout...' : 'Ajouter le tarif'}
@@ -1140,7 +1182,7 @@ export default function StructureDetailPage() {
       )}
 
       {/* Conditions commerciales — uniquement pour structures privees */}
-      {isAdmin && structure.visibilite === 'privee' && (
+      {isAdmin && structure.statut === 'lucratif' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Conditions commerciales</h3>
 

@@ -18,8 +18,8 @@ export async function POST(request: Request) {
     // Vérifier que la structure est privée
     const structures = await db.select().from(structure).where(eq(structure.id, ctx.structureId))
     if (structures.length === 0) return jsonError('Structure non trouvee', 404)
-    if (structures[0].visibilite !== 'privee') {
-      return jsonError('Stripe Connect est reserve aux structures privees', 400)
+    if (structures[0].statut !== 'lucratif') {
+      return jsonError('Stripe Connect est reserve aux structures lucratives', 400)
     }
 
     // Vérifier si un compte existe déjà

@@ -23,11 +23,11 @@ export async function GET(_request: Request, { params }: Params) {
 
     const s = structures[0]
 
-    if (s.visibilite !== 'privee') {
+    if (s.statut !== 'lucratif') {
       return NextResponse.json({
         structureId: s.id,
         nom: s.nom,
-        visibilite: s.visibilite,
+        statut: s.statut,
         tarifs: [],
         conditions: null,
       })
@@ -39,6 +39,8 @@ export async function GET(_request: Request, { params }: Params) {
         id: tarification.id,
         libelle: tarification.libelle,
         description: tarification.description,
+        montantHtCentimes: tarification.montantHtCentimes,
+        montantTtcCentimes: tarification.montantTtcCentimes,
         montantCentimes: tarification.montantCentimes,
         devise: tarification.devise,
         dureeJours: tarification.dureeJours,
@@ -60,7 +62,7 @@ export async function GET(_request: Request, { params }: Params) {
     return NextResponse.json({
       structureId: s.id,
       nom: s.nom,
-      visibilite: s.visibilite,
+      statut: s.statut,
       logoUrl: s.logoUrl,
       tarifs,
       conditions: conditions[0] || null,

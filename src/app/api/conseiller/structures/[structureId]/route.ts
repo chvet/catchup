@@ -166,11 +166,11 @@ export async function PUT(request: Request, { params }: Params) {
       }
     }
 
-    // Validate visibilite if provided
-    if (body.visibilite !== undefined) {
-      const validVisibilites = ['publique', 'privee', 'associative']
-      if (!validVisibilites.includes(body.visibilite)) {
-        return jsonError(`Visibilite invalide. Valeurs acceptees: ${validVisibilites.join(', ')}`, 400)
+    // Validate statut if provided
+    if (body.statut !== undefined) {
+      const validStatuts = ['public', 'prive_non_lucratif', 'lucratif']
+      if (!validStatuts.includes(body.statut)) {
+        return jsonError(`Statut invalide. Valeurs acceptees: ${validStatuts.join(', ')}`, 400)
       }
     }
 
@@ -179,7 +179,7 @@ export async function PUT(request: Request, { params }: Params) {
       'nom', 'slug', 'type', 'departements', 'regions', 'ageMin', 'ageMax',
       'specialites', 'genrePreference', 'capaciteMax', 'webhookUrl', 'parcoureoId', 'actif',
       'adresse', 'codePostal', 'ville', 'latitude', 'longitude',
-      'promptPersonnalise', 'visibilite',
+      'promptPersonnalise', 'statut', 'tauxTva',
     ]
 
     const updateData: Record<string, unknown> = { misAJourLe: new Date().toISOString() }

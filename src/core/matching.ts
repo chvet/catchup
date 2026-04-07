@@ -26,7 +26,7 @@ export interface StructureData {
   capaciteMax: number
   casActifs: number
   actif: boolean
-  visibilite?: 'publique' | 'privee' | 'associative'
+  statut?: 'public' | 'prive_non_lucratif' | 'lucratif'
 }
 
 export interface TarifInfo {
@@ -41,7 +41,7 @@ export interface MatchingResult {
   score: number
   raisons: string[]
   tauxRemplissage: number
-  visibilite: string
+  statut: string
   tarifs?: TarifInfo[]
 }
 
@@ -166,10 +166,10 @@ export function matcherStructures(
   for (const s of structures) {
     if (!s.actif) continue
 
-    // === FILTRE PRÉFÉRENCE PRIVÉE/PUBLIQUE ===
-    const vis = s.visibilite || 'publique'
-    if (criteria.preferenceStructure === 'privee' && vis !== 'privee') continue
-    if (criteria.preferenceStructure === 'publique' && vis === 'privee') continue
+    // === FILTRE PRÉFÉRENCE GRATUIT/PAYANT ===
+    const sStatut = s.statut || 'public'
+    if (criteria.preferenceStructure === 'privee' && sStatut !== 'lucratif') continue
+    if (criteria.preferenceStructure === 'publique' && sStatut === 'lucratif') continue
 
     // === FILTRES ÉLIMINATOIRES ===
 
@@ -245,7 +245,7 @@ export function matcherStructures(
       score: Math.min(100, score),
       raisons,
       tauxRemplissage: Math.round(tauxRemplissage * 100),
-      visibilite: vis,
+      statut: sStatut,
     })
   }
 

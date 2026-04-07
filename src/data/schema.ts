@@ -190,7 +190,8 @@ export const structure = pgTable('structure', {
   parcoureoId: text('parcoureo_id'),
   promptPersonnalise: text('prompt_personnalise'), // Custom AI behavior prompt set by admin_structure
   logoUrl: text('logo_url'), // Structure logo (relative path to uploaded image)
-  visibilite: text('visibilite').default('publique'), // 'publique' | 'privee' | 'associative'
+  statut: text('statut').default('public'), // 'public' | 'prive_non_lucratif' | 'lucratif'
+  tauxTva: real('taux_tva').default(20.0), // Taux TVA en % (20, 10, 5.5, 0) — utilisé pour structures lucratives
   actif: integer('actif').default(1),
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),
@@ -534,7 +535,9 @@ export const tarification = pgTable('tarification', {
   structureId: text('structure_id').notNull().references(() => structure.id),
   libelle: text('libelle').notNull(),
   description: text('description'),
-  montantCentimes: integer('montant_centimes').notNull(),
+  montantHtCentimes: integer('montant_ht_centimes').notNull(), // Prix HT en centimes
+  montantTtcCentimes: integer('montant_ttc_centimes').notNull(), // Prix TTC en centimes (calculé via tauxTva)
+  montantCentimes: integer('montant_centimes').notNull(), // Alias TTC pour compatibilité
   devise: text('devise').default('EUR'),
   dureeJours: integer('duree_jours'),
   actif: integer('actif').default(1),
@@ -563,7 +566,9 @@ export const acceptationTarif = pgTable('acceptation_tarif', {
   structureId: text('structure_id').notNull().references(() => structure.id),
   tarificationId: text('tarification_id').notNull().references(() => tarification.id),
   conditionsId: text('conditions_id').references(() => conditionsCommerciales.id),
-  montantCentimes: integer('montant_centimes').notNull(),
+  montantHtCentimes: integer('montant_ht_centimes').notNull(),
+  montantTtcCentimes: integer('montant_ttc_centimes').notNull(),
+  montantCentimes: integer('montant_centimes').notNull(), // Alias TTC pour compatibilité
   statut: text('statut').default('en_attente'), // 'en_attente' | 'acceptee' | 'refusee' | 'expiree'
   accepteeLe: text('acceptee_le'),
   refuseeLe: text('refusee_le'),

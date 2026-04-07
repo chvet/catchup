@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
           capaciteMax: s.capaciteMax ?? 50,
           casActifs: casActifsResult[0]?.count ?? 0,
           actif: true,
-          visibilite: (s.visibilite as 'publique' | 'privee' | 'associative') || 'publique',
+          statut: (s.statut as 'public' | 'prive_non_lucratif' | 'lucratif') || 'public',
         }
       })
     )
@@ -394,7 +394,7 @@ export async function POST(request: NextRequest) {
     const matchResultsWithTarifs = await Promise.all(
       matchResults.slice(0, 3).map(async (m) => {
         let tarifs: TarifInfo[] = []
-        if (m.visibilite === 'privee') {
+        if (m.statut === 'lucratif') {
           const tarifRows = await db.select({
             id: tarification.id,
             libelle: tarification.libelle,
@@ -408,7 +408,7 @@ export async function POST(request: NextRequest) {
           nom: m.structureNom,
           score: m.score,
           raisons: m.raisons || [],
-          visibilite: m.visibilite,
+          statut: m.statut,
           tarifs,
         }
       })
@@ -418,7 +418,7 @@ export async function POST(request: NextRequest) {
       referralId,
       priorite,
       structureSuggeree: bestMatch
-        ? { nom: bestMatch.structureNom, score: bestMatch.score, visibilite: bestMatch.visibilite }
+        ? { nom: bestMatch.structureNom, score: bestMatch.score, statut: bestMatch.statut }
         : null,
       structuresSuggerees: matchResultsWithTarifs,
     })

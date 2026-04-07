@@ -4,7 +4,7 @@
 import { getConseillerFromHeaders, hasRole, jsonError, jsonSuccess } from '@/lib/api-helpers'
 import { logAudit } from '@/lib/auth'
 import { db } from '@/data/db'
-import { tarification } from '@/data/schema'
+import { tarification, structure } from '@/data/schema'
 import { eq, and } from 'drizzle-orm'
 
 type Params = { params: Promise<{ structureId: string; tarifId: string }> }
@@ -24,19 +24,25 @@ export async function PUT(request: Request, { params }: Params) {
     if (existing.length === 0) return jsonError('Tarification non trouvee', 404)
 
     const body = await request.json()
-    const allowedFields = ['libelle', 'description', 'montantCentimes', 'devise', 'dureeJours', 'actif']
     const updateData: Record<string, unknown> = { misAJourLe: new Date().toISOString() }
 
-    for (const field of allowedFields) {
-      if (body[field] !== undefined) {
-        updateData[field] = body[field]
-      }
+    // Champs simples
+    for (const field of ['libelle', 'description', 'devise', 'dureeJours', 'actif']) {
+      if (body[field] !== undefined) updateData[field] = body[field]
     }
 
-    if (updateData.montantCentimes !== undefined) {
-      if (typeof updateData.montantCentimes !== 'number' || (updateData.montantCentimes as number) <= 0) {
-        return jsonError('Le montant doit etre un nombre positif', 400)
+    // Si montant HT modifié, recalculer TTC
+    if (body.montantHtCentimes !== undefined) {
+      if (typeof body.montantHtCentimes !== 'number' || body.montantHtCentimes <= 0) {
+        return jsonError('Le montant HT doit etre un nombre positif', 400)
       }
+      // Récupérer le taux TVA de la structure
+      const structures = await db.select().from(structure).where(eq(structure.id, structureId))
+      const tauxTva = structures[0]?.tauxTva ?? 20.0
+      const ttc = Math.round(body.montantHtCentimes * (1 + tauxTva / 100))
+      updateData.montantHtCentimes = body.montantHtCentimes
+      updateData.montantTtcCentimes = ttc
+      updateData.montantCentimes = ttc
     }
 
     await db.update(tarification).set(updateData)
@@ -66,7 +72,6 @@ export async function DELETE(_request: Request, { params }: Params) {
       .where(and(eq(tarification.id, tarifId), eq(tarification.structureId, structureId)))
     if (existing.length === 0) return jsonError('Tarification non trouvee', 404)
 
-    // Soft delete
     await db.update(tarification)
       .set({ actif: 0, misAJourLe: new Date().toISOString() })
       .where(and(eq(tarification.id, tarifId), eq(tarification.structureId, structureId)))

@@ -127,8 +127,8 @@ export default function PaiementsPage() {
                       {p.beneficiaireEmail && <p className="text-xs text-gray-500">{p.beneficiaireEmail}</p>}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{p.tarifLibelle}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                      {(p.montantCentimes / 100).toFixed(2)} {p.devise || 'EUR'}
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-800">{(p.montantCentimes / 100).toFixed(2)} &euro; TTC</p>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${STATUT_COLORS[p.statut] || 'bg-gray-100 text-gray-700'}`}>

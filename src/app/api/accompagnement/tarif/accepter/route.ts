@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Vérifier que la structure est bien privée
     const structures = await db.select().from(structure).where(eq(structure.id, tarif.structureId))
-    if (structures.length === 0 || structures[0].visibilite !== 'privee') {
+    if (structures.length === 0 || structures[0].statut !== 'lucratif') {
       return NextResponse.json({ error: 'Structure non privee' }, { status: 400 })
     }
 
@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
       structureId: tarif.structureId,
       tarificationId,
       conditionsId: conditionsId || null,
+      montantHtCentimes: tarif.montantHtCentimes,
+      montantTtcCentimes: tarif.montantTtcCentimes,
       montantCentimes: tarif.montantCentimes,
       statut: 'acceptee',
       accepteeLe: now,
@@ -72,6 +74,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       acceptationTarifId: acceptation.id,
+      montantHtCentimes: tarif.montantHtCentimes,
+      montantTtcCentimes: tarif.montantTtcCentimes,
       montantCentimes: tarif.montantCentimes,
       devise: tarif.devise || 'EUR',
       structureId: tarif.structureId,

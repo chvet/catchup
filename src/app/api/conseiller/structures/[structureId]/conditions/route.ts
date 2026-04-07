@@ -51,8 +51,8 @@ export async function POST(request: Request, { params }: Params) {
     // Vérifier structure privée
     const structures = await db.select().from(structure).where(eq(structure.id, structureId))
     if (structures.length === 0) return jsonError('Structure non trouvee', 404)
-    if (structures[0].visibilite !== 'privee') {
-      return jsonError('Les conditions commerciales ne sont disponibles que pour les structures privees', 400)
+    if (structures[0].statut !== 'lucratif') {
+      return jsonError('Les conditions commerciales ne sont disponibles que pour les structures lucratives', 400)
     }
 
     const formData = await request.formData()

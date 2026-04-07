@@ -583,7 +583,7 @@ export default function ReferralModal({
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-sm font-medium text-gray-800">Structure publique / associative</span>
+                        <span className="text-sm font-medium text-gray-800">Structure publique ou associative</span>
                         <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">Gratuit</span>
                       </div>
                       {preferenceStructure === 'publique' && <span className="text-green-500">&#x2713;</span>}
@@ -600,7 +600,7 @@ export default function ReferralModal({
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-sm font-medium text-gray-800">Coach priv&eacute;</span>
+                        <span className="text-sm font-medium text-gray-800">Coach ou prestataire priv&eacute;</span>
                         <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">Payant</span>
                       </div>
                       {preferenceStructure === 'privee' && <span className="text-blue-500">&#x2713;</span>}

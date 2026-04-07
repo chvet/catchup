@@ -6,6 +6,8 @@ interface TarifInfo {
   id: string
   libelle: string
   description?: string | null
+  montantHtCentimes: number
+  montantTtcCentimes: number
   montantCentimes: number
   devise?: string
   dureeJours?: number | null
@@ -81,7 +83,10 @@ export default function PricingStep({
               </div>
               <div className="text-right ml-4">
                 <p className="text-lg font-bold text-gray-900">
-                  {(t.montantCentimes / 100).toFixed(2)}&nbsp;&euro;
+                  {(t.montantTtcCentimes / 100).toFixed(2)}&nbsp;&euro; TTC
+                </p>
+                <p className="text-xs text-gray-500">
+                  {(t.montantHtCentimes / 100).toFixed(2)}&nbsp;&euro; HT
                 </p>
                 {selectedTarifId === t.id && <span className="text-blue-500 text-sm">&#x2713;</span>}
               </div>
@@ -133,7 +138,7 @@ export default function PricingStep({
               Traitement...
             </span>
           ) : selectedTarif ? (
-            `Accepter et payer ${(selectedTarif.montantCentimes / 100).toFixed(2)} \u20AC`
+            `Accepter et payer ${(selectedTarif.montantTtcCentimes / 100).toFixed(2)} \u20AC TTC`
           ) : (
             'S\u00E9lectionnez une formule'
           )}
