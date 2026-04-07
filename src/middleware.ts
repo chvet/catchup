@@ -1,8 +1,4 @@
-// Middleware Next.js — Routage par sous-domaine + protection JWT + sécurité
-// - pro.catchup.jaeprive.fr → Espace Conseiller (sécurisé JWT)
-// - catchup.jaeprive.fr     → App bénéficiaire
-// En dev (localhost) : les deux espaces sont accessibles sans restriction de hostname
-
+// Middleware Next.js — Routage par sous-domaine + protection JWT + sécurité + API CORS/versioning
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
@@ -11,88 +7,64 @@ import { applySecurityHeaders } from '@/lib/security-headers'
 if (!process.env.JWT_SECRET) {
   console.error('[SECURITY] JWT_SECRET is not set. Authentication will fail.')
 }
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || ''
-)
-
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || '')
 const COOKIE_NAME = 'catchup_conseiller_session'
-
-// Routes publiques conseiller (pas besoin d'auth)
-const PUBLIC_ROUTES = [
-  '/conseiller/login',
-  '/api/conseiller/auth/login',
-  '/api/conseiller/auth/parcoureo',
-]
-
-// Domaines configurables via env (fallback sur les valeurs prod)
+const PUBLIC_ROUTES = ['/conseiller/login', '/api/conseiller/auth/login', '/api/conseiller/auth/parcoureo']
 const PRO_HOST = process.env.PRO_HOST || 'pro.catchup.jaeprive.fr'
 const PUBLIC_HOST = process.env.PUBLIC_HOST || 'catchup.jaeprive.fr'
-
-// Routes bénéficiaire (ne doivent pas être servies sur pro.*)
 const BENEFICIAIRE_ROUTES = ['/', '/quiz', '/offline']
 
-// ── Rate limiting en mémoire (Edge Runtime compatible) ──
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
-
 function checkRateLimit(key: string, max: number, windowMs: number): { allowed: boolean; remaining: number; retryAfter: number } {
   cleanupIfNeeded()
   const now = Date.now()
   const entry = rateLimitStore.get(key)
-
-  if (!entry || now > entry.resetAt) {
-    rateLimitStore.set(key, { count: 1, resetAt: now + windowMs })
-    return { allowed: true, remaining: max - 1, retryAfter: 0 }
-  }
-
+  if (!entry || now > entry.resetAt) { rateLimitStore.set(key, { count: 1, resetAt: now + windowMs }); return { allowed: true, remaining: max - 1, retryAfter: 0 } }
   entry.count++
-  if (entry.count > max) {
-    return { allowed: false, remaining: 0, retryAfter: Math.ceil((entry.resetAt - now) / 1000) }
-  }
+  if (entry.count > max) return { allowed: false, remaining: 0, retryAfter: Math.ceil((entry.resetAt - now) / 1000) }
   return { allowed: true, remaining: max - entry.count, retryAfter: 0 }
 }
-
-// Nettoyage intégré au checkRateLimit (pas de setInterval en Edge Runtime)
 function cleanupIfNeeded() {
-  // Nettoyer au max toutes les 60s
   const now = Date.now()
   if (now - lastCleanup < 60_000) return
   lastCleanup = now
   const keys = Array.from(rateLimitStore.keys())
-  for (let i = 0; i < keys.length; i++) {
-    const entry = rateLimitStore.get(keys[i])
-    if (entry && now > entry.resetAt) rateLimitStore.delete(keys[i])
-  }
+  for (let i = 0; i < keys.length; i++) { const entry = rateLimitStore.get(keys[i]); if (entry && now > entry.resetAt) rateLimitStore.delete(keys[i]) }
 }
 let lastCleanup = Date.now()
 
 function getClientIP(request: NextRequest): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0].trim()
-    || request.headers.get('x-real-ip')
-    || '0.0.0.0'
+  return request.headers.get('x-forwarded-for')?.split(',')[0].trim() || request.headers.get('x-real-ip') || '0.0.0.0'
 }
 
-function getHostname(request: NextRequest): string {
-  return request.headers.get('x-forwarded-host')
-    || request.headers.get('host')
-    || ''
+// ── CORS helpers pour les réponses API ──
+function corsPreflightResponse(request: NextRequest): NextResponse {
+  const origin = request.headers.get('origin') || '*'
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Max-Age': '86400',
+    },
+  })
+}
+function applyCorsHeaders(response: NextResponse, request: NextRequest): void {
+  const origin = request.headers.get('origin')
+  if (origin) {
+    response.headers.set('Access-Control-Allow-Origin', origin)
+    response.headers.set('Access-Control-Allow-Credentials', 'true')
+  }
 }
 
-function isProDomain(hostname: string): boolean {
-  return hostname.startsWith('pro.')
-}
-
-function isPublicDomain(hostname: string): boolean {
-  return !isProDomain(hostname)
-}
-
-function isLocalDev(hostname: string): boolean {
-  return hostname.includes('localhost') || hostname.includes('127.0.0.1')
-}
-
-// Helper : ajoute le header de branding à la réponse
+function getHostname(request: NextRequest): string { return request.headers.get('x-forwarded-host') || request.headers.get('host') || '' }
+function isProDomain(hostname: string): boolean { return hostname.startsWith('pro.') }
+function isPublicDomain(hostname: string): boolean { return !isProDomain(hostname) }
+function isLocalDev(hostname: string): boolean { return hostname.includes('localhost') || hostname.includes('127.0.0.1') }
 function withBrand(response: NextResponse, brand: string): NextResponse {
   response.headers.set('x-app-brand', brand)
-  // Passer le brand au client via un cookie (accessible côté React)
   response.cookies.set('app_brand', brand, { path: '/', httpOnly: false, sameSite: 'lax' })
   return response
 }
@@ -102,132 +74,81 @@ export async function middleware(request: NextRequest) {
   const hostname = getHostname(request)
   const clientIP = getClientIP(request)
 
-  // ══════════════════════════════════════════════════════════
-  // 1) RATE LIMITING — Protection brute force AVANT tout traitement
-  // ══════════════════════════════════════════════════════════
+  // ══ 0) API VERSIONING — Rewrite /api/v1/* → /api/* ══
+  if (pathname.startsWith('/api/v1/')) {
+    const rewritten = pathname.replace('/api/v1/', '/api/')
+    const url = request.nextUrl.clone()
+    url.pathname = rewritten
+    const response = NextResponse.rewrite(url)
+    response.headers.set('X-API-Version', 'v1')
+    if (request.method === 'OPTIONS') return corsPreflightResponse(request)
+    applyCorsHeaders(response, request)
+    return response
+  }
 
-  // Login conseiller : 50 tentatives / 15 min par IP
+  // ══ 0b) CORS PREFLIGHT — OPTIONS sur /api/* ══
+  if (request.method === 'OPTIONS' && pathname.startsWith('/api/')) {
+    return corsPreflightResponse(request)
+  }
+
+  // ══ 1) RATE LIMITING ══
   if (pathname === '/api/conseiller/auth/login' && request.method === 'POST') {
     const rl = checkRateLimit(`login:${clientIP}`, 50, 15 * 60 * 1000)
-    if (!rl.allowed) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Trop de tentatives de connexion. Réessayez dans quelques minutes.' }),
-        {
-          status: 429,
-          headers: {
-            'Content-Type': 'application/json',
-            'Retry-After': String(rl.retryAfter),
-          },
-        }
-      )
-    }
+    if (!rl.allowed) return new NextResponse(JSON.stringify({ error: 'Trop de tentatives de connexion.' }), { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } })
   }
-
-  // Vérification PIN bénéficiaire : 5 tentatives / 15 min par IP
   if (pathname === '/api/accompagnement/verify' && request.method === 'POST') {
     const rl = checkRateLimit(`verify:${clientIP}`, 5, 15 * 60 * 1000)
-    if (!rl.allowed) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Trop de tentatives. Réessayez dans quelques minutes.' }),
-        { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } }
-      )
-    }
+    if (!rl.allowed) return new NextResponse(JSON.stringify({ error: 'Trop de tentatives.' }), { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } })
   }
-
-  // Vérification PIN tiers : 5 tentatives / 15 min par IP
   if (pathname === '/api/tiers/verify' && request.method === 'POST') {
     const rl = checkRateLimit(`tiers:${clientIP}`, 5, 15 * 60 * 1000)
-    if (!rl.allowed) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Trop de tentatives. Réessayez dans quelques minutes.' }),
-        { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } }
-      )
-    }
+    if (!rl.allowed) return new NextResponse(JSON.stringify({ error: 'Trop de tentatives.' }), { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } })
   }
-
-  // API générale : 200 requêtes / minute par IP (anti DDoS applicatif)
   if (pathname.startsWith('/api/')) {
     const rl = checkRateLimit(`api:${clientIP}`, 200, 60 * 1000)
-    if (!rl.allowed) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Trop de requêtes. Réessayez dans un instant.' }),
-        { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } }
-      )
-    }
+    if (!rl.allowed) return new NextResponse(JSON.stringify({ error: 'Trop de requêtes.' }), { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } })
   }
 
-  // ══════════════════════════════════════════════════════════
-  // 1b) CSRF — Vérification Origin sur les requêtes POST/PUT/DELETE (sauf SSE/streaming)
-  // ══════════════════════════════════════════════════════════
-
+  // ══ 1b) CSRF — Exemption pour X-API-Key ══
   if (pathname.startsWith('/api/') && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
     const origin = request.headers.get('origin')
+    const hasApiKey = !!request.headers.get('x-api-key')
     const isSSE = pathname.includes('/stream')
-    if (!isSSE && origin && !isLocalDev(hostname)) {
-      const allowedOrigins = [
-        `https://${PUBLIC_HOST}`,
-        `https://${PRO_HOST}`,
-        `https://catchup.jaeprive.fr`,
-        `https://pro.catchup.jaeprive.fr`,
-      ]
+    if (!hasApiKey && !isSSE && origin && !isLocalDev(hostname)) {
+      const allowedOrigins = [`https://${PUBLIC_HOST}`, `https://${PRO_HOST}`, 'https://catchup.jaeprive.fr', 'https://pro.catchup.jaeprive.fr']
       if (!allowedOrigins.some(o => origin.startsWith(o))) {
-        return new NextResponse(
-          JSON.stringify({ error: 'Forbidden' }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } }
-        )
+        return new NextResponse(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { 'Content-Type': 'application/json' } })
       }
     }
   }
 
-  // ══════════════════════════════════════════════════════════
-  // 2) BRANDING — Catch'Up uniquement
-  // ══════════════════════════════════════════════════════════
-
+  // ══ 2) BRANDING ══
   const appBrand = 'catchup'
 
-  // ══════════════════════════════════════════════════════════
-  // 3) ROUTAGE PAR SOUS-DOMAINE
-  // ══════════════════════════════════════════════════════════
-
+  // ══ 3) ROUTAGE PAR SOUS-DOMAINE ══
   if (!isLocalDev(hostname)) {
-    // ── Sur pro.catchup.jaeprive.fr ──
     if (isProDomain(hostname)) {
-      if (pathname === '/') {
-        return applySecurityHeaders(NextResponse.redirect(new URL('/conseiller', request.url)))
-      }
-      if (BENEFICIAIRE_ROUTES.includes(pathname) && pathname !== '/') {
-        return applySecurityHeaders(NextResponse.redirect(new URL(`https://${PUBLIC_HOST}${pathname}`)))
-      }
+      if (pathname === '/') return applySecurityHeaders(NextResponse.redirect(new URL('/conseiller', request.url)))
+      if (BENEFICIAIRE_ROUTES.includes(pathname) && pathname !== '/') return applySecurityHeaders(NextResponse.redirect(new URL(`https://${PUBLIC_HOST}${pathname}`)))
     }
-
-    // ── Sur catchup.jaeprive.fr ──
     if (isPublicDomain(hostname)) {
       const proEnabled = process.env.PRO_SUBDOMAIN_ENABLED === 'true'
-      if (proEnabled && (pathname.startsWith('/conseiller') || pathname.startsWith('/api/conseiller'))) {
-        return applySecurityHeaders(NextResponse.redirect(new URL(`https://${PRO_HOST}${pathname}`)))
-      }
+      if (proEnabled && (pathname.startsWith('/conseiller') || pathname.startsWith('/api/conseiller'))) return applySecurityHeaders(NextResponse.redirect(new URL(`https://${PRO_HOST}${pathname}`)))
       return withBrand(applySecurityHeaders(NextResponse.next()), appBrand)
     }
   }
 
-  // ── Routes accompagnement + tiers → auth par token PIN, pas JWT ──
-  if (pathname.startsWith('/accompagnement') || pathname.startsWith('/api/accompagnement')
-    || pathname.startsWith('/tiers') || pathname.startsWith('/api/tiers')) {
+  if (pathname.startsWith('/accompagnement') || pathname.startsWith('/api/accompagnement') || pathname.startsWith('/tiers') || pathname.startsWith('/api/tiers')) {
     return withBrand(applySecurityHeaders(NextResponse.next()), appBrand)
   }
 
-  // ── Calendar OAuth callbacks → pas de JWT (retour depuis Google/Microsoft) ──
   if (pathname.startsWith('/api/calendar/google/callback') || pathname.startsWith('/api/calendar/outlook/callback')) {
     return withBrand(applySecurityHeaders(NextResponse.next()), appBrand)
   }
 
-  // ── Calendar API routes (non-callback) → JWT obligatoire pour injecter x-conseiller-id ──
   if (pathname.startsWith('/api/calendar/')) {
-    const calToken = request.cookies.get(COOKIE_NAME)?.value
-      || request.headers.get('Authorization')?.replace('Bearer ', '')
-    if (!calToken) {
-      return applySecurityHeaders(NextResponse.json({ error: 'Non authentifie' }, { status: 401 }))
-    }
+    const calToken = request.cookies.get(COOKIE_NAME)?.value || request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!calToken) return applySecurityHeaders(NextResponse.json({ error: 'Non authentifie' }, { status: 401 }))
     try {
       const { payload } = await jwtVerify(calToken, JWT_SECRET)
       const response = NextResponse.next()
@@ -236,65 +157,40 @@ export async function middleware(request: NextRequest) {
       response.headers.set('x-conseiller-role', payload.role as string)
       response.headers.set('x-conseiller-structure', (payload.structureId as string) || '')
       return withBrand(applySecurityHeaders(response), appBrand)
-    } catch {
-      return applySecurityHeaders(NextResponse.json({ error: 'Session expiree' }, { status: 401 }))
-    }
+    } catch { return applySecurityHeaders(NextResponse.json({ error: 'Session expiree' }, { status: 401 })) }
   }
 
-  // ══════════════════════════════════════════════════════════
-  // 3) PROTECTION JWT — Routes /conseiller/*
-  // ══════════════════════════════════════════════════════════
-
+  // ══ 4) PROTECTION JWT — Routes /conseiller/* ══
   if (!pathname.startsWith('/conseiller') && !pathname.startsWith('/api/conseiller')) {
     return withBrand(applySecurityHeaders(NextResponse.next()), appBrand)
   }
-
-  // Routes publiques → laisser passer
   if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
     return withBrand(applySecurityHeaders(NextResponse.next()), appBrand)
   }
 
-  // Vérifier le JWT
-  const token = request.cookies.get(COOKIE_NAME)?.value
-    || request.headers.get('Authorization')?.replace('Bearer ', '')
-
+  const token = request.cookies.get(COOKIE_NAME)?.value || request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) {
-    if (pathname.startsWith('/api/')) {
-      return applySecurityHeaders(
-        NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-      )
-    }
-    return applySecurityHeaders(
-      NextResponse.redirect(new URL('/conseiller/login', request.url))
-    )
+    if (pathname.startsWith('/api/')) return applySecurityHeaders(NextResponse.json({ error: 'Non authentifié' }, { status: 401 }))
+    return applySecurityHeaders(NextResponse.redirect(new URL('/conseiller/login', request.url)))
   }
 
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET)
-
-    // Injecter les infos du conseiller dans les headers
     const response = NextResponse.next()
     response.headers.set('x-conseiller-id', payload.sub as string)
     response.headers.set('x-conseiller-email', payload.email as string)
     response.headers.set('x-conseiller-role', payload.role as string)
     response.headers.set('x-conseiller-structure', (payload.structureId as string) || '')
-
     return withBrand(applySecurityHeaders(response), appBrand)
   } catch {
-    if (pathname.startsWith('/api/')) {
-      return applySecurityHeaders(
-        NextResponse.json({ error: 'Session expirée' }, { status: 401 })
-      )
-    }
-    return applySecurityHeaders(
-      NextResponse.redirect(new URL('/conseiller/login', request.url))
-    )
+    if (pathname.startsWith('/api/')) return applySecurityHeaders(NextResponse.json({ error: 'Session expirée' }, { status: 401 }))
+    return applySecurityHeaders(NextResponse.redirect(new URL('/conseiller/login', request.url)))
   }
 }
 
-// Matcher élargi : on doit intercepter TOUTES les routes pour le routage par hostname
 export const config = {
   matcher: [
+    '/api/v1/:path*',
     '/conseiller/:path*',
     '/api/conseiller/:path*',
     '/api/calendar/:path*',
