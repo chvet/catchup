@@ -79,7 +79,7 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
     <header className="bg-gradient-to-r from-catchup-primary to-indigo-600 text-white px-2 sm:px-3 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 shadow-lg">
       {/* Logo Catch'Up (cursive) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={brandConfig.logo} alt={brandConfig.appName} className="h-7 sm:h-9 object-contain flex-shrink-0" />
+      <img src={brandConfig.logo} alt={brandConfig.appName} className="h-8 sm:h-10 object-contain flex-shrink-0" />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
