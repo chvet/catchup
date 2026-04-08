@@ -5,6 +5,7 @@ import { getConseillerFromHeaders } from '@/lib/api-helpers'
 import { db } from '@/data/db'
 import { conseiller, structure } from '@/data/schema'
 import { eq } from 'drizzle-orm'
+import { getStructurePlan } from '@/lib/quota-check'
 
 export async function GET() {
   try {
@@ -31,12 +32,16 @@ export async function GET() {
       structureData = structures[0] || null
     }
 
+    // Charger le plan de la structure
+    const plan = c.structureId ? await getStructurePlan(c.structureId) : 'free'
+
     return Response.json({
       id: c.id,
       email: c.email,
       prenom: c.prenom,
       nom: c.nom,
       role: c.role,
+      plan,
       parcoureoId: c.parcoureoId || null,
       structure: structureData ? {
         id: structureData.id,

@@ -4,6 +4,7 @@
 
 import { NextRequest } from 'next/server'
 import { getConseillerFromHeaders, hasRole, jsonError } from '@/lib/api-helpers'
+import { checkFeature } from '@/lib/quota-check'
 import { db } from '@/data/db'
 import { referral, priseEnCharge, structure, conseiller, utilisateur } from '@/data/schema'
 import { eq, and, gte, lte, sql } from 'drizzle-orm'
@@ -729,6 +730,12 @@ export async function GET(request: NextRequest) {
     // Only admin_structure and super_admin can export
     if (!hasRole(ctx, 'admin_structure')) {
       return jsonError('Acces refuse', 403)
+    }
+
+    // Feature gate : export réservé au plan Pro+
+    if (ctx.structureId) {
+      const gate = await checkFeature(ctx.structureId, 'export')
+      if (!gate.allowed) return jsonError(gate.message || 'Fonctionnalite reservee au plan Pro', 403)
     }
 
     const { searchParams } = new URL(request.url)

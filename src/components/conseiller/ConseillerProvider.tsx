@@ -8,6 +8,7 @@ export interface ConseillerInfo {
   prenom: string
   nom: string
   role: string
+  plan?: string          // plan de la structure : 'free' | 'starter' | 'pro' | 'premium'
   parcoureoId?: string | null
   structure: { id: string; nom: string; type: string; logoUrl?: string | null } | null
 }

@@ -2,15 +2,22 @@
 // Assistant IA privé pour les conseillers — streaming via AI SDK
 
 import { streamText } from 'ai'
-import { getConseillerFromHeaders } from '@/lib/api-helpers'
+import { getConseillerFromHeaders, jsonError } from '@/lib/api-helpers'
 import { getLLMModel } from '@/lib/llm'
+import { checkFeature } from '@/lib/quota-check'
 
 export const maxDuration = 30
 
 export async function POST(req: Request) {
   try {
     // Vérifier l'authentification conseiller
-    await getConseillerFromHeaders()
+    const ctx = await getConseillerFromHeaders()
+
+    // Feature gate : assistant IA réservé au plan Pro+
+    if (ctx.structureId) {
+      const gate = await checkFeature(ctx.structureId, 'assistant_ia')
+      if (!gate.allowed) return jsonError(gate.message || 'Fonctionnalite reservee', 403)
+    }
 
     const body = await req.json()
     const { messages, context } = body
