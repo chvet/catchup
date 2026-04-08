@@ -90,6 +90,13 @@ interface CaseDetail {
     nbMessages: number | null
     phase: string | null
   }[] | null
+  dernierCode?: {
+    code: string
+    sentAt: string
+    verifie: boolean
+    expire: boolean
+    moyenContact: string
+  } | null
 }
 
 interface ConversationMessage {
@@ -621,6 +628,7 @@ export default function CaseDetailPage() {
                 beneficiaireAge={beneficiaire?.age}
                 priseEnChargeStatut={pec?.statut || ''}
                 conseillerId={pec?.conseillerId}
+                initialCodeInfo={data.dernierCode || undefined}
               />
             )}
 

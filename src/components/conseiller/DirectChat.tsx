@@ -33,6 +33,7 @@ interface DirectChatProps {
   beneficiaireAge?: number | null
   priseEnChargeStatut: string
   conseillerId?: string
+  initialCodeInfo?: { code: string; sentAt: string; verifie: boolean; expire: boolean; moyenContact: string }
 }
 
 // --- Types pour les messages structurés ---
@@ -190,7 +191,7 @@ function UploadProgress({ progress }: { progress: number }) {
 
 // --- Main component ---
 
-export default function DirectChat({ referralId, beneficiairePrenom, beneficiaireAge, priseEnChargeStatut, conseillerId }: DirectChatProps) {
+export default function DirectChat({ referralId, beneficiairePrenom, beneficiaireAge, priseEnChargeStatut, conseillerId, initialCodeInfo }: DirectChatProps) {
   const sendTyping = useTypingSignal('conseiller', conseillerId)
   // Real online status for the beneficiary (using referralId as heartbeat userId)
   const beneficiaireOnline = useIsOnline(referralId)
@@ -199,7 +200,9 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   const [loading, setLoading] = useState(true)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
-  const [codeInfo, setCodeInfo] = useState<{ code: string; moyenContact: string } | null>(null)
+  const [codeInfo, setCodeInfo] = useState<{ code: string; moyenContact: string; sentAt?: string; channel?: string; verifie?: boolean } | null>(
+    initialCodeInfo ? { code: initialCodeInfo.code, moyenContact: initialCodeInfo.moyenContact, sentAt: initialCodeInfo.sentAt, verifie: initialCodeInfo.verifie } : null
+  )
   const [resending, setResending] = useState(false)
   const [resendSuccess, setResendSuccess] = useState(false)
   const [connected, setConnected] = useState(false)
@@ -533,7 +536,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
       })
       if (res.ok) {
         const data = await res.json()
-        setCodeInfo({ code: data.code, moyenContact: data.moyenContact })
+        setCodeInfo({ code: data.code, moyenContact: data.moyenContact, sentAt: data.sentAt || new Date().toISOString(), channel: data.channel })
         setResendSuccess(true)
         setTimeout(() => setResendSuccess(false), 3000)
       }
@@ -923,25 +926,37 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
 
       {/* Alerte code PIN + bouton renvoyer */}
       {codeInfo && (
-        <div className="mx-6 mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className={`mx-6 mt-3 p-3 rounded-lg border ${codeInfo.verifie ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-blue-800 font-medium">Code PIN pour le bénéficiaire</p>
-              <p className="text-xs text-blue-600 mt-1">
+              <p className={`text-sm font-medium ${codeInfo.verifie ? 'text-green-800' : 'text-blue-800'}`}>
+                {codeInfo.verifie ? '✅ Code PIN verifie par le beneficiaire' : '🔑 Code PIN envoye au beneficiaire'}
+              </p>
+              <p className={`text-xs mt-1 ${codeInfo.verifie ? 'text-green-600' : 'text-blue-600'}`}>
                 Code : <span className="font-mono font-bold text-lg">{codeInfo.code}</span>
-                <span className="ml-2">→ {codeInfo.moyenContact}</span>
+                <span className="ml-2">&rarr; {codeInfo.moyenContact}</span>
               </p>
-              <p className="text-xs text-blue-500 mt-1">
-                Le bénéficiaire saisit ce code sur catchup.jaeprive.fr/accompagnement
-              </p>
+              {codeInfo.sentAt && (
+                <p className={`text-xs mt-1 ${codeInfo.verifie ? 'text-green-500' : 'text-blue-500'}`}>
+                  Envoye le {new Date(codeInfo.sentAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })} a {new Date(codeInfo.sentAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  {codeInfo.channel && ` via ${codeInfo.channel === 'sms' ? 'SMS' : 'email'}`}
+                </p>
+              )}
+              {!codeInfo.verifie && (
+                <p className="text-xs text-blue-500 mt-1">
+                  Le beneficiaire saisit ce code sur catchup.jaeprive.fr/accompagnement
+                </p>
+              )}
             </div>
-            <button
-              onClick={handleResendCode}
-              disabled={resending}
-              className="ml-3 shrink-0 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              {resending ? '...' : '🔄 Renvoyer'}
-            </button>
+            {!codeInfo.verifie && (
+              <button
+                onClick={handleResendCode}
+                disabled={resending}
+                className="ml-3 shrink-0 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {resending ? '...' : '🔄 Renvoyer'}
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -107,6 +107,7 @@ export async function POST(
       moyenContact: ref.moyenContact,
       channel: notifResult.channel,
       sent: notifResult.sent,
+      sentAt: now,
     })
   } catch (error) {
     console.error('[Resend Code]', error)

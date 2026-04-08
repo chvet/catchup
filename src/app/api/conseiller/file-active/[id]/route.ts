@@ -204,6 +204,25 @@ export async function GET(
         label: attenteHeures < 1 ? '< 1h' : attenteHeures < 24 ? `${attenteHeures}h` : `${Math.round(attenteHeures / 24)}j`,
       },
       historique: historique.length > 0 ? historique : null,
+      // Dernier code PIN envoyé (pour affichage dans l'accompagnement)
+      dernierCode: await (async () => {
+        try {
+          const codes = await db
+            .select({ code: codeVerification.code, creeLe: codeVerification.creeLe, verifie: codeVerification.verifie, expireLe: codeVerification.expireLe })
+            .from(codeVerification)
+            .where(eq(codeVerification.referralId, id))
+            .orderBy(desc(codeVerification.creeLe))
+            .limit(1)
+          if (codes.length === 0) return null
+          return {
+            code: codes[0].code,
+            sentAt: codes[0].creeLe,
+            verifie: codes[0].verifie === 1,
+            expire: new Date(codes[0].expireLe) < new Date(),
+            moyenContact: ref.moyenContact,
+          }
+        } catch { return null }
+      })(),
     })
   } catch (error) {
     console.error('[File Active Detail]', error)
@@ -314,6 +333,8 @@ export async function POST(
           sent: true,
           channel: notifResult.channel,
           destination: ref.moyenContact,
+          code,
+          sentAt: now,
         },
       }, 201)
     } catch (smsErr) {
