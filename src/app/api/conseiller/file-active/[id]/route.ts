@@ -306,11 +306,28 @@ export async function POST(
         conseillerPrenom,
       })
       console.log(`[PIN] Code envoyé à ${ref.moyenContact} via ${notifResult.channel} (prise en charge)`)
+
+      return jsonSuccess({
+        id: pecId,
+        message: 'Prise en charge créée',
+        notification: {
+          sent: true,
+          channel: notifResult.channel,
+          destination: ref.moyenContact,
+        },
+      }, 201)
     } catch (smsErr) {
       console.error('[PIN] Erreur envoi SMS prise en charge:', smsErr)
-    }
 
-    return jsonSuccess({ id: pecId, message: 'Prise en charge créée' }, 201)
+      return jsonSuccess({
+        id: pecId,
+        message: 'Prise en charge créée',
+        notification: {
+          sent: false,
+          error: 'Echec envoi notification',
+        },
+      }, 201)
+    }
   } catch (error) {
     console.error('[File Active Claim]', error)
     return jsonError('Erreur serveur', 500)

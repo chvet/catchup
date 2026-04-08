@@ -38,6 +38,8 @@ interface ReferralItem {
   }
   derniereActivite?: string | null
   campagneId?: string | null
+  campagneNom?: string | null
+  structureNom?: string | null
   // Double file active fields
   matchScore?: number | null
   horsChamp?: boolean | null
@@ -1025,6 +1027,9 @@ export default function FileActivePage() {
                   <th className={thClass} onClick={() => handleSort('localisation')}>
                     Localisation{sortArrow('localisation')}
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                    Structure
+                  </th>
                   {campagnes.length > 0 && (
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
                       Campagne
@@ -1095,11 +1100,18 @@ export default function FileActivePage() {
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {r.localisation ? `\uD83D\uDCCD ${r.localisation}` : '\u2014'}
                       </td>
+                      <td className="px-4 py-3 text-sm">
+                        {r.structureNom ? (
+                          <span className="text-gray-700 text-xs">{r.structureNom}</span>
+                        ) : (
+                          <span className="text-gray-300">{'\u2014'}</span>
+                        )}
+                      </td>
                       {campagnes.length > 0 && (
                         <td className="px-4 py-3 text-sm">
                           {r.campagneId ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 max-w-[150px] truncate">
-                              {campagnes.find(c => c.id === r.campagneId)?.designation || r.campagneId}
+                              {r.campagneNom || campagnes.find(c => c.id === r.campagneId)?.designation || r.campagneId}
                             </span>
                           ) : (
                             <span className="text-gray-300">{'\u2014'}</span>

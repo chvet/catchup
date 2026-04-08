@@ -30,6 +30,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Campagne non trouvee' }, { status: 404 })
     }
 
+    // Incrémenter le compteur de visites (non bloquant)
+    db.update(campagne)
+      .set({ nbVisites: sql`COALESCE(${campagne.nbVisites}, 0) + 1` })
+      .where(eq(campagne.id, rows[0].id))
+      .catch(() => {})
+
     return NextResponse.json({ campagneId: rows[0].id }, {
       headers: { 'Cache-Control': 'public, max-age=300' }
     })

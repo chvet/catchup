@@ -11,7 +11,7 @@
 
 import { getConseillerFromHeaders, hasRole, jsonError } from '@/lib/api-helpers'
 import { db } from '@/data/db'
-import { referral, utilisateur, profilRiasec, priseEnCharge, structure } from '@/data/schema'
+import { referral, utilisateur, profilRiasec, priseEnCharge, structure, campagne } from '@/data/schema'
 import { eq, and, or, desc, sql, inArray } from 'drizzle-orm'
 import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
 import { safeJsonParse } from '@/core/constants'
@@ -115,6 +115,9 @@ export async function GET(request: Request) {
         motif: referral.motif,
         moyenContact: referral.moyenContact,
         campagneId: referral.campagneId,
+        campagneNom: campagne.designation,
+        structureSuggereId: referral.structureSuggereId,
+        structureNom: sql<string>`(SELECT nom FROM structure WHERE structure.id = ${referral.structureSuggereId})`.as('structure_nom'),
         creeLe: referral.creeLe,
         // Profil RIASEC
         r: profilRiasec.r,
@@ -128,6 +131,7 @@ export async function GET(request: Request) {
       .from(referral)
       .leftJoin(utilisateur, eq(referral.utilisateurId, utilisateur.id))
       .leftJoin(profilRiasec, eq(referral.utilisateurId, profilRiasec.utilisateurId))
+      .leftJoin(campagne, eq(referral.campagneId, campagne.id))
       .where(whereClause)
       .orderBy(
         // Mes propres PEC en premier (pour que "Mes accompagnements" les trouve toujours)

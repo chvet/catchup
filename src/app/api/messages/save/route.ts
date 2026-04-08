@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/data/db'
-import { conversation, message, utilisateur } from '@/data/schema'
+import { campagne, conversation, message, utilisateur } from '@/data/schema'
 import { eq, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getFragilityLevel } from '@/core/fragility-detector'
@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { sessionId, message: msg } = body
     let { conversationId, utilisateurId } = body
+    const { campagneId } = body
 
     if (!msg?.role || !msg?.contenu) {
       return NextResponse.json(
@@ -45,6 +46,18 @@ export async function POST(request: NextRequest) {
         creeLe: now,
         misAJourLe: now,
       })
+    }
+
+    // 2b. Track campaign conversation (first message only)
+    if (campagneId && msg.role === 'user') {
+      // Check if this is the first message of this conversation
+      const convData = await db.select({ nbMessages: conversation.nbMessages }).from(conversation).where(eq(conversation.id, conversationId))
+      if (convData.length > 0 && (convData[0].nbMessages ?? 0) === 0) {
+        db.update(campagne)
+          .set({ nbConversations: sql`COALESCE(${campagne.nbConversations}, 0) + 1` })
+          .where(eq(campagne.id, campagneId))
+          .catch(() => {})
+      }
     }
 
     // 3. Detect fragility on user messages

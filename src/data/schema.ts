@@ -410,6 +410,8 @@ export const campagne = pgTable('campagne', {
   dateDebut: text('date_debut').notNull(),
   dateFin: text('date_fin').notNull(),
   statut: text('statut').default('active'), // active | terminee | archivee
+  nbVisites: integer('nb_visites').default(0), // scans QR code (incrémenté au resolve)
+  nbConversations: integer('nb_conversations').default(0), // chats ouverts via cette campagne
   remplaceeParId: text('remplacee_par_id'), // FK vers la campagne qui l'a remplacée
   archiveeLe: text('archivee_le'),
   creeLe: text('cree_le').notNull(),

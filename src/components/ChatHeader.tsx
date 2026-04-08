@@ -76,18 +76,12 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
   return (
     <div className="relative z-30">
     <header className="bg-gradient-to-r from-catchup-primary to-indigo-600 text-white px-3 py-2.5 flex items-center gap-3 shadow-lg">
-      <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm">
-        {brandConfig.logo.startsWith('/') ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={brandConfig.logo} alt={brandConfig.appName} className="w-8 h-8 object-contain" />
-        ) : (
-          <span className="text-xl">{brandConfig.logo}</span>
-        )}
-      </div>
+      {/* Logo Catch'Up (cursive) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={brandConfig.logo} alt={brandConfig.appName} className="h-9 object-contain flex-shrink-0" />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h1 className="font-bold text-base tracking-tight">{brandConfig.appName}</h1>
           {streak >= 2 && (
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-white/15 text-[11px] font-semibold">
               <span className="animate-pulse">🔥</span>
@@ -95,10 +89,9 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
             </span>
           )}
         </div>
-        <p className="text-[11px] text-white/70 truncate">
-          {hasProfile && profile.name ? `${profile.name} · ` : ''}
-          {brandConfig.tagline}
-        </p>
+        {hasProfile && profile.name && (
+          <p className="text-[11px] text-white/70 truncate">{profile.name}</p>
+        )}
       </div>
 
       <div className="flex items-center gap-0.5">

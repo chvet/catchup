@@ -215,13 +215,25 @@ export default function CaseDetailPage() {
     }
   }, [messagesLoaded, messages])
 
+  const [notifToast, setNotifToast] = useState<string | null>(null)
+
   const handleClaim = async () => {
     setClaiming(true)
     const res = await fetch(`/api/conseiller/file-active/${id}`, { method: 'POST' })
     if (res.ok) {
+      const result = await res.json()
       const d = await fetch(`/api/conseiller/file-active/${id}`).then(r => r.json())
       setData(d)
       setActiveTab('accompagnement')
+
+      // Afficher le feedback de notification
+      if (result.notification?.sent) {
+        const channel = result.notification.channel === 'sms' ? 'SMS' : 'email'
+        setNotifToast(`Notification envoyee par ${channel} a ${result.notification.destination}`)
+      } else if (result.notification?.sent === false) {
+        setNotifToast('Prise en charge effectuee (notification non envoyee)')
+      }
+      setTimeout(() => setNotifToast(null), 6000)
     } else {
       const err = await res.json().catch(() => ({ error: 'Erreur inconnue' }))
       alert(err.error || 'Erreur lors de la prise en charge')
@@ -298,6 +310,13 @@ export default function CaseDetailPage() {
 
   return (
     <div>
+      {/* Toast notification */}
+      {notifToast && (
+        <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm shadow-lg animate-fade-in">
+          {notifToast}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
         <div className="flex items-center gap-3 md:gap-4 min-w-0">

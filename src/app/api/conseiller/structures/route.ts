@@ -24,6 +24,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
     const allStructures = searchParams.get('all') === 'true'
+    const filterType = searchParams.get('type')           // virgule-séparé : mission_locale,cio
+    const filterDept = searchParams.get('departement')    // virgule-séparé : 75,92
+    const filterSpec = searchParams.get('specialite')     // virgule-séparé : insertion,decrochage
+    const filterStatut = searchParams.get('statut')       // public, prive_non_lucratif, lucratif
+    const filterActif = searchParams.get('actif')         // 1 (défaut), 0, tous
 
     // Base condition depending on role
     const conditions = []
@@ -39,6 +44,44 @@ export async function GET(request: Request) {
 
     if (search) {
       conditions.push(like(structure.nom, `%${search}%`))
+    }
+
+    // Filtre par type (multi-valeur)
+    if (filterType) {
+      const types = filterType.split(',').filter(Boolean)
+      if (types.length === 1) {
+        conditions.push(eq(structure.type, types[0]))
+      } else if (types.length > 1) {
+        conditions.push(sql`${structure.type} IN (${sql.join(types.map(t => sql`${t}`), sql`, `)})`)
+      }
+    }
+
+    // Filtre par département (champs JSON texte, LIKE matching)
+    if (filterDept) {
+      const depts = filterDept.split(',').filter(Boolean)
+      for (const dept of depts) {
+        conditions.push(sql`${structure.departements} LIKE ${'%"' + dept + '"%'}`)
+      }
+    }
+
+    // Filtre par spécialité (champs JSON texte, LIKE matching)
+    if (filterSpec) {
+      const specs = filterSpec.split(',').filter(Boolean)
+      for (const spec of specs) {
+        conditions.push(sql`${structure.specialites} LIKE ${'%"' + spec + '"%'}`)
+      }
+    }
+
+    // Filtre par statut juridique
+    if (filterStatut && ['public', 'prive_non_lucratif', 'lucratif'].includes(filterStatut)) {
+      conditions.push(eq(structure.statut, filterStatut))
+    }
+
+    // Filtre actif/inactif (défaut : actifs uniquement)
+    if (filterActif === '0') {
+      conditions.push(eq(structure.actif, 0))
+    } else if (filterActif !== 'tous') {
+      conditions.push(eq(structure.actif, 1))
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined

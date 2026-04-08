@@ -9,9 +9,9 @@ import { v4 as uuidv4 } from 'uuid'
 
 const MAX_CAMPAGNES_PER_STRUCTURE = 3
 
-async function computeAvancement(campagneId: string): Promise<number> {
-  // Compter les PEC liées à des referrals issus de cette campagne
-  const result = await db
+async function computeAvancement(campagneId: string): Promise<{ accompagnements: number; demandes: number }> {
+  // Compter les PEC (accompagnements) liées à des referrals de cette campagne
+  const pecResult = await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(priseEnCharge)
     .innerJoin(referral, eq(priseEnCharge.referralId, referral.id))
@@ -19,7 +19,17 @@ async function computeAvancement(campagneId: string): Promise<number> {
       eq(referral.campagneId, campagneId),
       sql`${priseEnCharge.statut} NOT IN ('annulee', 'abandonnee')`
     ))
-  return result[0]?.count || 0
+
+  // Compter les demandes (referrals) de cette campagne
+  const refResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(referral)
+    .where(eq(referral.campagneId, campagneId))
+
+  return {
+    accompagnements: pecResult[0]?.count || 0,
+    demandes: refResult[0]?.count || 0,
+  }
 }
 
 export async function GET(request: Request) {
@@ -50,7 +60,8 @@ export async function GET(request: Request) {
           .leftJoin(conseiller, eq(campagneAssignation.conseillerId, conseiller.id))
           .where(eq(campagneAssignation.campagneId, c.id))
 
-        const avancement = await computeAvancement(c.id)
+        const stats = await computeAvancement(c.id)
+        const avancement = stats.accompagnements
         const pourcentage = c.quantiteObjectif > 0
           ? Math.min(100, Math.round((avancement / c.quantiteObjectif) * 100))
           : 0
@@ -68,6 +79,9 @@ export async function GET(request: Request) {
           archiveeLe: c.archiveeLe,
           avancement,
           pourcentage,
+          nbVisites: c.nbVisites ?? 0,
+          nbConversations: c.nbConversations ?? 0,
+          nbDemandes: stats.demandes,
           conseillers: assignations.map(a => ({
             id: a.conseillerId,
             prenom: a.prenom,
