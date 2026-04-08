@@ -110,22 +110,33 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
     router.push('/conseiller/login')
   }
 
-  const navItems = [
-    { href: '/conseiller', label: 'Dashboard', icon: '📊', iconLabel: 'Tableau de bord', exact: true },
-    { href: '/conseiller/agenda', label: 'Agenda', icon: '📅', iconLabel: 'Calendrier' },
-    { href: '/conseiller/file-active', label: 'File active', icon: '📋', iconLabel: 'Liste des dossiers', alert: true },
-    ...(conseiller?.role === 'admin_structure' || conseiller?.role === 'super_admin'
-      ? [
-          { href: '/conseiller/campagnes', label: 'Campagnes', icon: '🎯', iconLabel: 'Objectifs campagnes' },
-          { href: '/conseiller/structures', label: 'Structures', icon: '🏢', iconLabel: 'Bâtiment structures' },
-          { href: '/conseiller/conseillers', label: 'Conseillers', icon: '👥', iconLabel: 'Équipe conseillers' },
-        ]
-      : []),
-    ...(conseiller?.role === 'super_admin' || conseiller?.role === 'admin_structure'
-      ? [{ href: '/conseiller/admin', label: 'Administration', icon: '⚙️', iconLabel: 'Paramètres administration' }]
-      : []),
-    { href: '/conseiller/parametres', label: 'Paramètres', icon: '🔧', iconLabel: 'Réglages' },
-  ]
+  const isSuperAdmin = conseiller?.role === 'super_admin'
+  const isAdminStructure = conseiller?.role === 'admin_structure'
+
+  // super_admin : admin global uniquement (pas d'opérationnel)
+  // admin_structure : opérationnel + admin structure
+  // conseiller : opérationnel uniquement
+  const navItems = isSuperAdmin
+    ? [
+        { href: '/conseiller', label: 'Dashboard', icon: '📊', iconLabel: 'Tableau de bord', exact: true },
+        { href: '/conseiller/admin', label: 'Administration', icon: '⚙️', iconLabel: 'Paramètres administration' },
+        { href: '/conseiller/structures', label: 'Structures', icon: '🏢', iconLabel: 'Bâtiment structures' },
+        { href: '/conseiller/parametres', label: 'Paramètres', icon: '🔧', iconLabel: 'Réglages' },
+      ]
+    : [
+        { href: '/conseiller', label: 'Dashboard', icon: '📊', iconLabel: 'Tableau de bord', exact: true },
+        { href: '/conseiller/agenda', label: 'Agenda', icon: '📅', iconLabel: 'Calendrier' },
+        { href: '/conseiller/file-active', label: 'File active', icon: '📋', iconLabel: 'Liste des dossiers', alert: true },
+        ...(isAdminStructure
+          ? [
+              { href: '/conseiller/campagnes', label: 'Campagnes', icon: '🎯', iconLabel: 'Objectifs campagnes' },
+              { href: '/conseiller/structures', label: 'Structures', icon: '🏢', iconLabel: 'Bâtiment structures' },
+              { href: '/conseiller/conseillers', label: 'Conseillers', icon: '👥', iconLabel: 'Équipe conseillers' },
+              { href: '/conseiller/admin', label: 'Administration', icon: '⚙️', iconLabel: 'Paramètres administration' },
+            ]
+          : []),
+        { href: '/conseiller/parametres', label: 'Paramètres', icon: '🔧', iconLabel: 'Réglages' },
+      ]
 
   return (
     <ConseillerProvider value={conseiller}>
