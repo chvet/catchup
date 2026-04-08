@@ -59,6 +59,7 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
   const hasProfile = hasSignificantProfile(profile)
   const brandConfig = useAppBrand()
   const [langOpen, setLangOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const langRef = useRef<HTMLDivElement>(null)
 
   // Close lang dropdown on outside click
@@ -75,10 +76,10 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
 
   return (
     <div className="relative z-30">
-    <header className="bg-gradient-to-r from-catchup-primary to-indigo-600 text-white px-3 py-2.5 flex items-center gap-3 shadow-lg">
+    <header className="bg-gradient-to-r from-catchup-primary to-indigo-600 text-white px-2 sm:px-3 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 shadow-lg">
       {/* Logo Catch'Up (cursive) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={brandConfig.logo} alt={brandConfig.appName} className="h-9 object-contain flex-shrink-0" />
+      <img src={brandConfig.logo} alt={brandConfig.appName} className="h-7 sm:h-9 object-contain flex-shrink-0" />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -96,6 +97,7 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
 
       <div className="flex items-center gap-0.5">
         {hasMessages && (
+          <span className="hidden sm:inline">
           <HeaderBtn
             onClick={onReset}
             active={false}
@@ -103,6 +105,7 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </HeaderBtn>
+          </span>
         )}
 
         {/* Sélecteur de langue — drapeau actif + dropdown */}
@@ -165,10 +168,10 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           )}
         </div>
 
-        {/* Bouton accessibilité */}
+        {/* Boutons secondaires — masqués sur mobile */}
         <button
           onClick={onToggleA11y}
-          className={`p-2 rounded-full transition-colors ${a11yOpen ? 'bg-white/25' : 'hover:bg-white/10'}`}
+          className={`hidden sm:block p-2 rounded-full transition-colors ${a11yOpen ? 'bg-white/25' : 'hover:bg-white/10'}`}
           title="Accessibilité"
           aria-label="Ouvrir les paramètres d'accessibilité"
           aria-expanded={a11yOpen}
@@ -179,14 +182,13 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           </svg>
         </button>
 
-        {/* Badge RGAA cliquable — masqué sur mobile */}
         <div className="hidden sm:block">
           <RgaaPanel variant="light" />
         </div>
 
         <button
           onClick={onToggleFiches}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors relative"
+          className="hidden sm:block p-2 rounded-full hover:bg-white/10 transition-colors relative"
           title="Explorer les metiers"
           aria-label="Explorer les metiers"
         >
@@ -198,7 +200,7 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
 
         <button
           onClick={onToggleDocuments}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors relative"
+          className="hidden sm:block p-2 rounded-full hover:bg-white/10 transition-colors relative"
           title="Mes documents"
           aria-label="Mes documents"
         >
@@ -206,6 +208,42 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
         </button>
+
+        {/* Menu mobile "..." — boutons secondaires */}
+        <div className="relative sm:hidden">
+          <button
+            onClick={() => setMobileMenuOpen(v => !v)}
+            className={`p-2 rounded-full transition-colors ${mobileMenuOpen ? 'bg-white/25' : 'hover:bg-white/10'}`}
+            aria-label="Plus d'options"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="5" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="12" cy="19" r="2" />
+            </svg>
+          </button>
+          {mobileMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setMobileMenuOpen(false)} />
+              <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 py-1 z-50">
+                {hasMessages && (
+                  <button onClick={() => { onReset(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                    🔄 Nouvelle conversation
+                  </button>
+                )}
+                <button onClick={() => { onToggleA11y(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                  ♿ Accessibilite
+                </button>
+                <button onClick={() => { onToggleFiches(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                  🔍 Explorer les metiers
+                </button>
+                <button onClick={() => { onToggleDocuments(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                  📁 Mes documents
+                </button>
+              </div>
+            </>
+          )}
+        </div>
 
         {onAuthClick && (
           <button

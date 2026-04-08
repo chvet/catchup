@@ -901,7 +901,7 @@ export default function ChatApp() {
   }
 
   return (
-    <div id="main-content" className={`h-[100dvh] w-full max-w-[100vw] flex flex-col overflow-hidden overflow-x-hidden ${rgaaMode ? 'rgaa-mode' : ''}`} role="main" aria-label="Chat Catch'Up">
+    <div id="main-content" className={`h-[100dvh] w-screen max-w-full flex flex-col overflow-hidden ${rgaaMode ? 'rgaa-mode' : ''}`} role="main" aria-label="Chat Catch'Up">
       <ChatHeader
         profile={profile}
         streak={gameState?.streakActuel ?? 0}
@@ -1099,7 +1099,7 @@ export default function ChatApp() {
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden overflow-x-hidden relative w-full max-w-full min-w-0">
+      <div className="flex-1 flex overflow-hidden relative w-full max-w-full min-w-0">
         {/* ── Accompagnement actif : chat conseiller en principal ── */}
         {referralStatus === 'prise_en_charge' ? (
           <div className="flex-1 flex flex-col">
@@ -1343,7 +1343,7 @@ export default function ChatApp() {
                 <div className="mx-3 md:mx-6 shrink-0">
                   <button
                     onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-catchup-primary to-catchup-secondary text-white rounded-xl text-sm font-semibold shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-r from-catchup-primary to-catchup-secondary text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                   >
                     <span className="text-base">🙋</span>
                     <span>Parler à un conseiller</span>

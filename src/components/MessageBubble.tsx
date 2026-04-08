@@ -40,15 +40,15 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
   const time = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div className={`flex mb-2.5 msg-appear w-full max-w-full overflow-hidden ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex mb-2.5 msg-appear w-full overflow-hidden px-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5 shadow-sm overflow-hidden">
+        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mr-1 sm:mr-1.5 mt-0.5 shadow-sm overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/favicon-catchup.png?v=3" alt="Avatar assistant Catch'Up" className="w-6 h-6 object-contain" />
+          <img src="/logo-catchup.png" alt="Avatar assistant Catch'Up" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
         </div>
       )}
 
-      <div className="max-w-[85%] md:max-w-[65%] min-w-0">
+      <div className="max-w-[80%] sm:max-w-[85%] md:max-w-[65%] min-w-0">
         <div
           className={`msg-bubble rounded-2xl px-3.5 py-2.5 shadow-sm ${
             isUser
@@ -109,9 +109,9 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
       </div>
 
       {isUser && (
-        <div className="w-8 h-8 rounded-full flex-shrink-0 ml-1.5 mt-0.5 shadow-sm overflow-hidden">
+        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex-shrink-0 ml-1 sm:ml-1.5 mt-0.5 shadow-sm overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={genre ? AVATAR_BY_GENRE[genre] || '/avatar-neutre.svg' : '/avatar-neutre.svg'} alt={genre === 'M' ? 'Avatar utilisateur masculin' : genre === 'F' ? 'Avatar utilisateur féminin' : 'Avatar utilisateur'} className="w-8 h-8" />
+          <img src={genre ? AVATAR_BY_GENRE[genre] || '/avatar-neutre.svg' : '/avatar-neutre.svg'} alt={genre === 'M' ? 'Avatar utilisateur masculin' : genre === 'F' ? 'Avatar utilisateur féminin' : 'Avatar utilisateur'} className="w-7 h-7 sm:w-8 sm:h-8" />
         </div>
       )}
     </div>
