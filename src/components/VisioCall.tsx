@@ -19,6 +19,7 @@ export default function VisioCall({ sessionId, role, peerName, onEnd }: VisioCal
     localStream,
     remoteStream,
     connected,
+    reconnecting,
     error,
     audioEnabled,
     videoEnabled,
@@ -174,6 +175,12 @@ export default function VisioCall({ sessionId, role, peerName, onEnd }: VisioCal
           <span className="text-sm font-medium text-white/90 bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
             {peerName}
           </span>
+          {reconnecting && (
+            <span className="flex items-center gap-1.5 text-xs text-amber-300 bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              Reconnexion...
+            </span>
+          )}
         </div>
       </div>
 

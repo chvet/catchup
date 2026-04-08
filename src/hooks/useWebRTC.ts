@@ -31,9 +31,11 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [connected, setConnected] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [audioEnabled, setAudioEnabled] = useState(true)
   const [videoEnabled, setVideoEnabled] = useState(true)
+  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const esRef = useRef<EventSource | null>(null)
@@ -59,6 +61,7 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
   const cleanup = useCallback(() => {
     if (cleanedUpRef.current) return
     cleanedUpRef.current = true
+    if (connectionTimeoutRef.current) { clearTimeout(connectionTimeoutRef.current); connectionTimeoutRef.current = null }
     esRef.current?.close()
     esRef.current = null
     pcRef.current?.close()
@@ -68,6 +71,7 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
     setLocalStream(null)
     setRemoteStream(null)
     setConnected(false)
+    setReconnecting(false)
   }, [])
 
   const flushPendingCandidates = useCallback(async (pc: RTCPeerConnection) => {
@@ -141,8 +145,22 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
     pc.onconnectionstatechange = () => {
       const state = pc.connectionState
       console.log('[WebRTC] connectionState:', state)
-      if (state === 'connected') setConnected(true)
-      if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+      if (state === 'connected') {
+        setConnected(true)
+        setReconnecting(false)
+        if (connectionTimeoutRef.current) { clearTimeout(connectionTimeoutRef.current); connectionTimeoutRef.current = null }
+      }
+      if (state === 'disconnected') {
+        setReconnecting(true)
+        // Attendre 10s avant de considérer que c'est terminé (peut être temporaire sur mobile)
+        connectionTimeoutRef.current = setTimeout(() => {
+          if (pcRef.current?.connectionState === 'disconnected') {
+            console.warn('[WebRTC] Connection lost after 10s, ending call')
+            if (!cleanedUpRef.current) onRemoteHangupRef.current?.()
+          }
+        }, 10_000)
+      }
+      if (state === 'failed' || state === 'closed') {
         if (!cleanedUpRef.current) onRemoteHangupRef.current?.()
       }
     }
@@ -232,7 +250,15 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
       console.warn('[WebRTC] SSE error — will auto-reconnect')
     }
 
-    // 4. Si bénéficiaire → envoyer 'accept' pour déclencher l'offre du conseiller
+    // 4. Timeout de connexion (30s) — si pas connecté, afficher une erreur
+    connectionTimeoutRef.current = setTimeout(() => {
+      if (!cleanedUpRef.current && !pcRef.current?.connectionState?.includes('connected')) {
+        console.warn('[WebRTC] Connection timeout after 30s')
+        setError('La connexion n\'a pas pu etre etablie. Verifiez votre reseau et reessayez.')
+      }
+    }, 30_000)
+
+    // 5. Si bénéficiaire → envoyer 'accept' pour déclencher l'offre du conseiller
     if (role === 'beneficiaire') {
       await fetch('/api/visio/signal', {
         method: 'POST',
@@ -290,6 +316,7 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
     localStream,
     remoteStream,
     connected,
+    reconnecting,
     error,
     audioEnabled,
     videoEnabled,
