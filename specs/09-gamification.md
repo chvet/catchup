@@ -1,5 +1,10 @@
 # 09 — Gamification
 
+> **Statut :** Implémenté (jauge, streak, badges — métier du jour et défi entre amis non implémentés)  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichier clé :** `src/core/gamification.ts`, `src/components/ProfilePanel.tsx`  
+> **Badges implémentés :** 8 (first_step, curious, open, sketched, precise, complete, explorer, loyal)
+
 ## Principe directeur
 **Motiver sans manipuler.** La gamification dans Catch'Up sert à encourager le jeune à avancer dans sa réflexion, pas à le rendre dépendant. Chaque mécanisme a une finalité éducative ou motivationnelle claire. On s'inspire de Duolingo (progression douce) et Spotify Wrapped (valorisation personnelle), pas de jeux d'argent ou de mécaniques addictives.
 

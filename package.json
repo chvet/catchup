@@ -19,6 +19,8 @@
     "cap:build:android": "npx cap sync && cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.68",
+    "@ai-sdk/mistral": "^3.0.30",
     "@ai-sdk/openai": "^1.0.0",
     "@capacitor/android": "^8.3.0",
     "@capacitor/app": "^8.1.0",

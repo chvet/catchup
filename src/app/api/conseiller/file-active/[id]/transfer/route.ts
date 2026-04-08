@@ -7,6 +7,7 @@ import { referral, structure, evenementAudit, priseEnCharge } from '@/data/schem
 import { eq, and, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { logJournal } from '@/lib/journal'
+import { safeJsonParse } from '@/core/constants'
 
 interface TransferBody {
   destination: 'generique' | 'structure'
@@ -189,7 +190,7 @@ export async function GET(
     // Parser les departements JSON
     const parsed = structures.map((s) => ({
       ...s,
-      departements: JSON.parse(s.departements || '[]') as string[],
+      departements: safeJsonParse<string[]>(s.departements, []),
     }))
 
     return jsonSuccess({ structures: parsed })

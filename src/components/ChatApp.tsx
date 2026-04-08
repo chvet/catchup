@@ -25,6 +25,7 @@ import ProfilePanel from './ProfilePanel'
 import TypingIndicator from './TypingIndicator'
 // InstallBanner désactivé pour le moment — sera réactivé quand l'app native existera
 import { UserProfile, EMPTY_PROFILE } from '@/core/types'
+import { LS_KEYS, loadFromLS, saveToLS } from '@/core/constants'
 import { extractProfileFromMessage, extractSuggestionsFromMessage, extractGeolocRequest, cleanMessageContent, mergeProfiles, type DynamicSuggestion } from '@/core/profile-parser'
 import { calculerIndiceConfiance } from '@/core/confidence'
 import { getFragilityLevel, type FragilityLevel } from '@/core/fragility-detector'
@@ -47,22 +48,23 @@ import AccessibilityPanel from './AccessibilityPanel'
 
 const tts = typeof window !== 'undefined' ? new WebTTSAdapter() : null
 
-const LS_MESSAGES_KEY = 'catchup_messages'
-const LS_PROFILE_KEY = 'catchup_profil'
-const LS_SESSION_KEY = 'catchup_session_id'
-const LS_QUIZ_KEY = 'catchup_quiz'
-const LS_SUGGESTIONS_COUNT = 'catchup_suggestions_count'
-const LS_CONVERSATION_ID = 'catchup_conversation_id'
-const LS_USER_ID = 'catchup_utilisateur_id'
-const LS_REFERRAL_ID = 'catchup_referral_id'
-const LS_REFERRAL_REFUSED_AT = 'catchup_referral_refused_at'
-const LS_BENEFICIAIRE_INFO = 'catchup_beneficiaire_info'
-const LS_STRUCTURE_SLUG = 'catchup_structure_slug'
-const LS_CAMPAGNE_ID = 'catchup_campagne_id'
-const LS_USER_PRENOM = 'catchup_user_prenom'
-const LS_LANG = 'catchup_lang'
-const LS_CGU_ACCEPTED = 'catchup_cgu_accepted'
-const LS_USER_LOCATION = 'catchup_user_location'
+// localStorage keys — importées de @/core/constants
+const LS_MESSAGES_KEY = LS_KEYS.MESSAGES
+const LS_PROFILE_KEY = LS_KEYS.PROFILE
+const LS_SESSION_KEY = LS_KEYS.SESSION_ID
+const LS_QUIZ_KEY = LS_KEYS.QUIZ
+const LS_SUGGESTIONS_COUNT = LS_KEYS.SUGGESTIONS_COUNT
+const LS_CONVERSATION_ID = LS_KEYS.CONVERSATION_ID
+const LS_USER_ID = LS_KEYS.USER_ID
+const LS_REFERRAL_ID = LS_KEYS.REFERRAL_ID
+const LS_REFERRAL_REFUSED_AT = LS_KEYS.REFERRAL_REFUSED_AT
+const LS_BENEFICIAIRE_INFO = LS_KEYS.BENEFICIAIRE_INFO
+const LS_STRUCTURE_SLUG = LS_KEYS.STRUCTURE_SLUG
+const LS_CAMPAGNE_ID = LS_KEYS.CAMPAGNE_ID
+const LS_USER_PRENOM = LS_KEYS.USER_PRENOM
+const LS_LANG = LS_KEYS.LANG
+const LS_CGU_ACCEPTED = LS_KEYS.CGU_ACCEPTED
+const LS_USER_LOCATION = LS_KEYS.USER_LOCATION
 
 interface StructureInfo {
   nom: string
@@ -84,22 +86,6 @@ interface StructureSuggestion {
   type?: string
   departements?: string[]
   raisons?: string[]
-}
-
-function loadFromLS<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function saveToLS(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch { /* quota exceeded — silently ignore */ }
 }
 
 export default function ChatApp() {
@@ -134,6 +120,8 @@ export default function ChatApp() {
   const [beneficiaireInfo, setBeneficiaireInfo] = useState<BeneficiaireInfo | null>(() => loadFromLS<BeneficiaireInfo | null>(LS_BENEFICIAIRE_INFO, null))
   const [structuresSuggerees, setStructuresSuggerees] = useState<StructureSuggestion[]>([])
   const [showStructures, setShowStructures] = useState(false)
+  const [lastLlmModel, setLastLlmModel] = useState<string | null>(null)
+  const llmModelMapRef = useRef<Record<string, string>>({})
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [structureInfo, setStructureInfo] = useState<StructureInfo | null>(null)
@@ -276,7 +264,15 @@ export default function ChatApp() {
     id: sessionId,
     initialMessages: loadFromLS<Message[]>(LS_MESSAGES_KEY, []),
     body: { profile, messageCount: 0, fromQuiz, fragilityLevel: currentFragility, userName: savedPrenom || profile.name || undefined, language: selectedLang !== 'fr' ? selectedLang : undefined, userLocation },
+    onResponse: (response) => {
+      const model = response.headers.get('X-LLM-Model')
+      if (model) setLastLlmModel(model)
+    },
     onFinish: (message) => {
+      // Associer le modèle LLM au message
+      if (lastLlmModel) {
+        llmModelMapRef.current[message.id] = lastLlmModel
+      }
       const extracted = extractProfileFromMessage(message.content)
       if (extracted) {
         setProfile(prev => mergeProfiles(prev, extracted))
@@ -1272,6 +1268,7 @@ export default function ChatApp() {
                       rgaaMode={rgaaMode}
                       voiceData={voiceDataMap.current.get(msg.content)}
                       genre={profile.genre}
+                      llmModel={msg.role === 'assistant' ? llmModelMapRef.current[msg.id] : undefined}
                     />
                     {showGeolocWidget && geolocRequestedForMsg === msg.id && (
                       <GeolocWidget onLocationSelected={(loc) => {
@@ -1538,6 +1535,7 @@ export default function ChatApp() {
         ageSuggested={beneficiaireInfo?.age || authUser?.age || undefined}
         departementSuggested={beneficiaireInfo?.departement || authUser?.departement || undefined}
         structureSlug={structureInfo?.slug}
+        campagneId={campagneId}
         onClose={() => {
           setShowReferralModal(false)
           // Enregistrer le refus pour ne pas re-proposer pendant 10 messages
@@ -1573,6 +1571,7 @@ export default function ChatApp() {
                 fragilityLevel: currentFragility,
                 structureSlug: structureInfo?.slug || undefined,
                 campagneId: campagneId || undefined,
+                preferenceStructure: data.preferenceStructure || undefined,
               }),
             })
             if (res.ok) {

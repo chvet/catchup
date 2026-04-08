@@ -1,4 +1,9 @@
-# Spec 30 — Prompt structure personnalise + Comportement de decouverte IA
+# Spec 30 — Prompt structure personnalisé + Comportement de découverte IA
+
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/core/system-prompt.ts` (prompt personnalisé par structure avec sanitisation + phases discovery/exploration/decision), `src/data/schema.ts` (structure.promptPersonnalise)  
+> **Sécurité :** Le prompt personnalisé est limité à 1000 chars, stripé de HTML, et analysé contre 50+ patterns d'injection (FR + EN)
 
 ## Contexte
 

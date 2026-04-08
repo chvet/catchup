@@ -1,5 +1,9 @@
 # 10 — Pages parents & prescripteurs
 
+> **Statut :** Non implémenté (les pages `/parents` et `/pro` n'existent pas dans l'app router — le concept de prescripteur a évolué vers le système de Structures avec l'Espace Conseiller, cf. specs 15 et 22)  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Note :** La table `sourceCaptation` est implémentée pour le tracking. Les structures ont un `slug` et un QR code (cf. spec 22). L'accès prescripteur se fait via l'Espace Conseiller (`pro.catchup.jaeprive.fr`).
+
 ## Principe directeur
 **Le jeune est le bénéficiaire, mais il n'arrive pas toujours seul.** Deux publics-relais jouent un rôle clé dans l'acquisition : les parents (qui s'inquiètent) et les prescripteurs professionnels (qui accompagnent). Chaque public a besoin de sa propre porte d'entrée, avec un ton et un contenu adaptés.
 

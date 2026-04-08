@@ -127,6 +127,7 @@ interface ReferralModalProps {
   ageSuggested?: number
   departementSuggested?: string
   structureSlug?: string
+  campagneId?: string | null
 }
 
 interface FormErrors {
@@ -149,6 +150,7 @@ export default function ReferralModal({
   ageSuggested,
   departementSuggested,
   structureSlug,
+  campagneId,
 }: ReferralModalProps) {
   const [prenom, setPrenom] = useState(prenomSuggested || '')
   const [typeContact, setTypeContact] = useState<'email' | 'telephone'>(telephoneSuggested ? 'telephone' : 'email')
@@ -566,7 +568,7 @@ export default function ReferralModal({
             </div>
 
             {/* Preference structure */}
-            {!structureSlug && (
+            {!structureSlug && !campagneId && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Type d&apos;accompagnement souhait&eacute;

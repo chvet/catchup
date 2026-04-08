@@ -1,5 +1,9 @@
 # 12 — Accessibilité (RGAA)
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/components/AccessibilityPanel.tsx`, `src/components/RgaaPanel.tsx`, `src/app/accessibilite/page.tsx`
+
 ## Principe directeur
 **L'orientation est un droit, pas un privilège.** Un jeune dyslexique, malvoyant, sourd, ou en situation de handicap moteur doit pouvoir utiliser Catch'Up aussi facilement que n'importe qui. L'accessibilité n'est pas une couche qu'on ajoute à la fin — c'est une contrainte de conception dès le départ.
 

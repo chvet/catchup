@@ -1,5 +1,9 @@
 # 06 — Profil RIASEC
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/core/riasec.ts`, `src/core/confidence.ts`, `src/core/profile-parser.ts`, `src/components/ProfilePanel.tsx`
+
 ## Principe directeur
 **Le profil émerge de la conversation, jamais d'un questionnaire.** Le jeune ne sait pas qu'il passe un test. Il parle de lui, de ses passions, de son quotidien — et Catch'Up construit son profil en arrière-plan, comme un conseiller humain qui écoute et prend des notes mentales.
 
@@ -367,7 +371,7 @@ interface InstantaneProfil {
 }
 ```
 
-En `localStorage` (MVP) puis en base Turso (quand le jeune s'authentifie par email).
+En `localStorage` (MVP) puis en base PostgreSQL (quand le jeune s'authentifie).
 
 On garde les **20 derniers instantanés** par conversation (pas besoin de tout garder).
 

@@ -1,5 +1,9 @@
 # 03 — Captation & Acquisition des jeunes
 
+> **Statut :** Partiellement implémenté (quiz, tracking source, structures avec slugs — pages /parents et /pro non implémentées)  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/app/quiz/page.tsx`, `src/data/schema.ts` (sourceCaptation)
+
 ## Principe directeur
 **Le web est le tunnel de conversion. L'app est la destination.** Personne n'installe une app inconnue. Le jeune doit d'abord essayer Catch'Up sans rien installer, accrocher, puis migrer vers l'app pour les features exclusives.
 

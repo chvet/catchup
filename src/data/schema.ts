@@ -717,3 +717,19 @@ export const apiKey = pgTable('api_key', {
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
+
+// === CONFIGURATION FOURNISSEURS TIERS ===
+
+export const providerConfig = pgTable('provider_config', {
+  id: text('id').primaryKey(),
+  providerType: text('provider_type').notNull(),           // 'llm' | 'sms' | 'email' | 'tts' | 'stt'
+  providerName: text('provider_name').notNull(),           // 'openai' | 'anthropic' | 'mistral' | 'vonage' | 'ovh' | 'smtp' | 'o365' | 'brevo' | 'google_tts'
+  actif: integer('actif').default(1),
+  priorite: integer('priorite').default(0),                // 0 = premier essayé
+  dernierSucces: text('dernier_succes'),
+  dernierEchec: text('dernier_echec'),
+  dernierMessageErreur: text('dernier_message_erreur'),
+  reglages: text('reglages'),                              // JSON: model overrides, sender overrides, etc.
+  creeLe: text('cree_le').notNull(),
+  misAJourLe: text('mis_a_jour_le').notNull(),
+})

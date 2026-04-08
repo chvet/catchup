@@ -1,8 +1,10 @@
-# Spec 23 — Fiches Metiers (API JAE)
+# Spec 23 — Fiches Métiers (API JAE)
 
-**Statut** : Implemente
-**Date** : 2026-03-25
-**Priorite** : Haute
+> **Statut :** Implémenté  
+> **Date :** 2026-03-25  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Priorité :** Haute  
+> **Fichiers clés :** `src/app/api/fiches/`, `src/components/FicheMetierCard.tsx`, `src/components/FicheMetierModal.tsx`, `src/components/FichesSearchOverlay.tsx`
 
 ## Objectif
 

@@ -1,31 +1,29 @@
 # 07 — Modèle de données
 
-## Principe directeur
-**Les données appartiennent au jeune.** Tout est stocké localement d'abord (`localStorage`), synchronisé en base ensuite (si le jeune s'authentifie). Le jeune peut utiliser Catch'Up indéfiniment sans jamais créer de compte — ses données vivent dans son navigateur.
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichier clé :** `src/data/schema.ts`  
+> **Tables :** 60+
 
-**La base de données sert à :** la persistance long terme, la synchronisation multi-appareils, le dossier de transmission au conseiller, et les analytics agrégées.
+## Principe directeur
+**Les données appartiennent au jeune.** Côté bénéficiaire, les données conversationnelles sont d'abord stockées en `localStorage` puis synchronisées en base. Le jeune peut utiliser Catch'Up en mode anonyme — ses données vivent dans son navigateur jusqu'à ce qu'il crée un compte.
+
+**La base de données sert à :** la persistance long terme, le dossier de transmission au conseiller, la gestion de la file active, le suivi d'accompagnement, la facturation, et les analytics agrégées.
 
 ---
 
 ## Choix technique
 
-### Turso (LibSQL) + Drizzle ORM
+### PostgreSQL + Drizzle ORM
 
 | Critère | Choix | Justification |
 |---------|-------|---------------|
-| Base de données | **Turso** (LibSQL hébergé) | SQLite en edge, gratuit (500 bases, 9 Go), latence < 10ms |
+| Base de données | **PostgreSQL** (local ou hébergé) | Robuste, requêtes relationnelles avancées, JSON natif, adapté au volume d'un SaaS multi-structures |
 | ORM | **Drizzle** | Typage TypeScript natif, requêtes SQL lisibles, migrations automatiques |
-| Stockage local | **localStorage** (MVP) → **SQLite embarqué** (app native) | Zéro dépendance côté client, fonctionne offline |
-| Synchronisation | Locale → serveur quand connecté | Le jeune ne perd rien s'il est offline |
+| Stockage local (bénéficiaire) | **localStorage** (MVP) → **SQLite embarqué** (app native future) | Zéro dépendance côté client, fonctionne offline |
+| Configuration | `drizzle.config.ts` → dialect `postgresql`, URL via `DATABASE_URL` | |
 
-### Pourquoi pas les alternatives ?
-
-| Alternative | Pourquoi non |
-|-------------|-------------|
-| PostgreSQL (Supabase, Neon) | Plus lourd, gratuit limité, pas de compatibilité native SQLite |
-| Firebase/Firestore | Vendor lock-in Google, NoSQL moins adapté aux requêtes relationnelles |
-| MongoDB | Pas de typage fort, over-engineering pour ce cas d'usage |
-| Prisma | Plus lent que Drizzle, bundle plus lourd, moins de contrôle SQL |
+> **Note historique :** La spec initiale prévoyait Turso (LibSQL/SQLite en edge). Le choix a évolué vers PostgreSQL pour mieux supporter le modèle multi-tenant (60+ tables, relations complexes, SaaS conseiller avec facturation Stripe).
 
 ---
 
@@ -92,7 +90,7 @@ CREATE TABLE utilisateur (
 - Le `prenom` est extrait de la conversation par l'IA (pas un formulaire)
 - L'`email` passe de NULL à une valeur quand le jeune accepte la sauvegarde (phase 2)
 - `supprime_le` : soft delete pour respecter le droit à l'oubli RGPD (les données sont marquées, puis purgées après 30 jours)
-- `preferences` est un champ JSON (Turso/SQLite supporte JSON nativement)
+- `preferences` est un champ JSON (PostgreSQL supporte JSON nativement)
 
 ---
 
@@ -493,12 +491,14 @@ CREATE INDEX idx_session_jeton ON session_conseiller(jeton);
 
 ## Schéma Drizzle (implémentation)
 
+> **Note :** Le schéma Drizzle utilise `pgTable` (PostgreSQL). Le fichier source complet `src/data/schema.ts` contient **60+ tables** dont les tables listées ci-dessous ainsi que les tables d'accompagnement (messagerie directe, tiers intervenants, consentements, RDV, calendrier, activités CEJ, alertes, documents, notifications, push, facturation, abonnements, conventions, Stripe, API keys, campagnes, satisfaction). Consulter le fichier source pour le schéma complet.
+
 ```typescript
-// src/data/schema.ts
+// src/data/schema.ts (extrait — tables principales)
 
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
+import { pgTable, text, integer, real, boolean, timestamp } from 'drizzle-orm/pg-core'
 
-export const utilisateur = sqliteTable('utilisateur', {
+export const utilisateur = pgTable('utilisateur', {
   id: text('id').primaryKey(),
   prenom: text('prenom'),
   email: text('email').unique(),
@@ -518,7 +518,7 @@ export const utilisateur = sqliteTable('utilisateur', {
   supprimeLe: text('supprime_le'),
 })
 
-export const conversation = sqliteTable('conversation', {
+export const conversation = pgTable('conversation', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().references(() => utilisateur.id),
   titre: text('titre'),
@@ -531,7 +531,7 @@ export const conversation = sqliteTable('conversation', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const message = sqliteTable('message', {
+export const message = pgTable('message', {
   id: text('id').primaryKey(),
   conversationId: text('conversation_id').notNull().references(() => conversation.id),
   role: text('role').notNull(),                   // 'utilisateur' | 'assistant'
@@ -544,7 +544,7 @@ export const message = sqliteTable('message', {
   horodatage: text('horodatage').notNull(),
 })
 
-export const profilRiasec = sqliteTable('profil_riasec', {
+export const profilRiasec = pgTable('profil_riasec', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().unique().references(() => utilisateur.id),
   r: integer('r').default(0),
@@ -564,7 +564,7 @@ export const profilRiasec = sqliteTable('profil_riasec', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const instantaneProfil = sqliteTable('instantane_profil', {
+export const instantaneProfil = pgTable('instantane_profil', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().references(() => utilisateur.id),
   conversationId: text('conversation_id').notNull().references(() => conversation.id),
@@ -579,7 +579,7 @@ export const instantaneProfil = sqliteTable('instantane_profil', {
   horodatage: text('horodatage').notNull(),
 })
 
-export const indiceConfiance = sqliteTable('indice_confiance', {
+export const indiceConfiance = pgTable('indice_confiance', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().unique().references(() => utilisateur.id),
   scoreGlobal: real('score_global').default(0),
@@ -593,7 +593,7 @@ export const indiceConfiance = sqliteTable('indice_confiance', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const referral = sqliteTable('referral', {
+export const referral = pgTable('referral', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().references(() => utilisateur.id),
   conversationId: text('conversation_id').notNull().references(() => conversation.id),
@@ -612,7 +612,7 @@ export const referral = sqliteTable('referral', {
   recontacteLe: text('recontacte_le'),
 })
 
-export const evenementQuiz = sqliteTable('evenement_quiz', {
+export const evenementQuiz = pgTable('evenement_quiz', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').references(() => utilisateur.id),
   reponses: text('reponses').notNull(),           // JSON
@@ -625,7 +625,7 @@ export const evenementQuiz = sqliteTable('evenement_quiz', {
   horodatage: text('horodatage').notNull(),
 })
 
-export const sourceCaptation = sqliteTable('source_captation', {
+export const sourceCaptation = pgTable('source_captation', {
   id: text('id').primaryKey(),
   code: text('code').notNull().unique(),
   type: text('type').notNull(),
@@ -638,7 +638,7 @@ export const sourceCaptation = sqliteTable('source_captation', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const sessionMagicLink = sqliteTable('session_magic_link', {
+export const sessionMagicLink = pgTable('session_magic_link', {
   id: text('id').primaryKey(),
   utilisateurId: text('utilisateur_id').notNull().references(() => utilisateur.id),
   email: text('email').notNull(),
@@ -651,7 +651,7 @@ export const sessionMagicLink = sqliteTable('session_magic_link', {
 
 // === TABLES ESPACE CONSEILLER ===
 
-export const structure = sqliteTable('structure', {
+export const structure = pgTable('structure', {
   id: text('id').primaryKey(),
   nom: text('nom').notNull(),
   type: text('type').notNull(),                         // 'mission_locale', 'cio', 'e2c', 'cidj', 'privee', 'autre'
@@ -669,7 +669,7 @@ export const structure = sqliteTable('structure', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const conseiller = sqliteTable('conseiller', {
+export const conseiller = pgTable('conseiller', {
   id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
   motDePasse: text('mot_de_passe'),                      // bcrypt hash
@@ -683,7 +683,7 @@ export const conseiller = sqliteTable('conseiller', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const priseEnCharge = sqliteTable('prise_en_charge', {
+export const priseEnCharge = pgTable('prise_en_charge', {
   id: text('id').primaryKey(),
   referralId: text('referral_id').notNull().references(() => referral.id),
   conseillerId: text('conseiller_id').notNull().references(() => conseiller.id),
@@ -699,7 +699,7 @@ export const priseEnCharge = sqliteTable('prise_en_charge', {
   misAJourLe: text('mis_a_jour_le').notNull(),
 })
 
-export const sessionConseiller = sqliteTable('session_conseiller', {
+export const sessionConseiller = pgTable('session_conseiller', {
   id: text('id').primaryKey(),
   conseillerId: text('conseiller_id').notNull().references(() => conseiller.id),
   jeton: text('jeton').notNull().unique(),                // JWT jti
@@ -708,7 +708,7 @@ export const sessionConseiller = sqliteTable('session_conseiller', {
   creeLe: text('cree_le').notNull(),
 })
 
-export const evenementAudit = sqliteTable('evenement_audit', {
+export const evenementAudit = pgTable('evenement_audit', {
   id: text('id').primaryKey(),
   conseillerId: text('conseiller_id'),
   action: text('action').notNull(),                       // 'login', 'claim_case', 'update_status', 'view_profile', 'export'
@@ -752,37 +752,31 @@ localStorage['catchup_banner']       // JSON : état de la bannière app (dismis
 
 Quand le jeune s'authentifie par email (phase 2, cf. spec 01) :
 1. Toutes les données `localStorage` sont envoyées au serveur en un seul POST
-2. Le serveur les insère en base Turso
+2. Le serveur les insère en base PostgreSQL
 3. Le `localStorage` est conservé comme cache (pas vidé)
 4. Les écritures suivantes vont en local ET en base (double écriture)
 5. En cas de conflit : la version la plus récente gagne (`mis_a_jour_le`)
 
 ---
 
-## Connexion à Turso
+## Connexion à PostgreSQL
 
 ### Configuration
 
 ```typescript
 // src/data/db.ts
 
-import { drizzle } from 'drizzle-orm/libsql'
-import { createClient } from '@libsql/client'
+import { drizzle } from 'drizzle-orm/node-postgres'
 import * as schema from './schema'
 
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL!,
-  authToken: process.env.TURSO_AUTH_TOKEN!,
-})
-
-export const db = drizzle(client, { schema })
+export const db = drizzle(process.env.DATABASE_URL!, { schema })
 ```
 
 ### Variables d'environnement
 
 ```
-TURSO_DATABASE_URL=libsql://catchup-xxx.turso.io
-TURSO_AUTH_TOKEN=eyJhbGci...
+DATABASE_URL=postgres://catchup:CatchUp2026Pg!@localhost:5432/catchup
+JWT_SECRET=...
 ```
 
 ### Configuration Drizzle
@@ -795,14 +789,29 @@ import type { Config } from 'drizzle-kit'
 export default {
   schema: './src/data/schema.ts',
   out: './drizzle',
-  dialect: 'sqlite',
-  driver: 'turso',
+  dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.TURSO_DATABASE_URL!,
-    authToken: process.env.TURSO_AUTH_TOKEN!,
+    url: process.env.DATABASE_URL!,
   },
 } satisfies Config
 ```
+
+### Tables additionnelles (60+ au total)
+
+Au-delà des tables bénéficiaire et conseiller décrites ci-dessus, le schéma inclut :
+
+| Domaine | Tables | Description |
+|---------|--------|-------------|
+| **Messagerie** | `messageDirect`, `tiersIntervenant`, `participantConversation`, `demandeConsentement` | Messages directs bénéficiaire↔conseiller, tiers intervenants (famille, employeurs), consentements double approbation |
+| **Suivi** | `evenementJournal`, `brisDeGlace` | Journal d'activité par prise en charge, accès d'urgence |
+| **RDV & Calendrier** | `rendezVous`, `calendarConnection` | Planification RDV avec sync Google/Outlook OAuth2 |
+| **Notifications** | `notificationLog`, `pushSubscription`, `rappel`, `codeVerification` | Tracking envois (SMS/email/push), abonnements push VAPID, rappels automatiques, codes PIN 6 digits |
+| **Activités CEJ** | `categorieActivite`, `declarationActivite`, `objectifHebdomadaire`, `alerteDecrochage` | Suivi d'activités hebdomadaires, objectifs IA, alertes de décrochage |
+| **Tarification** | `tarification`, `conditionsCommerciales`, `acceptationTarif`, `paiement`, `stripeCompteStructure` | Plans tarifaires par structure, CGV, acceptation bénéficiaire, paiements Stripe |
+| **Abonnements** | `abonnement`, `usageStructure`, `evenementFacturable` | Plans (starter/pro/premium/pay_per_outcome), suivi usage mensuel, événements facturables |
+| **Conventions** | `conventionTerritoriale`, `conventionStructure` | Contrats territoriaux (département/région), limites et quotas |
+| **API & Campagnes** | `apiKey`, `campagne`, `campagneAssignation` | Clés API externes, campagnes prescripteurs |
+| **Satisfaction** | `enqueteSatisfaction` | Enquêtes post-accompagnement (CSAT + NPS) |
 
 ---
 
@@ -853,7 +862,7 @@ CREATE INDEX idx_source_code ON source_captation(code);
 
 ### Chiffrement
 - **En transit** : HTTPS obligatoire (TLS 1.3)
-- **Au repos** : Turso chiffre les données sur disque (AES-256)
+- **Au repos** : PostgreSQL avec chiffrement disque (configuration serveur)
 - **Côté client** : localStorage n'est PAS chiffré (acceptable pour le MVP, chiffrement AES-GCM en v2)
 
 ### Accès

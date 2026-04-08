@@ -1,4 +1,8 @@
-# 24 - Double file active (sourcee / generique)
+# 24 - Double file active (sourcée / générique)
+
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/app/api/conseiller/file-active/route.ts`, `src/data/schema.ts` (referral.source)
 
 ## Objectif
 

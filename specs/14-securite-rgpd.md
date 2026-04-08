@@ -1,5 +1,9 @@
 # 14 — Sécurité & RGPD
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/middleware.ts` (rate limiting, CORS, CSRF, JWT, security headers), `src/data/schema.ts` (evenementAudit)
+
 ## Principe directeur
 **Protéger sans compliquer.** Le jeune ne doit jamais se sentir fliqué ni submergé par des bannières légales. La sécurité et la conformité RGPD sont intégrées dans l'architecture technique, pas plaquées en surcouche. Le jeune est protégé par défaut, même s'il ne lit jamais les CGU.
 
@@ -142,7 +146,7 @@ const LIMITES: Record<string, LimiteDebit> = {
 | SSH | Clé SSH uniquement (pas de mot de passe), port 22 |
 | Docker | L'app tourne dans un conteneur isolé |
 | Mises à jour | `unattended-upgrades` activé (patches de sécurité automatiques) |
-| Sauvegardes | Snapshot Hetzner hebdomadaire + export Turso quotidien |
+| Sauvegardes | Snapshot Hetzner hebdomadaire + export PostgreSQL quotidien |
 | Monitoring | Surveillance CPU/RAM/disque (alerte si > 80%) |
 | Accès root | Désactivé pour SSH, utilisation d'un compte sudo |
 
@@ -281,7 +285,7 @@ Lors de la **première visite**, un écran modal bloquant est affiché au béné
 | Magic links expirés | 24h après expiration | Tâche cron quotidienne |
 | Instantanés de profil | 20 derniers par conversation | À chaque nouvelle extraction |
 | Logs serveur (accès Nginx) | 90 jours | Rotation logrotate |
-| Sauvegardes Turso | 30 jours | Rotation automatique |
+| Sauvegardes PostgreSQL | 30 jours | Rotation automatique |
 | Événements quiz anonymes | 2 ans | Tâche cron annuelle |
 | Données prescripteur | Tant que le compte est actif + 1 an après désactivation | Sur demande ou inactivité |
 
@@ -291,7 +295,7 @@ Lors de la **première visite**, un écran modal bloquant est affiché au béné
 |---------------|---------|-------------------|-------------|-----------|
 | OpenAI | API GPT-4o (conversation IA) | Messages de la conversation | États-Unis | DPA signé, données non utilisées pour l'entraînement (option API) |
 | Hetzner | Hébergement serveur | Toutes les données en base | Allemagne (UE) | Conforme RGPD, certifié ISO 27001 |
-| Turso | Base de données | Toutes les données en base | UE (configurable) | Conforme RGPD |
+| PostgreSQL | Base de données | Toutes les données en base | UE (configurable) | Conforme RGPD |
 | Resend (ou Brevo) | Envoi d'emails | Adresses email | UE / États-Unis | DPA signé |
 | Plausible | Analytics | Aucune donnée personnelle | UE | Conforme RGPD par conception |
 

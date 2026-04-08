@@ -1,7 +1,10 @@
 # 20 — Mise en relation bénéficiaire ↔ conseiller
 
-> Version : 1.0.0
-> Date : 2026-03-23
+> **Statut :** Implémenté  
+> **Version :** 1.0.0  
+> **Date :** 2026-03-23  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/components/ReferralModal.tsx`, `src/components/ReferralStatusTag.tsx`, `src/app/api/referrals/`, `src/core/referral-trigger.ts`
 
 ---
 

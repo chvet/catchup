@@ -1,5 +1,9 @@
 # 13 — Analytics & Métriques
 
+> **Statut :** Partiellement implémenté (événements métier stockés en base via tables dédiées — Plausible Analytics non encore intégré)  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/app/api/conseiller/dashboard/stats/route.ts`, `src/app/api/conseiller/dashboard/usage/route.ts`
+
 ## Principe directeur
 **Mesurer pour améliorer, pas pour surveiller.** Les analytics servent à comprendre si Catch'Up aide réellement les jeunes, pas à traquer leur comportement. On mesure l'impact (le jeune a-t-il avancé ?) et la qualité (l'IA était-elle pertinente ?), pas l'attention (combien de temps est-il resté scotché ?).
 
@@ -15,7 +19,7 @@
 |---------|-------|---------------|
 | Outil principal | **Plausible Analytics** (auto-hébergé ou cloud) | Léger (< 1 Ko), sans cookies, conforme RGPD sans bannière, open source |
 | Alternative | **Umami** (auto-hébergé) | Même philosophie, gratuit si auto-hébergé |
-| Événements métier | **Base Turso interne** | Les événements spécifiques Catch'Up (profil, quiz, referral) sont dans nos propres tables |
+| Événements métier | **Base PostgreSQL interne** | Les événements spécifiques Catch'Up (profil, quiz, referral) sont dans nos propres tables |
 | Tableau de bord | **Tableau de bord interne** (page `/admin`) | Pour les métriques métier, pas besoin d'un outil externe |
 
 ### Pourquoi pas Google Analytics ?
@@ -35,7 +39,7 @@ Navigateur du jeune
   │
   └── Événements métier (quiz, profil, referral, chat)
       └── → API interne (/api/evenements)
-            └── → Tables Turso (evenement_quiz, source_captation, etc.)
+            └── → Tables PostgreSQL (evenement_quiz, source_captation, etc.)
                   └── → Tableau de bord interne (/admin)
 ```
 
@@ -50,39 +54,39 @@ Navigateur du jeune
 | Visiteurs uniques | Plausible | Comptage par jour/semaine/mois | 500/mois (M1) → 10 000 (M6) |
 | Sources de trafic | Plausible | Répartition par canal (direct, réseaux, prescripteur, SEO) | Diversification |
 | Taux de rebond | Plausible | % visiteurs qui partent sans interaction | < 40% |
-| Quiz démarrés | Turso (`evenement_quiz`) | Comptage des quiz avec au moins 1 réponse | 60% des visiteurs /quiz |
-| Quiz complétés | Turso (`evenement_quiz`) | Comptage des quiz terminés | 85% des démarrés |
-| Conversion quiz → chat | Turso (`evenement_quiz.a_continue_chat`) | % de quiz terminés suivis d'un chat | > 40% |
-| Efficacité par prescripteur | Turso (`source_captation`) | Visites / quiz / chats par code prescripteur | > 5 jeunes/prescripteur/mois |
+| Quiz démarrés | PostgreSQL (`evenement_quiz`) | Comptage des quiz avec au moins 1 réponse | 60% des visiteurs /quiz |
+| Quiz complétés | PostgreSQL (`evenement_quiz`) | Comptage des quiz terminés | 85% des démarrés |
+| Conversion quiz → chat | PostgreSQL (`evenement_quiz.a_continue_chat`) | % de quiz terminés suivis d'un chat | > 40% |
+| Efficacité par prescripteur | PostgreSQL (`source_captation`) | Visites / quiz / chats par code prescripteur | > 5 jeunes/prescripteur/mois |
 | Coût par acquisition (si pub) | Externe (Meta/Google Ads) | Budget / nombre de quiz complétés | < 1€ |
 
 ### Niveau 2 — Engagement (les jeunes restent-ils ?)
 
 | Métrique | Source | Calcul | Objectif |
 |----------|--------|--------|----------|
-| Messages par conversation | Turso (`conversation.nb_messages`) | Moyenne | > 8 |
-| Durée de conversation | Turso (`conversation.duree_secondes`) | Moyenne | 5-15 minutes |
-| Conversations par utilisateur | Turso | `COUNT(conversation) GROUP BY utilisateur_id` | > 1.5 |
-| Taux de retour J+1 | Turso | % utilisateurs revenus le lendemain | > 25% |
-| Taux de retour J+7 | Turso | % utilisateurs revenus dans les 7 jours | > 15% |
-| Taux de retour J+30 | Turso | % utilisateurs revenus dans les 30 jours | > 8% |
-| Phase atteinte | Turso (`conversation.phase`) | Répartition : accroche/découverte/exploration/projection/action | > 30% atteignent "exploration" |
-| Streak moyen | Turso (`progression.streak_actuel`) | Moyenne des streaks actifs | > 3 jours |
-| Emails collectés | Turso (`utilisateur.email IS NOT NULL`) | Taux de conversion anonyme → authentifié | > 15% des engagés |
+| Messages par conversation | PostgreSQL (`conversation.nb_messages`) | Moyenne | > 8 |
+| Durée de conversation | PostgreSQL (`conversation.duree_secondes`) | Moyenne | 5-15 minutes |
+| Conversations par utilisateur | PostgreSQL | `COUNT(conversation) GROUP BY utilisateur_id` | > 1.5 |
+| Taux de retour J+1 | PostgreSQL | % utilisateurs revenus le lendemain | > 25% |
+| Taux de retour J+7 | PostgreSQL | % utilisateurs revenus dans les 7 jours | > 15% |
+| Taux de retour J+30 | PostgreSQL | % utilisateurs revenus dans les 30 jours | > 8% |
+| Phase atteinte | PostgreSQL (`conversation.phase`) | Répartition : accroche/découverte/exploration/projection/action | > 30% atteignent "exploration" |
+| Streak moyen | PostgreSQL (`progression.streak_actuel`) | Moyenne des streaks actifs | > 3 jours |
+| Emails collectés | PostgreSQL (`utilisateur.email IS NOT NULL`) | Taux de conversion anonyme → authentifié | > 15% des engagés |
 | PWA installées | Événement interne | Comptage des `appinstalled` | > 10% des récurrents |
 
 ### Niveau 3 — Impact (Catch'Up aide-t-il vraiment ?)
 
 | Métrique | Source | Calcul | Objectif |
 |----------|--------|--------|----------|
-| Profils stabilisés | Turso (`profil_riasec.est_stable`) | % des utilisateurs avec 8+ messages ayant un profil stable | > 60% |
-| Indice de confiance moyen | Turso (`indice_confiance.score_global`) | Moyenne au moment de la stabilisation | > 0.60 |
-| Pistes métiers explorées | Turso (`progression.nb_metiers_explores`) | Moyenne par utilisateur engagé | > 2 |
-| Mises en relation demandées | Turso (`referral`) | Nombre total et % des conversations éligibles | > 20% des profils stables |
-| Mises en relation abouties | Turso (`referral.statut = 'recontacte'`) | % des referrals effectivement recontactés | > 80% |
-| Délai moyen de recontact | Turso (`referral`) | Temps entre création et `recontacte_le` | < 48h |
-| Détection de fragilité | Turso (`message.fragilite_detectee`) | Nombre de conversations flaggées | Monitoring |
-| Urgences (niveau 3) | Turso (`referral.niveau_detection = 3`) | Nombre d'alertes 3114 déclenchées | Monitoring critique |
+| Profils stabilisés | PostgreSQL (`profil_riasec.est_stable`) | % des utilisateurs avec 8+ messages ayant un profil stable | > 60% |
+| Indice de confiance moyen | PostgreSQL (`indice_confiance.score_global`) | Moyenne au moment de la stabilisation | > 0.60 |
+| Pistes métiers explorées | PostgreSQL (`progression.nb_metiers_explores`) | Moyenne par utilisateur engagé | > 2 |
+| Mises en relation demandées | PostgreSQL (`referral`) | Nombre total et % des conversations éligibles | > 20% des profils stables |
+| Mises en relation abouties | PostgreSQL (`referral.statut = 'recontacte'`) | % des referrals effectivement recontactés | > 80% |
+| Délai moyen de recontact | PostgreSQL (`referral`) | Temps entre création et `recontacte_le` | < 48h |
+| Détection de fragilité | PostgreSQL (`message.fragilite_detectee`) | Nombre de conversations flaggées | Monitoring |
+| Urgences (niveau 3) | PostgreSQL (`referral.niveau_detection = 3`) | Nombre d'alertes 3114 déclenchées | Monitoring critique |
 | Satisfaction (futur) | Enquête in-app | Note 1-5 proposée après 10+ messages | > 4/5 |
 
 ---
@@ -126,7 +130,7 @@ trackerEvenement('chat_ouvert', { origine: 'quiz' })
 trackerEvenement('pwa_installee')
 ```
 
-### Événements internes (tables Turso)
+### Événements internes (tables PostgreSQL)
 
 Les événements métier sont déjà stockés dans les tables définies dans la spec 07. Pas de table séparée "événements" — les données sont dans leurs tables métier :
 
@@ -336,11 +340,11 @@ Grille de notation : 1 (mauvais) à 5 (excellent) sur chaque critère. Objectif 
 | Donnée | Stockage | Finalité | Base légale RGPD |
 |--------|----------|----------|-----------------|
 | Pages visitées (sans cookies) | Plausible | Comprendre le trafic | Intérêt légitime |
-| Événements quiz (anonymes) | Turso | Mesurer la conversion | Intérêt légitime |
-| Messages de conversation | Turso | Fonctionnement du service | Intérêt légitime (anonyme) / Consentement (si email) |
-| Profil RIASEC | Turso | Fonctionnement du service | Idem |
-| Email (si fourni) | Turso | Persistance et relances | Consentement explicite |
-| Données prescripteur | Turso | Tableau de bord pro | Contrat (inscription volontaire) |
+| Événements quiz (anonymes) | PostgreSQL | Mesurer la conversion | Intérêt légitime |
+| Messages de conversation | PostgreSQL | Fonctionnement du service | Intérêt légitime (anonyme) / Consentement (si email) |
+| Profil RIASEC | PostgreSQL | Fonctionnement du service | Idem |
+| Email (si fourni) | PostgreSQL | Persistance et relances | Consentement explicite |
+| Données prescripteur | PostgreSQL | Tableau de bord pro | Contrat (inscription volontaire) |
 
 ### Ce qu'on ne collecte JAMAIS
 
@@ -426,7 +430,7 @@ Ce dashboard ajoute des métriques spécifiques à la prise en charge :
 | Prises en charge par structure (empilé) | En cours / terminées / abandonnées |
 | Taux de remplissage des structures | Capacité utilisée vs max |
 
-Les données du dashboard conseiller proviennent des mêmes tables Turso, enrichies par les tables `structure`, `conseiller`, `prise_en_charge` et `evenement_audit` (cf. spec 07).
+Les données du dashboard conseiller proviennent des mêmes tables PostgreSQL, enrichies par les tables `structure`, `conseiller`, `prise_en_charge` et `evenement_audit` (cf. spec 07).
 
 ---
 

@@ -1,4 +1,8 @@
-# Spec 26 — Enquete de satisfaction et relances automatiques
+# Spec 26 — Enquête de satisfaction et relances automatiques
+
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/components/SatisfactionSurvey.tsx`, `src/app/api/accompagnement/satisfaction/route.ts`, `src/app/api/conseiller/satisfaction/route.ts`, `src/app/api/cron/reminders/route.ts`, `src/data/schema.ts` (enqueteSatisfaction, rappel)
 
 ## Vue d'ensemble
 

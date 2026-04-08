@@ -1,7 +1,7 @@
-import { openai } from '@ai-sdk/openai'
 import { streamText } from 'ai'
 import { buildSystemPrompt } from '@/core/system-prompt'
 import { checkBeforeSend, recordUsage, estimateTokens, estimateMessagesTokens, LIMITS } from '@/lib/token-guard'
+import { getLLMModel, getLLMInfo, reportLLMSuccess, reportLLMFailure, routeByComplexity } from '@/lib/llm'
 import { db } from '@/data/db'
 import { structure } from '@/data/schema'
 import { eq } from 'drizzle-orm'
@@ -38,16 +38,26 @@ export async function POST(req: Request) {
 
     const convId = conversationId || 'anonymous-' + clientIP
 
+    // ── Routage intelligent : modèle économique ou premium selon la complexité ──
+    const lastUserMsg = messages[messages.length - 1]?.content || ''
+    const tier = routeByComplexity({
+      messageCount: messageCount || messages.length,
+      lastUserMessage: lastUserMsg,
+      fragilityLevel,
+      profileStable: profile?.estStable,
+    })
+
+    const llmInfo = await getLLMInfo(tier)
+
     const guard = checkBeforeSend(
       convId,
       messages,
       systemPrompt.length,
       clientIP,
-      'gpt-4o'
+      llmInfo.model
     )
 
     if (!guard.allowed) {
-      // Retourner un message lisible par l'utilisateur, pas une erreur technique
       return new Response(
         JSON.stringify({
           error: guard.reason,
@@ -63,9 +73,10 @@ export async function POST(req: Request) {
     // ── Utiliser les messages tronqués si le contexte était trop long ──
     const effectiveMessages = guard.truncatedMessages || messages
 
-    // ── Appel API OpenAI avec streaming ──
+    // ── Appel LLM avec streaming (provider + tier configurables) ──
+    const model = await getLLMModel(tier)
     const result = streamText({
-      model: openai('gpt-4o'),
+      model,
       system: systemPrompt,
       messages: effectiveMessages,
       maxTokens: LIMITS.MAX_OUTPUT_TOKENS,
@@ -78,16 +89,24 @@ export async function POST(req: Request) {
             clientIP,
             usage.promptTokens,
             usage.completionTokens,
-            'gpt-4o'
+            llmInfo.model
           )
+          reportLLMSuccess().catch(() => {})
         }
       },
     })
 
-    return result.toDataStreamResponse()
+    return result.toDataStreamResponse({
+      headers: {
+        'X-LLM-Model': llmInfo.model,
+        'X-LLM-Provider': llmInfo.provider,
+        'X-LLM-Tier': tier,
+      },
+    })
   } catch (error: unknown) {
     console.error('[Chat API Error]', error)
     const message = error instanceof Error ? error.message : 'Erreur inconnue'
+    reportLLMFailure(message).catch(() => {})
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

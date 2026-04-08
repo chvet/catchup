@@ -1,8 +1,11 @@
-# Spec 28 — Integration Parcoureo (SSO + API bidirectionnelle)
+# Spec 28 — Intégration Parcoureo (SSO + API bidirectionnelle)
 
-**Statut** : Implemente (stubs)
-**Date** : 2026-03-26
-**Priorite** : Haute
+> **Statut :** Implémenté (stubs — en attente du token API Parcoureo)  
+> **Date :** 2026-03-26  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Priorité :** Haute  
+> **Fichiers clés :** `src/app/api/conseiller/auth/parcoureo/route.ts`, `src/app/api/conseiller/auth/parcoureo/callback/route.ts`, `src/app/api/conseiller/auth/parcoureo/status/route.ts`  
+> **Variables env :** `PARCOUREO_API_URL`, `PARCOUREO_API_KEY` (non-breaking : fonctionne normalement si non configuré)
 
 ## Contexte
 

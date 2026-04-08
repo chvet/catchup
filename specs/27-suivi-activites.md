@@ -1,5 +1,9 @@
 # Spec 27 — Suivi d'activités hebdomadaire
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/components/conseiller/ActivitesTab.tsx`, `src/app/api/conseiller/file-active/[id]/activites/`, `src/app/api/conseiller/file-active/[id]/objectifs/`, `src/app/api/conseiller/activites/categories/`, `src/data/schema.ts` (categorieActivite, declarationActivite, objectifHebdomadaire, alerteDecrochage)
+
 ## Contexte
 
 Inspiré de l'analyse du Céreq sur le CEJ (Contrat d'Engagement Jeune), cette feature ajoute un système de suivi d'activités hebdomadaire orienté **aide à l'accompagnement** (pas contrôle/sanction).

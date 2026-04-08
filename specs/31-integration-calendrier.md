@@ -1,8 +1,10 @@
-# Spec 31 — Integration Calendrier (Google Calendar + Outlook)
+# Spec 31 — Intégration Calendrier (Google Calendar + Outlook)
 
-**Statut :** Implemente
-**Version :** 1.0
-**Date :** 2026-03-27
+> **Statut :** Implémenté  
+> **Version :** 1.0  
+> **Date :** 2026-03-27  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/app/api/calendar/google/route.ts`, `src/app/api/calendar/outlook/route.ts`, `src/app/api/calendar/status/route.ts`, `src/data/schema.ts` (calendarConnection, rendezVous.googleEventId/outlookEventId)
 
 ## Objectif
 

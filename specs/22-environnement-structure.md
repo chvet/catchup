@@ -1,4 +1,9 @@
-# 22 - Environnement Structure : Lien personnalise & QR Code
+# 22 - Environnement Structure : Lien personnalisé & QR Code
+
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/app/api/qrcode/route.ts`, `src/app/api/structures/[slug]/route.ts`, `src/app/api/conseiller/structures/`  
+> **URL pattern :** `catchup.jaeprive.fr/?s={slug}`
 
 ## Objectif
 

@@ -1,5 +1,9 @@
 # 17 — Dashboard conseiller
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/app/conseiller/page.tsx`, `src/app/api/conseiller/dashboard/stats/route.ts`, `src/app/api/conseiller/dashboard/riasec/route.ts`, `src/app/api/conseiller/dashboard/usage/route.ts`
+
 ## Principe directeur
 **Des donnees actionnables, pas des vanity metrics.** Le dashboard doit aider les conseillers et les responsables de structure a prendre des decisions concretes : qui contacter en priorite ? Ma structure est-elle surchargee ? Quels profils arrivent le plus ?
 

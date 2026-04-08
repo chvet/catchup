@@ -1,5 +1,10 @@
 # 15 — Espace Conseiller (Plateforme de mise en relation)
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/app/conseiller/` (15+ pages), `src/app/api/conseiller/` (125+ routes), `src/middleware.ts` (JWT, subdomain routing)  
+> **URL :** `pro.catchup.jaeprive.fr`
+
 ## Principe directeur
 **Le conseiller a une vue claire et actionnable.** L'Espace Conseiller est l'interface où les professionnels de l'orientation gèrent les demandes de prise en charge issues de Catch'Up. Il doit être simple, rapide, et intégrable dans l'écosystème Parcoureo de la Fondation JAE.
 
@@ -484,7 +489,7 @@ Les logs d'audit sont conservés **2 ans** (obligation légale).
 | Auth | `jose` (JWT) + `bcryptjs` | Léger, edge-compatible, zéro dépendance native |
 | Layout | Next.js App Router (route group `(conseiller)`) | Séparation totale de l'app bénéficiaire |
 | Graphiques | `recharts` | React-natif, tree-shakeable, radar chart pour RIASEC |
-| BDD | Drizzle + Turso (mêmes tables) | Continuité avec le modèle de données existant |
+| BDD | Drizzle + PostgreSQL (mêmes tables) | Continuité avec le modèle de données existant |
 | Polling | `setInterval` + fetch | Simple, suffisant pour le MVP |
 
 ---

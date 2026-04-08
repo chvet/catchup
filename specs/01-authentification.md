@@ -1,5 +1,9 @@
 # 01 — Identification / Authentification
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/app/api/beneficiaire/auth/route.ts`, `src/middleware.ts`, `src/data/schema.ts`
+
 ## Principe directeur
 **Zéro friction au premier contact.** Le jeune arrive, il parle. Pas de formulaire, pas de mot de passe, pas de mur d'inscription. L'authentification est progressive : on ne la demande que quand elle a de la valeur pour le jeune.
 
@@ -49,8 +53,8 @@ Il me faut juste ton email 😊"
   ├── Le jeune dit oui → afficher un champ email inline
   │   │
   │   ▼
-  │   Magic link envoyé (pas de mot de passe)
-  │   Le jeune clique → session authentifiée
+  │   Inscription email + mot de passe (12 caractères min)
+  │   Session token créé (30 jours, rolling)
   │   L'ID anonyme est rattaché à l'email
   │
   └── Le jeune dit non / ignore → on continue en anonyme
@@ -62,13 +66,15 @@ Il me faut juste ton email 😊"
 - Déclencheur : le profil RIASEC a au moins 2 dimensions > 30 ET le jeune a donné son prénom
 - Maximum 2 propositions par session (pas de harcèlement)
 - Si refusé 2 fois → ne plus proposer pendant cette session
-- L'authentification se fait par **magic link** (email uniquement, zéro mot de passe)
+- L'authentification se fait par **email + mot de passe** (12 caractères minimum, hashé bcrypt cost 12)
 
-**Pourquoi magic link :**
-- Pas de mot de passe à retenir (public jeune, souvent en difficulté)
-- Un seul champ (email) → friction minimale
-- Sécurisé (lien unique, expiré après 15 minutes, usage unique)
-- Le jeune a forcément un email (requis pour s'inscrire à Parcoursup, Pôle Emploi, etc.)
+**Implémentation actuelle (POST /api/beneficiaire/auth) :**
+- Action `signup` : crée le compte avec email + mot de passe (bcrypt), génère un session token (30 jours)
+- Action `login` : vérifie email + mot de passe, génère un nouveau session token
+- Action `restore` : restaure une session via token existant (rolling 30 jours)
+- Le session token est stocké dans `utilisateur.sessionToken` avec expiration dans `sessionTokenExpireLe`
+
+**Note :** La table `sessionMagicLink` existe dans le schéma mais les magic links ne sont **pas encore câblés** dans les routes. L'approche email/password a été retenue en MVP pour sa simplicité d'implémentation.
 
 ---
 
@@ -77,12 +83,13 @@ Il me faut juste ton email 😊"
 ```
 Le jeune revient sur catchup.jaeprive.fr
   │
-  ├── Cookie/localStorage encore valide → session restaurée automatiquement
-  │   (le jeune retrouve sa conversation et son profil)
+  ├── Session token en localStorage encore valide →
+  │   Appel POST /api/beneficiaire/auth action=restore
+  │   Session restaurée, expiration prolongée de 30 jours (rolling)
   │
-  ├── Cookie expiré mais email enregistré →
-  │   Écran léger : "Re ! Ton email pour reprendre ?"
-  │   Magic link → clic → session restaurée
+  ├── Session expirée mais email enregistré →
+  │   Écran léger : "Re ! Ton email + mot de passe pour reprendre ?"
+  │   POST /api/beneficiaire/auth action=login → session restaurée
   │
   └── Rien (nouveau navigateur, pas d'email) →
       Retour en Phase 1 (nouvel ID anonyme)
@@ -91,9 +98,9 @@ Le jeune revient sur catchup.jaeprive.fr
 ```
 
 **Règles :**
-- La session anonyme (cookie/localStorage) dure **90 jours**
-- Le magic link de reconnexion expire après **15 minutes**
-- Si un email est associé, proposer la reconnexion par email (écran minimal, un seul champ)
+- Le session token (stocké en `localStorage`) dure **30 jours** (expiration rolling renouvelée à chaque `restore`)
+- La session anonyme (localStorage uniquement) persiste tant que le navigateur n'est pas vidé
+- Si un email est associé, proposer la reconnexion par email + mot de passe (écran minimal)
 - Fusion de profils : si un jeune crée un nouvel ID anonyme puis s'authentifie avec un email déjà connu → fusionner les données (garder les scores RIASEC les plus récents)
 
 ---
@@ -153,10 +160,16 @@ Le jeune revient sur catchup.jaeprive.fr
 
 ## Sécurité
 
-- Les magic links sont **à usage unique** et expirent après **15 minutes**
-- Les tokens de session expirent après **90 jours** (web) / **1 an** (app native)
+- Les mots de passe sont hashés avec **bcrypt** (cost factor 12)
+- Mot de passe minimum : **12 caractères** (validation côté serveur)
+- Les session tokens expirent après **30 jours** (rolling — renouvelés à chaque `restore`)
 - Les données anonymes non rattachées à un email sont purgées après **6 mois** d'inactivité
-- Pas de mot de passe = pas de risque de fuite de mots de passe
 - HTTPS obligatoire (Let's Encrypt déjà en place)
-- Cookie `httpOnly + secure + sameSite=strict`
-- Rate limiting sur l'envoi de magic links (max 3 par email par heure)
+- Rate limiting (middleware) : 200 requêtes/60s par IP sur /api/*
+- La table `sessionMagicLink` existe (préparation d'une future migration vers magic links)
+
+### Authentification conseiller (cf. spec 15)
+- Email + mot de passe (bcrypt, 12 rounds) → JWT HS256 (8h, cookie `catchup_conseiller_session`)
+- Sessions révocables via table `sessionConseiller`
+- SSO Parcoureo (stubs implémentés, en attente d'API token)
+- Rate limiting login : 50 tentatives / 15 min par IP

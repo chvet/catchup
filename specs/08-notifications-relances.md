@@ -1,5 +1,10 @@
 # 08 — Notifications & Relances
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/data/schema.ts` (notificationLog, pushSubscription, rappel), `src/app/api/push/`, `src/app/api/cron/reminders/`  
+> **Fournisseurs :** Vonage (SMS), Brevo/O365/SMTP (email), Web Push VAPID (push)
+
 ## Principe directeur
 **Relancer sans harceler.** Le jeune reçoit des messages utiles, espacés, bienveillants. Chaque notification doit donner envie de revenir — jamais culpabiliser de ne pas être revenu. Si le jeune ne revient pas après 2 relances, on arrête. Le silence est un choix qu'on respecte.
 
@@ -243,44 +248,21 @@ J+30 — Silence définitif. Plus aucune relance automatique.
 
 ## Modèle de données (complément spec 07)
 
-### Table `notification`
+### Tables implémentées (cf. `src/data/schema.ts`)
 
-```sql
-CREATE TABLE notification (
-  id                TEXT PRIMARY KEY,          -- UUID v4
-  utilisateur_id    TEXT NOT NULL,             -- FK → utilisateur.id
-  type              TEXT NOT NULL,             -- 'relance_j1', 'profil_incomplet', 'post_referral',
-                                               -- 'sauvegarde', 'inactivite', 'contenu', 'push'
-  canal             TEXT NOT NULL,             -- 'email', 'push_pwa', 'push_app', 'in_app'
-  statut            TEXT DEFAULT 'planifiee',  -- 'planifiee', 'envoyee', 'ouverte', 'cliquee', 'echouee'
-  objet             TEXT,                      -- objet de l'email (NULL pour push/in-app)
-  contenu           TEXT NOT NULL,             -- corps du message
-  planifiee_le      TEXT NOT NULL,             -- date/heure d'envoi prévue (ISO 8601)
-  envoyee_le        TEXT,                      -- date/heure d'envoi effective
-  ouverte_le        TEXT,                      -- date/heure d'ouverture (tracking pixel email)
-  cliquee_le        TEXT,                      -- date/heure du clic sur le CTA
-  erreur            TEXT,                      -- message d'erreur si envoi échoué
+**Table `notificationLog`** — Suivi de chaque envoi de notification :
+- `id`, `referralId`, `priseEnChargeId`, `destinataire`, `destinataireType`
+- `canal` : `'sms'` | `'email'` | `'console'`
+- `fournisseur` : `'vonage'` | `'ovh'` | `'smtp'` | `'o365'` | `'brevo'` | `'console'`
+- `externalMessageId`, `statut`, `type` : `'pin_code'` | `'rdv_rappel'` | `'relance'` | `'tiers_invitation'`
 
-  FOREIGN KEY (utilisateur_id) REFERENCES utilisateur(id)
-);
-```
+**Table `pushSubscription`** — Abonnements Web Push :
+- `id`, `type` (`'conseiller'` | `'beneficiaire'`), `userId`, `endpoint`, `keysP256dh`, `keysAuth`
 
-### Table `preferences_notification`
+**Table `rappel`** — Rappels automatiques :
+- `id`, `priseEnChargeId`, `type` (`'beneficiaire_inactif'` | `'conseiller_alerte'`), `statut`, `dateEnvoi`, `contenu`
 
-```sql
-CREATE TABLE preferences_notification (
-  utilisateur_id    TEXT PRIMARY KEY,          -- FK → utilisateur.id
-  email_relances    INTEGER DEFAULT 1,         -- 0 = désinscrit des relances
-  email_contenu     INTEGER DEFAULT 0,         -- 0 = pas d'actus (opt-in explicite)
-  push_relances     INTEGER DEFAULT 1,         -- 0 = pas de push relances
-  push_contenu      INTEGER DEFAULT 1,         -- 0 = pas de push contenu
-  push_consecutives_ignorees INTEGER DEFAULT 0, -- compteur de push ignorées
-  desinscrip_le     TEXT,                      -- date de désinscription email (si applicable)
-  mis_a_jour_le     TEXT NOT NULL,
-
-  FOREIGN KEY (utilisateur_id) REFERENCES utilisateur(id)
-);
-```
+> **Note :** La table `preferences_notification` de la spec initiale n'a pas été implémentée en tant que telle. Les préférences push sont gérées côté client via le composant `PushNotificationManager`.
 
 ---
 
@@ -288,9 +270,13 @@ CREATE TABLE preferences_notification (
 
 ### Envoi d'emails
 
-**Service recommandé (MVP) :** Resend (gratuit jusqu'à 3 000 emails/mois, API simple, bon rendu).
+**Services implémentés :**
+- **Email :** Brevo (ex-Sendinblue), O365 (Microsoft), ou SMTP direct — configurable via `NOTIFICATION_MODE` et variables d'environnement
+- **SMS :** Vonage (avec support OVH en alternative)
+- **Push PWA :** Web Push via VAPID (clés `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`)
+- **Console :** Mode console pour le développement local (`NOTIFICATION_MODE=console`)
 
-**Alternative :** Brevo (ex-Sendinblue), Mailgun, ou SMTP direct.
+> **Note :** Resend (mentionné dans la spec initiale) n'a pas été retenu. Le choix s'est porté sur Brevo/O365 pour la compatibilité avec l'écosystème Microsoft de la Fondation JAE.
 
 ```typescript
 // src/services/email.ts

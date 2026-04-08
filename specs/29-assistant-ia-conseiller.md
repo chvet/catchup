@@ -1,8 +1,11 @@
 # Spec 29 — Assistant IA pour les conseillers
 
-**Statut** : En cours
-**Priorite** : P1
-**Sprint** : S7
+> **Statut :** Implémenté  
+> **Priorité :** P1  
+> **Sprint :** S7  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/components/conseiller/AiAssistantPanel.tsx`, `src/app/api/conseiller/ai-assistant/route.ts`  
+> **Modèle :** gpt-4o, temp 0.7, max 500 tokens
 
 ---
 

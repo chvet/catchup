@@ -15,6 +15,7 @@ interface Props {
   rgaaMode: boolean
   voiceData?: VoiceData
   genre?: 'M' | 'F' | null
+  llmModel?: string
 }
 
 const AVATAR_BY_GENRE: Record<string, string> = {
@@ -33,7 +34,7 @@ function EqBars() {
 }
 
 
-export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, voiceData, genre }: Props) {
+export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, voiceData, genre, llmModel }: Props) {
   const isUser = message.role === 'user'
   const msgDate = message.createdAt ? new Date(message.createdAt as string | number | Date) : new Date()
   const time = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -69,6 +70,7 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
           <div className={`flex items-center mt-0.5 gap-2 ${isUser ? 'justify-end' : 'justify-between'}`}>
             <span className={`text-[10px] ${isUser ? 'text-white/50' : 'text-gray-400'}`}>
               {time}
+              {llmModel && <span className="ml-1.5 opacity-60">{llmModel}</span>}
             </span>
             {isUser && (
               <svg className="w-3.5 h-3.5 ml-0.5 text-white/50" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">

@@ -1,12 +1,18 @@
-// Token Guard — Protection contre les coûts excessifs de l'API OpenAI
+// Token Guard — Protection contre les coûts excessifs des API LLM
 // Gère les quotas par session, par jour et globalement
 // Estime les tokens AVANT envoi pour éviter les mauvaises surprises
 
-// ─── Tarifs OpenAI (mars 2026, à ajuster si changement) ───
-const PRICING = {
-  'gpt-4o': { input: 2.50 / 1_000_000, output: 10.00 / 1_000_000 },       // $2.50/M input, $10/M output
-  'gpt-4o-mini': { input: 0.15 / 1_000_000, output: 0.60 / 1_000_000 },   // $0.15/M input, $0.60/M output
-} as const
+import { getModelPricing } from '@/lib/llm'
+
+// ─── Tarifs multi-provider (fallback si le modèle n'est pas connu) ───
+const PRICING: Record<string, { input: number; output: number }> = {
+  'gpt-4o': { input: 2.50 / 1_000_000, output: 10.00 / 1_000_000 },
+  'gpt-4o-mini': { input: 0.15 / 1_000_000, output: 0.60 / 1_000_000 },
+  'claude-sonnet-4-20250514': { input: 3.00 / 1_000_000, output: 15.00 / 1_000_000 },
+  'claude-haiku-4-20250514': { input: 0.80 / 1_000_000, output: 4.00 / 1_000_000 },
+  'mistral-large-latest': { input: 2.00 / 1_000_000, output: 6.00 / 1_000_000 },
+  'mistral-small-latest': { input: 0.20 / 1_000_000, output: 0.60 / 1_000_000 },
+}
 
 // ─── Limites configurables via variables d'environnement ───
 export const LIMITS = {
@@ -145,7 +151,7 @@ export function checkBeforeSend(
   messages: { role: string; content: string }[],
   systemPromptLength: number,
   clientIP: string,
-  model: 'gpt-4o' | 'gpt-4o-mini' = 'gpt-4o'
+  model: string = 'gpt-4o'
 ): TokenGuardResult {
   ensureDailyReset()
 
@@ -242,7 +248,7 @@ export function checkBeforeSend(
   // 6. Estimer le coût de cette requête
   const inputTokens = systemTokens + contextTokens
   const outputTokens = LIMITS.MAX_OUTPUT_TOKENS // worst case
-  const pricing = PRICING[model]
+  const pricing = PRICING[model] || getModelPricing(model)
   const estimatedCost = (inputTokens * pricing.input) + (outputTokens * pricing.output)
 
   return {
@@ -258,11 +264,11 @@ export function recordUsage(
   clientIP: string,
   inputTokens: number,
   outputTokens: number,
-  model: 'gpt-4o' | 'gpt-4o-mini' = 'gpt-4o'
+  model: string = 'gpt-4o'
 ) {
   ensureDailyReset()
 
-  const pricing = PRICING[model]
+  const pricing = PRICING[model] || getModelPricing(model)
   const cost = (inputTokens * pricing.input) + (outputTokens * pricing.output)
 
   // Compteur quotidien

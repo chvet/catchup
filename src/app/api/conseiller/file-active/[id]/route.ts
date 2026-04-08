@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { sendPinCode } from '@/lib/sms'
 import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
 import { DEPARTMENT_COORDS } from '@/lib/geo-departments'
+import { safeJsonParse } from '@/core/constants'
 
 // Calcul distance Haversine en km entre 2 points GPS
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -88,11 +89,11 @@ export async function GET(
     const structuresData: StructureData[] = allStructures.map(s => ({
       id: s.id,
       nom: s.nom,
-      departements: JSON.parse(s.departements || '[]'),
-      regions: JSON.parse(s.regions || '[]'),
+      departements: safeJsonParse<string[]>(s.departements, []),
+      regions: safeJsonParse<string[]>(s.regions, []),
       ageMin: s.ageMin ?? 16,
       ageMax: s.ageMax ?? 25,
-      specialites: JSON.parse(s.specialites || '[]'),
+      specialites: safeJsonParse<string[]>(s.specialites, []),
       genrePreference: s.genrePreference,
       capaciteMax: s.capaciteMax ?? 50,
       casActifs: 0, // sera enrichi ci-dessous

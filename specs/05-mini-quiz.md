@@ -1,5 +1,9 @@
 # 05 — Mini-quiz d'orientation
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/core/quiz-data.ts`, `src/app/quiz/page.tsx`
+
 ## Principe directeur
 **30 secondes pour accrocher, pas pour étiqueter.** Le mini-quiz est un outil de captation, pas un test psychométrique. Il donne un résultat assez juste pour intriguer, assez flou pour donner envie d'aller plus loin dans le chat. C'est le Spotify Wrapped de l'orientation : rapide, visuel, partageable.
 

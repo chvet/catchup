@@ -1,7 +1,11 @@
 # 21 — Échanges de documents, visio et rendez-vous
 
-> Version : 1.0.0
-> Date : 2026-03-23
+> **Statut :** Implémenté  
+> **Version :** 1.0.0  
+> **Date :** 2026-03-23  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/components/VisioCall.tsx` (WebRTC P2P), `src/hooks/useWebRTC.ts`, `src/app/api/visio/signal/`, `src/app/api/conseiller/file-active/[id]/rdv/`, `src/app/api/conseiller/file-active/[id]/documents/`  
+> **Note :** La visio utilise WebRTC P2P avec signaling maison (SSE + POST), pas Jitsi Meet comme initialement prévu.
 
 ---
 
@@ -73,7 +77,9 @@ Document affiché en carte inline :
 
 ---
 
-## 2. Visioconférence (Jitsi Meet)
+## 2. Visioconférence (WebRTC P2P)
+
+> **Changement d'implémentation :** La spec initiale prévoyait Jitsi Meet (service tiers). L'implémentation finale utilise **WebRTC P2P** avec un signaling maison (SSE + POST) pour éviter la dépendance externe et réduire la latence.
 
 ### Fonctionnalité
 Le conseiller peut proposer un appel visio. Le bénéficiaire accepte ou refuse.
@@ -84,23 +90,25 @@ Le conseiller peut proposer un appel visio. Le bénéficiaire accepte ou refuse.
 Conseiller                              Bénéficiaire
      |                                        |
      |-- [Clic 📹 Visio] ------------------>|
-     |   POST /api/.../video                  |
-     |   → Crée message type "video"          |
+     |   POST /api/visio/signal               |
+     |   → Offre WebRTC (SDP)                 |
      |                                        |
-     |                                   [Voir VideoCallCard]
+     |                                   [Voir VisioCall]
      |                                   [Accepter / Refuser]
      |                                        |
-     |<-- POST /api/accompagnement/video/reponse
+     |<-- POST /api/visio/signal (answer)     |
      |                                        |
-     |-- [Lien Jitsi visible pour les deux] --|
-     |   🔗 https://meet.jit.si/catchup-xxx  |
+     |-- [Connexion P2P établie] ------------|
+     |   Audio + Vidéo en direct              |
 ```
 
 ### Détails techniques
-- Salle Jitsi générée automatiquement : `catchup-{priseEnChargeId}-{timestamp}`
-- Lien ouvert dans un nouvel onglet
-- Pas d'installation requise (Jitsi Meet fonctionne dans le navigateur)
-- CSP autorise `frame-src https://*.jitsi.net` et `connect-src wss://*.jitsi.net`
+- **Signaling :** SSE (GET `/api/visio/signal/stream`) + POST `/api/visio/signal` pour l'échange offer/answer/ICE candidates
+- **STUN :** Google STUN servers (`stun:stun.l.google.com:19302`)
+- **TURN :** Fallback via `turn:catchup.jaeprive.fr:3478` (pour les réseaux restrictifs)
+- **Composant :** `src/components/VisioCall.tsx` + `src/hooks/useWebRTC.ts`
+- **Optimisations :** Pause vidéo en arrière-plan (économie batterie iOS), toggle audio/vidéo
+- Pas d'installation requise (WebRTC est natif dans tous les navigateurs modernes)
 
 ### API
 

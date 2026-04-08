@@ -1,5 +1,9 @@
 # 16 — Algorithme de matching bénéficiaire ↔ structure
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/matching.ts` (algorithme complet), `src/core/matching.ts` (types et utilitaires)
+
 ## Principe directeur
 **Le bon conseiller pour le bon jeune.** Le matching automatique optimise l'affectation des bénéficiaires aux structures en fonction de critères objectifs. Le conseiller garde toujours la main : le matching est une **suggestion**, pas une obligation.
 

@@ -1,5 +1,9 @@
 # 11 — PWA & Offline
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `public/manifest.json`, `public/sw.js`, `src/app/offline/page.tsx`, `src/components/InstallBanner.tsx`, `src/components/UpdateBanner.tsx`, `src/hooks/useVersionCheck.ts`
+
 ## Principe directeur
 **Le jeune ne devrait jamais voir une page blanche.** Qu'il soit dans le métro sans réseau, dans une zone rurale avec une connexion instable, ou sur un vieux téléphone Android — Catch'Up doit rester accessible. La PWA est le pont entre le web (zéro installation) et l'app native (expérience fluide).
 

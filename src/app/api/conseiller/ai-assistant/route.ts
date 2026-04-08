@@ -1,9 +1,9 @@
 // POST /api/conseiller/ai-assistant
 // Assistant IA privé pour les conseillers — streaming via AI SDK
 
-import { openai } from '@ai-sdk/openai'
 import { streamText } from 'ai'
 import { getConseillerFromHeaders } from '@/lib/api-helpers'
+import { getLLMModel } from '@/lib/llm'
 
 export const maxDuration = 30
 
@@ -48,8 +48,9 @@ Ton rôle :
 
 Réponds toujours en français.`
 
+    const model = await getLLMModel('assistant')
     const result = streamText({
-      model: openai('gpt-4o'),
+      model,
       system: systemPrompt,
       messages: messages.map((m: { role: string; content: string }) => ({
         role: m.role as 'user' | 'assistant',

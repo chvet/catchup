@@ -1,5 +1,9 @@
 # 04 — Parcours conversationnel
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/core/system-prompt.ts`, `src/core/suggestions.ts`, `src/components/ChatApp.tsx`, `src/components/ChatHeader.tsx`
+
 ## Principe directeur
 **Créer le lien d'abord, comprendre ensuite, ouvrir des portes enfin.** Catch'Up n'est pas un questionnaire déguisé en chatbot. C'est une conversation naturelle où le profil RIASEC émerge comme une conséquence, pas comme un objectif visible.
 
@@ -81,7 +85,7 @@ L'écran couvre les points suivants :
 
 ### Langues supportées
 
-Catch'Up supporte **10 langues** : français (fr), anglais (en), arabe (ar), portugais (pt), turc (tr), italien (it), espagnol (es), allemand (de), roumain (ro), chinois (zh).
+Catch'Up supporte **11 langues** : français (fr), anglais (en), arabe (ar), portugais (pt), turc (tr), italien (it), espagnol (es), allemand (de), roumain (ro), chinois (zh), et une 11ème langue configurable. Le composant `ChatHeader.tsx` affiche le sélecteur avec drapeaux SVG inline.
 
 ### Interface du sélecteur
 

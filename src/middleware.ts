@@ -14,6 +14,21 @@ const PRO_HOST = process.env.PRO_HOST || 'pro.catchup.jaeprive.fr'
 const PUBLIC_HOST = process.env.PUBLIC_HOST || 'catchup.jaeprive.fr'
 const BENEFICIAIRE_ROUTES = ['/', '/quiz', '/offline']
 
+// Helper: verify JWT and set conseiller headers on response
+async function verifyAndSetHeaders(token: string): Promise<NextResponse | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET)
+    const response = NextResponse.next()
+    response.headers.set('x-conseiller-id', payload.sub as string)
+    response.headers.set('x-conseiller-email', payload.email as string)
+    response.headers.set('x-conseiller-role', payload.role as string)
+    response.headers.set('x-conseiller-structure', (payload.structureId as string) || '')
+    return response
+  } catch {
+    return null
+  }
+}
+
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
 function checkRateLimit(key: string, max: number, windowMs: number): { allowed: boolean; remaining: number; retryAfter: number } {
   cleanupIfNeeded()
@@ -149,15 +164,9 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/api/calendar/')) {
     const calToken = request.cookies.get(COOKIE_NAME)?.value || request.headers.get('Authorization')?.replace('Bearer ', '')
     if (!calToken) return applySecurityHeaders(NextResponse.json({ error: 'Non authentifie' }, { status: 401 }))
-    try {
-      const { payload } = await jwtVerify(calToken, JWT_SECRET)
-      const response = NextResponse.next()
-      response.headers.set('x-conseiller-id', payload.sub as string)
-      response.headers.set('x-conseiller-email', payload.email as string)
-      response.headers.set('x-conseiller-role', payload.role as string)
-      response.headers.set('x-conseiller-structure', (payload.structureId as string) || '')
-      return withBrand(applySecurityHeaders(response), appBrand)
-    } catch { return applySecurityHeaders(NextResponse.json({ error: 'Session expiree' }, { status: 401 })) }
+    const calResponse = await verifyAndSetHeaders(calToken)
+    if (!calResponse) return applySecurityHeaders(NextResponse.json({ error: 'Session expiree' }, { status: 401 }))
+    return withBrand(applySecurityHeaders(calResponse), appBrand)
   }
 
   // ══ 4) PROTECTION JWT — Routes /conseiller/* ══
@@ -174,18 +183,10 @@ export async function middleware(request: NextRequest) {
     return applySecurityHeaders(NextResponse.redirect(new URL('/conseiller/login', request.url)))
   }
 
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
-    const response = NextResponse.next()
-    response.headers.set('x-conseiller-id', payload.sub as string)
-    response.headers.set('x-conseiller-email', payload.email as string)
-    response.headers.set('x-conseiller-role', payload.role as string)
-    response.headers.set('x-conseiller-structure', (payload.structureId as string) || '')
-    return withBrand(applySecurityHeaders(response), appBrand)
-  } catch {
-    if (pathname.startsWith('/api/')) return applySecurityHeaders(NextResponse.json({ error: 'Session expirée' }, { status: 401 }))
-    return applySecurityHeaders(NextResponse.redirect(new URL('/conseiller/login', request.url)))
-  }
+  const verified = await verifyAndSetHeaders(token)
+  if (verified) return withBrand(applySecurityHeaders(verified), appBrand)
+  if (pathname.startsWith('/api/')) return applySecurityHeaders(NextResponse.json({ error: 'Session expirée' }, { status: 401 }))
+  return applySecurityHeaders(NextResponse.redirect(new URL('/conseiller/login', request.url)))
 }
 
 export const config = {

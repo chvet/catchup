@@ -1,8 +1,11 @@
 # 18 — Securite de la plateforme Catch'Up
 
-> Version : 2.0.0
-> Date : 2026-03-31
-> Derniere revue securite : 2026-03-31
+> **Statut :** Implémenté  
+> **Version :** 2.0.0  
+> **Date :** 2026-03-31  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Dernière revue sécurité :** 2026-03-31  
+> **Fichier clé :** `src/middleware.ts`
 
 ---
 

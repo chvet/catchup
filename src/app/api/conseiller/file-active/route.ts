@@ -14,6 +14,7 @@ import { db } from '@/data/db'
 import { referral, utilisateur, profilRiasec, priseEnCharge, structure } from '@/data/schema'
 import { eq, and, or, desc, sql, inArray } from 'drizzle-orm'
 import { matcherStructures, type MatchingCriteria, type StructureData } from '@/core/matching'
+import { safeJsonParse } from '@/core/constants'
 
 export async function GET(request: Request) {
   try {
@@ -178,11 +179,11 @@ export async function GET(request: Request) {
         conseillerStructureData = {
           id: s.id,
           nom: s.nom,
-          departements: JSON.parse(s.departements || '[]'),
-          regions: JSON.parse(s.regions || '[]'),
+          departements: safeJsonParse<string[]>(s.departements, []),
+          regions: safeJsonParse<string[]>(s.regions, []),
           ageMin: s.ageMin ?? 16,
           ageMax: s.ageMax ?? 25,
-          specialites: JSON.parse(s.specialites || '[]'),
+          specialites: safeJsonParse<string[]>(s.specialites, []),
           genrePreference: s.genrePreference ?? null,
           capaciteMax: s.capaciteMax ?? 50,
           casActifs: casActifsResult[0]?.count ?? 0,

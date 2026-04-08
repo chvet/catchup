@@ -1,4 +1,8 @@
-# Spec 25 — Exports et rapports d'activite
+# Spec 25 — Exports et rapports d'activité
+
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/app/api/conseiller/export/` (PDF/XLSX via jsPDF et ExcelJS)
 
 ## Contexte
 

@@ -4,12 +4,13 @@ import { campagne, conversation, message, utilisateur, referral, profilRiasec, s
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { matcherStructures, type MatchingCriteria, type StructureData, type TarifInfo } from '@/core/matching'
-import { openai } from '@ai-sdk/openai'
 import { generateText } from 'ai'
+import { getLLMModel } from '@/lib/llm'
 import { recordUsage } from '@/lib/token-guard'
 import { logJournal } from '@/lib/journal'
 import { notifyConseillerNewCase } from '@/lib/push-triggers'
 import { syncBeneficiaireToParcoureo, isParcoureoConfigured } from '@/lib/parcoureo'
+import { PRIORITY_MAP, DETECTION_LEVEL_MAP, safeJsonParse } from '@/core/constants'
 
 export async function POST(request: NextRequest) {
   try {
@@ -133,22 +134,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Calculate priority
-    const prioriteMap: Record<string, string> = {
-      high: 'critique',
-      medium: 'haute',
-      low: 'normale',
-      none: 'normale',
-    }
-    const priorite = prioriteMap[fragilityLevel] ?? 'normale'
+    const priorite = PRIORITY_MAP[fragilityLevel] ?? 'normale'
 
     // 3. Calculate detection level
-    const niveauDetectionMap: Record<string, number> = {
-      high: 3,
-      medium: 2,
-      low: 1,
-      none: 0,
-    }
-    const niveauDetection = niveauDetectionMap[fragilityLevel] ?? 0
+    const niveauDetection = DETECTION_LEVEL_MAP[fragilityLevel] ?? 0
 
     // 4. Get last 20 messages for summary
     const messages = await db
@@ -168,8 +157,9 @@ export async function POST(request: NextRequest) {
         .join('\n')
 
       try {
+        const summaryModel = await getLLMModel('summary')
         const { text, usage } = await generateText({
-          model: openai('gpt-4o-mini'),
+          model: summaryModel,
           maxTokens: 200, // Résumé court = pas besoin de plus
           system:
             'Tu es un assistant qui résume des conversations. Produis un résumé en 3 à 5 phrases en français. ' +
@@ -240,11 +230,11 @@ export async function POST(request: NextRequest) {
         return {
           id: s.id,
           nom: s.nom,
-          departements: JSON.parse(s.departements || '[]'),
-          regions: JSON.parse(s.regions || '[]'),
+          departements: safeJsonParse<string[]>(s.departements, []),
+          regions: safeJsonParse<string[]>(s.regions, []),
           ageMin: s.ageMin ?? 16,
           ageMax: s.ageMax ?? 25,
-          specialites: JSON.parse(s.specialites || '[]'),
+          specialites: safeJsonParse<string[]>(s.specialites, []),
           genrePreference: s.genrePreference,
           capaciteMax: s.capaciteMax ?? 50,
           casActifs: casActifsResult[0]?.count ?? 0,

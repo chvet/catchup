@@ -1,5 +1,9 @@
 # 02 — Engagement du jeune & mise en relation conseiller
 
+> **Statut :** Implémenté  
+> **Dernière mise à jour spec :** 2026-04-07  
+> **Fichiers clés :** `src/core/referral-trigger.ts`, `src/core/fragility-detector.ts`, `src/app/api/referrals/`
+
 ## Principe directeur
 **Le jeune reste maître de la décision.** Catch'Up détecte, propose, mais ne force jamais. La mise en relation avec un conseiller humain est présentée comme une opportunité, pas comme un aveu d'échec de l'IA.
 
