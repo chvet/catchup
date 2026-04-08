@@ -10,7 +10,12 @@ export const maxDuration = 30
 
 export async function POST(req: Request) {
   try {
-    const { messages, profile, messageCount, fromQuiz, fragilityLevel, conversationId, userName, structureSlug, language, userLocation } = await req.json()
+    const body = await req.json()
+    const { messages, profile, messageCount, fromQuiz, fragilityLevel, conversationId, userName, structureSlug, language, userLocation } = body || {}
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: 'Messages requis' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    }
 
     // ── Fetch structure prompt if structureSlug is provided ──
     let structurePrompt: string | undefined
