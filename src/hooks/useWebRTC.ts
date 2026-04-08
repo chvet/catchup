@@ -1,17 +1,19 @@
 // Hook WebRTC P2P — gère la connexion audio/vidéo entre 2 pairs
 // Signaling via SSE + POST sur /api/visio/signal
+// Compatible iOS Safari (getUserMedia fallback, autoplay, background handling)
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  // TURN relay dédié sur notre serveur (pour NAT symétriques / 4G)
+  // TURN relay UDP
   {
     urls: 'turn:catchup.jaeprive.fr:3478',
     username: 'catchup',
     credential: 'CatchUp2024Turn!',
   },
+  // TURN relay TCP (plus fiable sur cellular)
   {
     urls: 'turn:catchup.jaeprive.fr:3478?transport=tcp',
     username: 'catchup',
@@ -79,7 +81,7 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
     cleanedUpRef.current = false
     setError(null)
 
-    // 1. Obtenir caméra + micro
+    // 1. Obtenir caméra + micro (avec fallback iOS Safari)
     let stream: MediaStream
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -87,9 +89,24 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       })
     } catch (e) {
-      console.error('[WebRTC] getUserMedia failed:', e)
-      setError('Impossible d\'accéder à la caméra ou au micro. Vérifiez les permissions.')
-      return
+      const err = e as DOMException
+      console.warn('[WebRTC] getUserMedia failed:', err.name, err.message)
+
+      // Fallback iOS : contraintes minimales si les avancées échouent
+      if (err.name === 'NotSupportedError' || err.name === 'OverconstrainedError' || err.name === 'TypeError') {
+        try {
+          console.log('[WebRTC] Retry with minimal constraints (iOS fallback)')
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        } catch (e2) {
+          const err2 = e2 as DOMException
+          console.error('[WebRTC] Fallback getUserMedia failed:', err2.name)
+          setError(getMediaErrorMessage(err2))
+          return
+        }
+      } else {
+        setError(getMediaErrorMessage(err))
+        return
+      }
     }
     localStreamRef.current = stream
     setLocalStream(stream)
@@ -132,6 +149,10 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
 
     pc.oniceconnectionstatechange = () => {
       console.log('[WebRTC] iceConnectionState:', pc.iceConnectionState)
+      // iOS Safari : reconnecter si ICE échoue
+      if (pc.iceConnectionState === 'failed') {
+        try { pc.restartIce() } catch { /* not supported on all browsers */ }
+      }
     }
 
     pc.onsignalingstatechange = () => {
@@ -158,18 +179,32 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
             break
           }
           case 'offer': {
-            if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer') break
-            await pc.setRemoteDescription(new RTCSessionDescription(signal.data))
-            await flushPendingCandidates(pc)
-            const answer = await pc.createAnswer()
-            await pc.setLocalDescription(answer)
-            sendSignal('answer', pc.localDescription)
+            if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer') {
+              console.warn('[WebRTC] Ignoring offer, signalingState:', pc.signalingState)
+              break
+            }
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(signal.data))
+              await flushPendingCandidates(pc)
+              const answer = await pc.createAnswer()
+              await pc.setLocalDescription(answer)
+              sendSignal('answer', pc.localDescription)
+            } catch (offerErr) {
+              console.error('[WebRTC] Failed to process offer:', offerErr)
+            }
             break
           }
           case 'answer': {
-            if (pc.signalingState !== 'have-local-offer') break
-            await pc.setRemoteDescription(new RTCSessionDescription(signal.data))
-            await flushPendingCandidates(pc)
+            if (pc.signalingState !== 'have-local-offer') {
+              console.warn('[WebRTC] Ignoring answer, signalingState:', pc.signalingState)
+              break
+            }
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(signal.data))
+              await flushPendingCandidates(pc)
+            } catch (answerErr) {
+              console.error('[WebRTC] Failed to process answer:', answerErr)
+            }
             break
           }
           case 'ice-candidate': {
@@ -194,7 +229,7 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
     }
 
     es.onerror = () => {
-      // SSE auto-reconnecte, mais si la session est morte on cleanup
+      console.warn('[WebRTC] SSE error — will auto-reconnect')
     }
 
     // 4. Si bénéficiaire → envoyer 'accept' pour déclencher l'offre du conseiller
@@ -230,24 +265,26 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
 
   // Cleanup au démontage
   useEffect(() => {
-    return () => {
-      cleanup()
-    }
+    return () => { cleanup() }
   }, [cleanup])
 
-  // Gestion du passage en arrière-plan (iOS)
+  // Gestion du passage en arrière-plan (iOS : couper video + audio)
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'hidden' && localStreamRef.current) {
-        // Couper la vidéo en arrière-plan (économie batterie)
+        // Couper video en arrière-plan (économie batterie iOS)
         localStreamRef.current.getVideoTracks().forEach(t => { t.enabled = false })
-      } else if (document.visibilityState === 'visible' && localStreamRef.current && videoEnabled) {
-        localStreamRef.current.getVideoTracks().forEach(t => { t.enabled = true })
+        // Couper audio aussi pour éviter les échos
+        localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = false })
+      } else if (document.visibilityState === 'visible' && localStreamRef.current) {
+        // Restaurer selon les préférences utilisateur
+        localStreamRef.current.getVideoTracks().forEach(t => { t.enabled = videoEnabled })
+        localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = audioEnabled })
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [videoEnabled])
+  }, [audioEnabled, videoEnabled])
 
   return {
     localStream,
@@ -261,5 +298,23 @@ export function useWebRTC({ sessionId, role, onRemoteHangup }: UseWebRTCOptions)
     cleanup,
     toggleAudio,
     toggleVideo,
+  }
+}
+
+// Messages d'erreur adaptés par type d'erreur (iOS-specific)
+function getMediaErrorMessage(err: DOMException): string {
+  switch (err.name) {
+    case 'NotAllowedError':
+      return 'Acces camera/micro refuse. Sur iPhone, allez dans Reglages > Safari > Camera et Microphone.'
+    case 'NotFoundError':
+      return 'Aucune camera ou micro detecte sur cet appareil.'
+    case 'NotSupportedError':
+      return 'Votre navigateur ne supporte pas la visio. Utilisez Safari sur iPhone ou Chrome sur Android.'
+    case 'NotReadableError':
+      return 'Camera ou micro deja utilise par une autre application. Fermez-la et reessayez.'
+    case 'OverconstrainedError':
+      return 'Camera incompatible avec les parametres demandes. Reessayez.'
+    default:
+      return `Impossible d'acceder a la camera ou au micro (${err.name}).`
   }
 }

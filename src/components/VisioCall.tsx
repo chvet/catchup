@@ -1,8 +1,8 @@
 'use client'
 
 // Composant visio plein écran — WebRTC P2P
+// Compatible iOS Safari : playsInline, autoPlay, muted, user gesture
 // Responsive : plein écran mobile (safe-area) + desktop
-// Contrôles : micro, caméra, raccrocher + timer
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useWebRTC } from '@/hooks/useWebRTC'
@@ -33,11 +33,23 @@ export default function VisioCall({ sessionId, role, peerName, onEnd }: VisioCal
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const [elapsed, setElapsed] = useState(0)
   const [showControls, setShowControls] = useState(true)
+  const [callStarted, setCallStarted] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Démarrer la connexion au montage
-  useEffect(() => {
+  // iOS Safari : démarrer uniquement après un geste utilisateur
+  const handleStartCall = useCallback(() => {
+    setCallStarted(true)
     start()
+  }, [start])
+
+  // Sur desktop/Android, démarrer automatiquement
+  useEffect(() => {
+    // Détecter iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    if (!isIOS) {
+      // Auto-start sur non-iOS (le geste est déjà le clic sur le bouton visio)
+      handleStartCall()
+    }
     return () => { cleanup() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -46,12 +58,16 @@ export default function VisioCall({ sessionId, role, peerName, onEnd }: VisioCal
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream
+      // iOS Safari : forcer le play après l'assignation du srcObject
+      localVideoRef.current.play().catch(() => {})
     }
   }, [localStream])
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream
+      // iOS Safari : forcer le play après l'assignation du srcObject
+      remoteVideoRef.current.play().catch(() => {})
     }
   }, [remoteStream])
 
@@ -65,7 +81,7 @@ export default function VisioCall({ sessionId, role, peerName, onEnd }: VisioCal
     }
   }, [connected])
 
-  // Auto-hide des contrôles sur mobile après 5s
+  // Auto-hide des contrôles après 5s
   useEffect(() => {
     if (!connected) return
     const timeout = setTimeout(() => setShowControls(false), 5000)
@@ -104,6 +120,35 @@ export default function VisioCall({ sessionId, role, peerName, onEnd }: VisioCal
             className="px-6 py-3 bg-white/10 rounded-xl text-sm font-medium hover:bg-white/20 transition-colors"
           >
             Fermer
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // iOS : écran d'attente avec bouton pour démarrer (user gesture requis)
+  if (!callStarted) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-6">
+        <div className="text-center text-white max-w-sm">
+          <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4 ring-4 ring-white/5">
+            <span className="text-4xl font-bold text-white/80">
+              {peerName[0]?.toUpperCase() || '?'}
+            </span>
+          </div>
+          <p className="text-lg font-medium mb-2">{peerName}</p>
+          <p className="text-sm text-white/50 mb-6">Appuyez pour demarrer l&apos;appel video</p>
+          <button
+            onClick={handleStartCall}
+            className="px-8 py-4 bg-green-500 rounded-2xl text-lg font-semibold hover:bg-green-600 active:scale-95 transition-all shadow-lg shadow-green-500/30"
+          >
+            Demarrer l&apos;appel
+          </button>
+          <button
+            onClick={onEnd}
+            className="block mx-auto mt-4 px-6 py-2 text-white/50 text-sm hover:text-white/80 transition-colors"
+          >
+            Annuler
           </button>
         </div>
       </div>
@@ -171,7 +216,7 @@ export default function VisioCall({ sessionId, role, peerName, onEnd }: VisioCal
               playsInline
               muted
               className="w-full h-full object-cover"
-              style={{ transform: 'scaleX(-1)' }}
+              style={{ transform: 'scaleX(-1)', WebkitTransform: 'scaleX(-1)' }}
             />
             {!videoEnabled && (
               <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
