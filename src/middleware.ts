@@ -75,7 +75,7 @@ export async function middleware(request: NextRequest) {
   const clientIP = getClientIP(request)
 
   // ══ 0) API VERSIONING — Rewrite /api/v1/* → /api/* ══
-  if (pathname.startsWith('/api/v1/') && !pathname.startsWith('/api/v1/docs') && !pathname.startsWith('/api/v1/heartbeat') && !pa
+  if (pathname.startsWith('/api/v1/') && !pathname.startsWith('/api/v1/docs') && !pathname.startsWith('/api/v1/heartbeat') && !pathname.startsWith('/api/v1/keys')) {
     const rewritten = pathname.replace('/api/v1/', '/api/')
     const url = request.nextUrl.clone()
     url.pathname = rewritten
