@@ -15,20 +15,23 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
+html {
   height: 100%;
-  height: 100dvh;
+  overflow: hidden;
+}
+
+body {
+  height: 100%;
   overflow: hidden;
   overflow-x: hidden;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Capacitor/WebView : quand le clavier est ouvert, utiliser la hauteur réelle du viewport */
-@supports (-webkit-touch-callout: none) {
-  html, body {
-    height: -webkit-fill-available;
-  }
+/* Capacitor/WebView : permettre au body de se redimensionner quand le clavier s'ouvre */
+body.keyboard-open {
+  height: auto !important;
+  min-height: 100%;
 }
 
 /* Online status dot pulse animation */
