@@ -173,7 +173,8 @@ export default function StructuresPage() {
   const handleCopyStructureLink = async (id: string, slug: string) => {
     const url = `https://catchup.jaeprive.fr/?s=${slug}`
     try {
-      await navigator.clipboard.writeText(url)
+      const { copyToClipboard } = await import('@/lib/clipboard')
+      await copyToClipboard(url)
       setCopiedId(id)
       setTimeout(() => setCopiedId(null), 2000)
     } catch {

@@ -49,7 +49,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+                var isCapacitor = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+                if (isCapacitor || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
                   navigator.serviceWorker.getRegistrations().then(function(regs) {
                     regs.forEach(function(r) { r.unregister(); });
                   });

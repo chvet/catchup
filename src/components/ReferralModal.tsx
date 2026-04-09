@@ -321,7 +321,7 @@ export default function ReferralModal({
 
       {/* Modal */}
       <div
-        className={`relative w-full md:max-w-lg bg-white rounded-t-3xl md:rounded-2xl shadow-2xl transform transition-all duration-300 ease-out max-h-[90vh] overflow-y-auto ${
+        className={`relative w-full md:max-w-lg bg-white rounded-t-3xl md:rounded-2xl shadow-2xl transform transition-all duration-300 ease-out max-h-[85vh] max-h-[85dvh] overflow-y-auto ${
           isVisible
             ? 'translate-y-0 opacity-100'
             : 'translate-y-full md:translate-y-8 opacity-0'
@@ -341,6 +341,15 @@ export default function ReferralModal({
             </p>
           </div>
         )}
+
+        {/* Bouton fermer (croix) — toujours visible */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
+          aria-label="Fermer"
+        >
+          &times;
+        </button>
 
         {/* Content */}
         <div className="px-6 py-6 md:py-8">

@@ -331,7 +331,8 @@ export default function StructureDetailPage() {
   const handleCopyLink = async () => {
     if (!structureUrl) return
     try {
-      await navigator.clipboard.writeText(structureUrl)
+      const { copyToClipboard } = await import('@/lib/clipboard')
+      await copyToClipboard(structureUrl)
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
     } catch {

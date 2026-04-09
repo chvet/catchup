@@ -88,8 +88,24 @@ interface StructureSuggestion {
   raisons?: string[]
 }
 
+// Hook pour suivre la hauteur réelle du viewport (clavier Android/iOS)
+function useViewportHeight() {
+  const [height, setHeight] = useState<number | null>(null)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => setHeight(vv.height)
+    update()
+    vv.addEventListener('resize', update)
+    return () => vv.removeEventListener('resize', update)
+  }, [])
+  return height
+}
+
 export default function ChatApp() {
   const brandConfig = useAppBrand()
+  const viewportHeight = useViewportHeight()
   const [sessionId] = useState(() => loadFromLS<string>(LS_SESSION_KEY, '') || uuidv4())
   const [savedPrenom] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
@@ -901,7 +917,7 @@ export default function ChatApp() {
   }
 
   return (
-    <div id="main-content" className={`h-[100dvh] w-screen max-w-full flex flex-col overflow-hidden ${rgaaMode ? 'rgaa-mode' : ''}`} role="main" aria-label="Chat Catch'Up">
+    <div id="main-content" className={`h-dvh w-screen max-w-full flex flex-col overflow-hidden ${rgaaMode ? 'rgaa-mode' : ''}`} role="main" aria-label="Chat Catch'Up" style={{ height: viewportHeight ? `${viewportHeight}px` : '100dvh' }}>
       <ChatHeader
         profile={profile}
         streak={gameState?.streakActuel ?? 0}

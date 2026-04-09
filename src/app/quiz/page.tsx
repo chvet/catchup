@@ -262,7 +262,8 @@ function ResultScreen({
     } else {
       // Fallback : copier le lien
       try {
-        await navigator.clipboard.writeText(shareText)
+        const { copyToClipboard } = await import('@/lib/clipboard')
+        await copyToClipboard(shareText)
         setShared(true)
         setTimeout(() => setShared(false), 2000)
       } catch {

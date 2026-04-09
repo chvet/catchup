@@ -35,9 +35,11 @@ const config: CapacitorConfig = {
     backgroundColor: '#1A1A2E',
     allowMixedContent: false,
     captureInput: true,
-    webContentsDebuggingEnabled: false,
+    webContentsDebuggingEnabled: true,  // debug via chrome://inspect
     initialFocus: true,
-    overrideUserAgent: 'CatchUp-Android',
+    // Pas d'override user-agent : garde le user-agent Chrome natif
+    // (nécessaire pour la détection iOS dans le code visio et la compatibilité WebRTC)
+    appendUserAgent: 'CatchUp-Android',  // ajoute au lieu de remplacer
   },
 };
 

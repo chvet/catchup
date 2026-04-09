@@ -132,8 +132,9 @@ export default function ParametresPage() {
     ? `/api/qrcode?data=${encodeURIComponent(beneficiaireUrl)}&size=400&v=2`
     : null
 
-  const handleCopy = (url: string) => {
-    navigator.clipboard.writeText(url)
+  const handleCopy = async (url: string) => {
+    const { copyToClipboard } = await import('@/lib/clipboard')
+    await copyToClipboard(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

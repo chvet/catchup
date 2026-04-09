@@ -24,6 +24,13 @@ html, body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Capacitor/WebView : quand le clavier est ouvert, utiliser la hauteur réelle du viewport */
+@supports (-webkit-touch-callout: none) {
+  html, body {
+    height: -webkit-fill-available;
+  }
+}
+
 /* Online status dot pulse animation */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
