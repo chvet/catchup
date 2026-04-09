@@ -88,17 +88,34 @@ interface StructureSuggestion {
   raisons?: string[]
 }
 
-// Hook pour suivre la hauteur réelle du viewport (clavier Android/iOS)
+// Hook pour suivre la hauteur réelle du viewport (clavier Android/iOS/WebView)
 function useViewportHeight() {
   const [height, setHeight] = useState<number | null>(null)
   useEffect(() => {
     if (typeof window === 'undefined') return
     const vv = window.visualViewport
-    if (!vv) return
-    const update = () => setHeight(vv.height)
+    if (!vv) {
+      // Fallback : utiliser window.innerHeight
+      const fallback = () => setHeight(window.innerHeight)
+      fallback()
+      window.addEventListener('resize', fallback)
+      return () => window.removeEventListener('resize', fallback)
+    }
+    const update = () => {
+      setHeight(vv.height)
+      // Forcer le body à la bonne taille (nécessaire dans les WebView)
+      document.documentElement.style.height = vv.height + 'px'
+      document.body.style.height = vv.height + 'px'
+    }
     update()
     vv.addEventListener('resize', update)
-    return () => vv.removeEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+      document.documentElement.style.height = ''
+      document.body.style.height = ''
+    }
   }, [])
   return height
 }
