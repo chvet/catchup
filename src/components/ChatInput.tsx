@@ -151,10 +151,16 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
             placeholder="Message..."
             rows={1}
             disabled={isLoading || transcribing}
-            className="flex-1 min-w-0 resize-none bg-transparent py-2 pr-1 text-[15px] text-gray-800 placeholder-gray-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 min-w-0 resize-none bg-transparent py-2 pr-1 text-[16px] text-gray-800 placeholder-gray-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ maxHeight: '100px' }}
             autoFocus
             aria-describedby="chat-input-hint"
+            onFocus={() => {
+              // Scroll l'input en vue quand le clavier s'ouvre (WebView Android)
+              setTimeout(() => {
+                formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+              }, 300)
+            }}
           />
           <span id="chat-input-hint" className="sr-only">Appuyez sur Entrée pour envoyer, Maj+Entrée pour un saut de ligne</span>
 

@@ -89,32 +89,26 @@ interface StructureSuggestion {
 }
 
 // Hook pour suivre la hauteur réelle du viewport (clavier Android/iOS/WebView)
+// Utilise window.innerHeight qui se met à jour avec adjustResize dans la WebView
 function useViewportHeight() {
   const [height, setHeight] = useState<number | null>(null)
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const vv = window.visualViewport
-    if (!vv) {
-      // Fallback : utiliser window.innerHeight
-      const fallback = () => setHeight(window.innerHeight)
-      fallback()
-      window.addEventListener('resize', fallback)
-      return () => window.removeEventListener('resize', fallback)
-    }
     const update = () => {
-      setHeight(vv.height)
-      // Forcer le body à la bonne taille (nécessaire dans les WebView)
-      document.documentElement.style.height = vv.height + 'px'
-      document.body.style.height = vv.height + 'px'
+      const h = window.innerHeight
+      setHeight(h)
+      document.documentElement.style.setProperty('--app-height', h + 'px')
     }
     update()
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
+    window.addEventListener('resize', update)
+    // Aussi écouter visualViewport si dispo (iOS Safari)
+    const vv = window.visualViewport
+    if (vv) {
+      vv.addEventListener('resize', update)
+    }
     return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
-      document.documentElement.style.height = ''
-      document.body.style.height = ''
+      window.removeEventListener('resize', update)
+      if (vv) vv.removeEventListener('resize', update)
     }
   }, [])
   return height
@@ -934,7 +928,7 @@ export default function ChatApp() {
   }
 
   return (
-    <div id="main-content" className={`h-dvh w-screen max-w-full flex flex-col overflow-hidden ${rgaaMode ? 'rgaa-mode' : ''}`} role="main" aria-label="Chat Catch'Up" style={{ height: viewportHeight ? `${viewportHeight}px` : '100dvh' }}>
+    <div id="main-content" className={`w-screen max-w-full flex flex-col overflow-hidden ${rgaaMode ? 'rgaa-mode' : ''}`} role="main" aria-label="Chat Catch'Up" style={{ height: 'var(--app-height, 100dvh)' }}>
       <ChatHeader
         profile={profile}
         streak={gameState?.streakActuel ?? 0}
