@@ -2,10 +2,26 @@
 
 import { useState } from 'react'
 
-export const APP_VERSION = 'V2.0 Beta 009'
-export const APP_VERSION_DATE = '2026-04-05'
+export const APP_VERSION = 'V2.0 Beta 010'
+export const APP_VERSION_DATE = '2026-04-09'
+export const APP_BUILD_TIME = process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString()
 
 const CHANGELOG = [
+  {
+    version: 'V2.0 Beta 010',
+    date: '09/04/2026',
+    items: [
+      'Architecture resilience fournisseurs (OpenAI/Anthropic/Mistral)',
+      'Routage intelligent LLM (economique vs premium)',
+      'Architecture freemium (plans free/starter/pro/premium)',
+      'Recherche multi-criteres structures',
+      'Stats campagnes (visites/conversations/demandes/accompagnements)',
+      'Visio WebRTC compatible iOS Safari',
+      'APK Android (Capacitor)',
+      'Responsive mobile + ecrans plies',
+      'Refactoring : constantes centralisees, safeJsonParse, JWT dedup',
+    ],
+  },
   {
     version: 'V2.0 Beta 009',
     date: '05/04/2026',
@@ -74,7 +90,7 @@ export default function VersionPanel() {
         title="Informations de version"
         aria-expanded={open}
       >
-        {APP_VERSION}
+        {APP_VERSION} &middot; {new Date(APP_BUILD_TIME).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} {new Date(APP_BUILD_TIME).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
       </button>
 
       {open && (
@@ -87,7 +103,9 @@ export default function VersionPanel() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold">Catch&apos;Up {APP_VERSION}</h3>
-                  <p className="text-[11px] text-white/70">Fondation JAE — Plateforme d&apos;orientation</p>
+                  <p className="text-[11px] text-white/70">
+                    Build : {new Date(APP_BUILD_TIME).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })} {new Date(APP_BUILD_TIME).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </div>
                 <div className="text-right">
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-semibold">
