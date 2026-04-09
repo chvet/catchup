@@ -42,12 +42,21 @@ export interface PlanDefinition {
   quotas: Record<QuotaKey, number>  // -1 = illimité
 }
 
+// Toutes les features sont disponibles dans tous les plans
+// Seuls les quotas différencient les plans
+const ALL_FEATURES: Feature[] = [
+  'chat_ia', 'file_active', 'qr_code', 'quiz', 'prise_en_charge',
+  'messagerie', 'visio', 'calendrier', 'campagnes',
+  'assistant_ia', 'export', 'prompt_personnalise', 'branding_logo',
+  'api_externe', 'multi_structure',
+]
+
 export const PLANS: Record<PlanId, PlanDefinition> = {
   free: {
     id: 'free',
     label: 'Gratuit',
     prixMensuel: null,
-    features: ['chat_ia', 'file_active', 'qr_code', 'quiz', 'prise_en_charge'],
+    features: ALL_FEATURES,
     quotas: {
       beneficiaires: 5,
       conseillers: 1,
@@ -61,10 +70,7 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     id: 'starter',
     label: 'Starter',
     prixMensuel: 29,
-    features: [
-      'chat_ia', 'file_active', 'qr_code', 'quiz', 'prise_en_charge',
-      'messagerie', 'calendrier', 'campagnes',
-    ],
+    features: ALL_FEATURES,
     quotas: {
       beneficiaires: 30,
       conseillers: 5,
@@ -78,11 +84,7 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     id: 'pro',
     label: 'Pro',
     prixMensuel: 79,
-    features: [
-      'chat_ia', 'file_active', 'qr_code', 'quiz', 'prise_en_charge',
-      'messagerie', 'visio', 'calendrier', 'campagnes',
-      'assistant_ia', 'export', 'prompt_personnalise', 'branding_logo',
-    ],
+    features: ALL_FEATURES,
     quotas: {
       beneficiaires: -1,
       conseillers: 15,
@@ -96,12 +98,7 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     id: 'premium',
     label: 'Premium',
     prixMensuel: 199,
-    features: [
-      'chat_ia', 'file_active', 'qr_code', 'quiz', 'prise_en_charge',
-      'messagerie', 'visio', 'calendrier', 'campagnes',
-      'assistant_ia', 'export', 'prompt_personnalise', 'branding_logo',
-      'api_externe', 'multi_structure',
-    ],
+    features: ALL_FEATURES,
     quotas: {
       beneficiaires: -1,
       conseillers: -1,
