@@ -628,7 +628,7 @@ export default function ReferralModal({
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-800">Peu importe</span>
+                      <span className="text-sm font-medium text-gray-800">Je n'en sais rien</span>
                       {preferenceStructure === 'indifferent' && <span className="text-gray-500">&#x2713;</span>}
                     </div>
                   </button>
