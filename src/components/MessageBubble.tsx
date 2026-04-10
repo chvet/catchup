@@ -78,6 +78,9 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
                 <path d="M12.354 4.354a.5.5 0 00-.708-.708L5 10.293 2.354 7.646a.5.5 0 10-.708.708l3 3a.5.5 0 00.708 0l7-7z"/>
               </svg>
             )}
+            {!isUser && isConfidential && (
+              <span className="text-[10px] font-bold text-white/70">Confidentiel</span>
+            )}
             {!isUser && !voiceData && (
               <button
                 onClick={onSpeak}
