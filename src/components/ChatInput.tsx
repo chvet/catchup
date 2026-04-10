@@ -164,7 +164,7 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
                 formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
               }, 300)
             }}
-            onBlur={() => onBlur?.()}
+            onBlur={() => { setTimeout(() => onBlur?.(), 150) }}
           />
           <span id="chat-input-hint" className="sr-only">Appuyez sur Entrée pour envoyer, Maj+Entrée pour un saut de ligne</span>
 

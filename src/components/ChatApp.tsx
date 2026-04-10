@@ -389,6 +389,7 @@ export default function ChatApp() {
       persistMessage({ role: 'user', contenu: input.trim() })
     }
     handleSubmit(e)
+    setInputFocused(false)
   }, [input, handleSubmit, persistMessage])
 
   // Handler pour les messages vocaux (audio + transcription → AI)
