@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   try {
     // Rate limit : 3 renvois / 15 min / IP
     const ip = getClientIP(request)
-    const rl = checkRateLimit(ip, { maxRequests: 3, windowSeconds: 900, prefix: 'resend_pin' })
+    const rl = checkRateLimit(ip, { maxRequests: 10, windowSeconds: 900, prefix: 'resend_pin' })
     if (!rl.allowed) return rateLimitResponse(rl.retryAfterSeconds)
 
     const { email } = await request.json()

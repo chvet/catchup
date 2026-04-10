@@ -112,7 +112,7 @@ export async function middleware(request: NextRequest) {
     if (!rl.allowed) return new NextResponse(JSON.stringify({ error: 'Trop de tentatives de connexion.' }), { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } })
   }
   if (pathname === '/api/accompagnement/verify' && request.method === 'POST') {
-    const rl = checkRateLimit(`verify:${clientIP}`, 5, 15 * 60 * 1000)
+    const rl = checkRateLimit(`verify:${clientIP}`, 15, 15 * 60 * 1000)
     if (!rl.allowed) return new NextResponse(JSON.stringify({ error: 'Trop de tentatives.' }), { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } })
   }
   if (pathname === '/api/tiers/verify' && request.method === 'POST') {
