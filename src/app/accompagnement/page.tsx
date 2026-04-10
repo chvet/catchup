@@ -331,7 +331,7 @@ export default function AccompagnementPage() {
                 </p>
               ) : (
                 <>
-                  <p className="text-xs text-gray-400 mb-2">Vous n&apos;avez pas recu de code ?</p>
+                  <p className="text-xs text-gray-400 mb-2">Code perdu ou non re\u00e7u ?</p>
                   <button
                     onClick={async () => {
                       if (!email.trim() || resending) return
@@ -359,8 +359,11 @@ export default function AccompagnementPage() {
                     disabled={!email.trim() || resending}
                     className="text-xs text-catchup-primary font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                   >
-                    {resending ? 'Envoi en cours...' : 'Renvoyer un code'}
+                    {resending ? 'Envoi en cours...' : 'Recevoir un nouveau code'}
                   </button>
+                  <p className="text-[10px] text-gray-300 mt-2">
+                    Vous pouvez aussi demander \u00e0 votre conseiller de vous renvoyer le code
+                  </p>
                 </>
               )}
             </div>
