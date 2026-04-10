@@ -1,0 +1,46 @@
+services:
+  # ═══ App Catch'Up BETA (beta.catchup.jaeprive.fr) ═══
+  catchup-beta:
+    build: .
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "3003:3000"
+    environment:
+      - DATABASE_URL=postgres://catchup:${POSTGRES_PASSWORD:-CatchUp2026Pg}@postgres:5432/catchup_beta
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - JWT_SECRET=${JWT_SECRET:-catchup-beta-secret-2026}
+      - PRO_HOST=pro.beta.catchup.jaeprive.fr
+      - PUBLIC_HOST=beta.catchup.jaeprive.fr
+      - APP_BRAND=catchup
+      - NOTIFICATION_MODE=${NOTIFICATION_MODE:-console}
+      - SMTP_FROM=${SMTP_FROM:-noreply@fondation-jae.org}
+      - O365_TENANT_ID=${O365_TENANT_ID}
+      - O365_CLIENT_ID=${O365_CLIENT_ID}
+      - O365_CLIENT_SECRET=${O365_CLIENT_SECRET}
+      - TOKEN_DAILY_LIMIT=200000
+      - TOKEN_MONTHLY_LIMIT=2000000
+      - PARCOUREO_API_URL=${PARCOUREO_API_URL:-}
+      - PARCOUREO_API_KEY=${PARCOUREO_API_KEY:-}
+      - GOOGLE_CALENDAR_CLIENT_ID=${GOOGLE_CALENDAR_CLIENT_ID}
+      - GOOGLE_CALENDAR_CLIENT_SECRET=${GOOGLE_CALENDAR_CLIENT_SECRET}
+      - GOOGLE_CALENDAR_REDIRECT_URI=https://beta.catchup.jaeprive.fr/api/calendar/google/callback
+      - O365_CALENDAR_REDIRECT_URI=https://beta.catchup.jaeprive.fr/api/calendar/outlook/callback
+      - VONAGE_API_KEY=${VONAGE_API_KEY}
+      - VONAGE_API_SECRET=${VONAGE_API_SECRET}
+      - VONAGE_SMS_FROM=${VONAGE_SMS_FROM:-CatchUp}
+    volumes:
+      - /mnt/HC_Volume_105238085/catchup-beta-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+# Note : le service postgres est dans docker-compose.yml (partagé avec la prod)
+# Ce fichier se lance AVEC le docker-compose.yml principal :
+#   docker-compose -f docker-compose.yml -f docker-compose.beta.yml up -d catchup-beta
