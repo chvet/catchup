@@ -39,7 +39,7 @@ export async function GET(
     const conv = convs[0] || null
 
     // 3. Récupérer tous les messages, triés par horodatage
-    const messages = await db
+    const rawMessages = await db
       .select({
         id: message.id,
         role: message.role,
@@ -47,11 +47,18 @@ export async function GET(
         contenuBrut: message.contenuBrut,
         fragiliteDetectee: message.fragiliteDetectee,
         niveauFragilite: message.niveauFragilite,
+        confidentiel: message.confidentiel,
         horodatage: message.horodatage,
       })
       .from(message)
       .where(eq(message.conversationId, convId))
       .orderBy(asc(message.horodatage))
+
+    // Masquer le contenu des messages confidentiels pour le conseiller
+    const messages = rawMessages.map(m => m.confidentiel === 1
+      ? { ...m, contenu: null, contenuBrut: null }
+      : m
+    )
 
     // 4. Audit — tracer la consultation de la conversation (RGPD)
     await logAudit(ctx.id, 'view_conversation', 'referral', id)

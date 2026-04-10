@@ -147,8 +147,10 @@ export default function ChatApp() {
   const [structuresSuggerees, setStructuresSuggerees] = useState<StructureSuggestion[]>([])
   const [showStructures, setShowStructures] = useState(false)
   const [inputFocused, setInputFocused] = useState(false)
+  const [confidentialMode, setConfidentialMode] = useState(false)
   const [lastLlmModel, setLastLlmModel] = useState<string | null>(null)
   const llmModelMapRef = useRef<Record<string, string>>({})
+  const confidentialMsgIds = useRef<Set<string>>(new Set())
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [structureInfo, setStructureInfo] = useState<StructureInfo | null>(null)
@@ -311,6 +313,10 @@ export default function ChatApp() {
       if (lastLlmModel) {
         llmModelMapRef.current[message.id] = lastLlmModel
       }
+      // Marquer les réponses IA comme confidentielles si le mode est actif
+      if (confidentialMode) {
+        confidentialMsgIds.current.add(message.id)
+      }
       const extracted = extractProfileFromMessage(message.content)
       if (extracted) {
         setProfile(prev => mergeProfiles(prev, extracted))
@@ -335,7 +341,7 @@ export default function ChatApp() {
       }
 
       // Persister le message IA en DB
-      persistMessage({ role: 'assistant', contenu: cleanMessageContent(message.content), contenuBrut: message.content })
+      persistMessage({ role: 'assistant', contenu: cleanMessageContent(message.content), contenuBrut: message.content, confidentiel: confidentialMode })
 
       // Détecter le tag <!--REFERRAL_TRIGGER:--> dans la réponse IA
       const triggerMatch = message.content.match(/<!--REFERRAL_TRIGGER:(.*?)-->/)
@@ -357,7 +363,7 @@ export default function ChatApp() {
   })
 
   // Persister un message en DB (fire-and-forget)
-  const persistMessage = useCallback((msg: { role: string; contenu: string; contenuBrut?: string }) => {
+  const persistMessage = useCallback((msg: { role: string; contenu: string; contenuBrut?: string; confidentiel?: boolean }) => {
     fetch('/api/messages/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -396,12 +402,17 @@ export default function ChatApp() {
       if (frag !== 'none') {
         setCurrentFragility(frag)
       }
-      // Persister le message user en DB
-      persistMessage({ role: 'user', contenu: input.trim() })
+      // Persister le message user en DB (avec flag confidentiel)
+      persistMessage({ role: 'user', contenu: input.trim(), confidentiel: confidentialMode })
+      // Tracker les messages confidentiels pour l'affichage
+      if (confidentialMode) {
+        // Le prochain message user aura l'index messages.length
+        confidentialMsgIds.current.add(`user-${messages.length}`)
+      }
     }
     handleSubmit(e)
     setInputFocused(false)
-  }, [input, handleSubmit, persistMessage])
+  }, [input, handleSubmit, persistMessage, confidentialMode])
 
   // Handler pour les messages vocaux (audio + transcription → AI)
   const handleVoiceMessage = useCallback((blob: Blob, duration: number, transcription: string) => {
@@ -1308,6 +1319,7 @@ export default function ChatApp() {
                       voiceData={voiceDataMap.current.get(msg.content)}
                       genre={profile.genre}
                       llmModel={msg.role === 'assistant' ? llmModelMapRef.current[msg.id] : undefined}
+                      isConfidential={confidentialMsgIds.current.has(msg.id) || confidentialMsgIds.current.has(`user-${messages.indexOf(msg)}`)}
                     />
                     {showGeolocWidget && geolocRequestedForMsg === msg.id && (
                       <GeolocWidget onLocationSelected={(loc) => {
@@ -1401,6 +1413,8 @@ export default function ChatApp() {
                 onVoiceMessage={handleVoiceMessage}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
+                confidentialMode={confidentialMode}
+                onToggleConfidential={() => setConfidentialMode(c => !c)}
               />
             </div>
 

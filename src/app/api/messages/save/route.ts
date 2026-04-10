@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
       contenuBrut: msg.contenuBrut ?? null,
       fragiliteDetectee: fragilityResult.level !== 'none' ? 1 : 0,
       niveauFragilite: fragilityResult.level,
+      confidentiel: msg.confidentiel ? 1 : 0,
       horodatage: now,
     })
 

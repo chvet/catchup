@@ -102,7 +102,8 @@ interface CaseDetail {
 interface ConversationMessage {
   id: string
   role: string
-  contenu: string
+  contenu: string | null
+  confidentiel?: number | null
   fragiliteDetectee: boolean
   niveauFragilite: string | null
   horodatage: string
@@ -930,16 +931,22 @@ function ChatBubble({
           </p>
 
           {/* Bulle */}
-          <div className={`
-            px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
-            ${isUser
-              ? 'bg-catchup-primary text-white rounded-tr-md'
-              : 'bg-gray-100 text-gray-800 rounded-tl-md'
-            }
-            ${message.fragiliteDetectee ? 'ring-2 ring-orange-300' : ''}
-          `}>
-            {message.contenu}
-          </div>
+          {message.confidentiel ? (
+            <div className="px-4 py-2.5 rounded-2xl text-sm leading-relaxed bg-pink-100 text-pink-400 italic border border-pink-200 rounded-tl-md">
+              Message confidentiel
+            </div>
+          ) : (
+            <div className={`
+              px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
+              ${isUser
+                ? 'bg-catchup-primary text-white rounded-tr-md'
+                : 'bg-gray-100 text-gray-800 rounded-tl-md'
+              }
+              ${message.fragiliteDetectee ? 'ring-2 ring-orange-300' : ''}
+            `}>
+              {message.contenu}
+            </div>
+          )}
 
           {/* Indicateurs */}
           <div className={`flex items-center gap-2 mt-1 ${isUser ? 'justify-end' : 'justify-start'}`}>

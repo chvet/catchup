@@ -60,6 +60,7 @@ export const message = pgTable('message', {
   fragiliteDetectee: integer('fragilite_detectee').default(0),
   niveauFragilite: text('niveau_fragilite'),
   profilExtrait: integer('profil_extrait').default(0),
+  confidentiel: integer('confidentiel').default(0),    // 1 = message confidentiel (invisible pour le conseiller)
   horodatage: text('horodatage').notNull(),
 })
 

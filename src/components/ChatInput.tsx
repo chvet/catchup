@@ -16,9 +16,11 @@ interface Props {
   onVoiceMessage?: (blob: Blob, duration: number, transcription: string) => void
   onFocus?: () => void
   onBlur?: () => void
+  confidentialMode?: boolean
+  onToggleConfidential?: () => void
 }
 
-export default function ChatInput({ input, onChange, onSubmit, isLoading, inputRef, onAppend, onVoiceMessage, onFocus, onBlur }: Props) {
+export default function ChatInput({ input, onChange, onSubmit, isLoading, inputRef, onAppend, onVoiceMessage, onFocus, onBlur, confidentialMode, onToggleConfidential }: Props) {
   const formRef = useRef<HTMLFormElement>(null)
   const [transcribing, setTranscribing] = useState(false)
 
@@ -115,7 +117,15 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
   }
 
   return (
-    <div className="bg-white border-t border-gray-200 px-2 py-1 safe-area-bottom">
+    <div className={`border-t px-2 py-1 safe-area-bottom transition-colors ${confidentialMode ? 'bg-pink-50 border-pink-200' : 'bg-white border-gray-200'}`}>
+      {/* Bandeau mode confidentiel */}
+      {confidentialMode && (
+        <div className="flex items-center gap-2 px-3 py-1.5 mb-1 bg-pink-100 rounded-lg text-pink-700 text-xs">
+          <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" fill="none" stroke="currentColor" strokeWidth="2"/></svg>
+          Mode confidentiel - vos messages ne seront pas visibles par le conseiller
+        </div>
+      )}
+
       {/* Indicateur de transcription */}
       {transcribing && (
         <div className="flex items-center gap-2 px-3 py-1.5 mb-1 animate-fade-in" role="status" aria-live="polite">
@@ -133,6 +143,26 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
         onSubmit={onSubmit}
         className="flex items-end gap-1 max-w-3xl mx-auto"
       >
+        {/* Cadenas confidentiel */}
+        {onToggleConfidential && (
+          <button
+            type="button"
+            onClick={onToggleConfidential}
+            className={`p-2 rounded-full transition-all shrink-0 ${
+              confidentialMode
+                ? 'text-pink-600 bg-pink-100'
+                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+            }`}
+            title={confidentialMode ? 'Mode confidentiel actif - cliquez pour d\u00e9sactiver' : 'Activer le mode confidentiel'}
+            aria-label={confidentialMode ? 'D\u00e9sactiver le mode confidentiel' : 'Activer le mode confidentiel'}
+          >
+            <svg className="w-5 h-5" fill={confidentialMode ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0110 0v4" />
+            </svg>
+          </button>
+        )}
+
         {/* Pièce jointe à gauche (hors input) */}
         <FileAttachment onFile={handleFile} />
 

@@ -16,6 +16,7 @@ interface Props {
   voiceData?: VoiceData
   genre?: 'M' | 'F' | null
   llmModel?: string
+  isConfidential?: boolean
 }
 
 const AVATAR_BY_GENRE: Record<string, string> = {
@@ -34,7 +35,7 @@ function EqBars() {
 }
 
 
-export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, voiceData, genre, llmModel }: Props) {
+export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, voiceData, genre, llmModel, isConfidential }: Props) {
   const isUser = message.role === 'user'
   const msgDate = message.createdAt ? new Date(message.createdAt as string | number | Date) : new Date()
   const time = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -51,9 +52,9 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
       <div className="max-w-[80%] sm:max-w-[85%] md:max-w-[65%] min-w-0">
         <div
           className={`msg-bubble rounded-2xl px-3.5 py-2.5 shadow-sm ${
-            isUser
-              ? 'bg-catchup-primary text-white rounded-br-sm'
-              : 'bg-white text-gray-800 rounded-bl-sm'
+            isConfidential
+              ? (isUser ? 'bg-pink-400 text-white rounded-br-sm' : 'bg-pink-50 text-gray-800 rounded-bl-sm border border-pink-200')
+              : (isUser ? 'bg-catchup-primary text-white rounded-br-sm' : 'bg-white text-gray-800 rounded-bl-sm')
           } ${rgaaMode ? 'border-2 border-gray-700 !text-base !leading-relaxed' : ''}`}
         >
           {voiceData ? (
