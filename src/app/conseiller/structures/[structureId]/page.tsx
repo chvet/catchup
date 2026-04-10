@@ -835,7 +835,7 @@ export default function StructureDetailPage() {
             <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden bg-gray-50 flex-shrink-0">
               {logoPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`${logoPreview}?t=${Date.now()}`} alt={`Logo de la structure ${structure?.nom || ''}`} className="w-full h-full object-contain" />
+                <img src={logoPreview.startsWith('data:') ? logoPreview : `${logoPreview}?t=${Date.now()}`} alt={`Logo de la structure ${structure?.nom || ''}`} className="w-full h-full object-contain" />
               ) : (
                 <span className="text-gray-300 text-2xl" role="img" aria-label="Aucun logo">🏢</span>
               )}
