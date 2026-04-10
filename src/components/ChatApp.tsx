@@ -116,7 +116,6 @@ function useViewportHeight() {
 
 export default function ChatApp() {
   const brandConfig = useAppBrand()
-  const viewportHeight = useViewportHeight()
   const [sessionId] = useState(() => loadFromLS<string>(LS_SESSION_KEY, '') || uuidv4())
   const [savedPrenom] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
@@ -928,7 +927,7 @@ export default function ChatApp() {
   }
 
   return (
-    <div id="main-content" className={`w-screen max-w-full flex flex-col overflow-hidden ${rgaaMode ? 'rgaa-mode' : ''}`} role="main" aria-label="Chat Catch'Up" style={{ height: 'var(--app-height, 100dvh)' }}>
+    <div id="main-content" className={`fixed inset-0 w-screen max-w-full flex flex-col overflow-hidden ${rgaaMode ? 'rgaa-mode' : ''}`} role="main" aria-label="Chat Catch'Up">
       <ChatHeader
         profile={profile}
         streak={gameState?.streakActuel ?? 0}

@@ -15,16 +15,11 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-:root {
-  --app-height: 100vh;
-}
-
 html, body {
-  height: var(--app-height, 100vh);
+  height: 100%;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
-  overflow-x: hidden;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Online status dot pulse animation */
