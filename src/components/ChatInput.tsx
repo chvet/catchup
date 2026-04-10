@@ -14,9 +14,11 @@ interface Props {
   inputRef: React.RefObject<HTMLTextAreaElement | null>
   onAppend: (msg: { role: 'user'; content: string }) => void
   onVoiceMessage?: (blob: Blob, duration: number, transcription: string) => void
+  onFocus?: () => void
+  onBlur?: () => void
 }
 
-export default function ChatInput({ input, onChange, onSubmit, isLoading, inputRef, onAppend, onVoiceMessage }: Props) {
+export default function ChatInput({ input, onChange, onSubmit, isLoading, inputRef, onAppend, onVoiceMessage, onFocus, onBlur }: Props) {
   const formRef = useRef<HTMLFormElement>(null)
   const [transcribing, setTranscribing] = useState(false)
 
@@ -156,11 +158,13 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
             autoFocus
             aria-describedby="chat-input-hint"
             onFocus={() => {
+              onFocus?.()
               // Scroll l'input en vue quand le clavier s'ouvre (WebView Android)
               setTimeout(() => {
                 formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
               }, 300)
             }}
+            onBlur={() => onBlur?.()}
           />
           <span id="chat-input-hint" className="sr-only">Appuyez sur Entrée pour envoyer, Maj+Entrée pour un saut de ligne</span>
 

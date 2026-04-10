@@ -146,6 +146,7 @@ export default function ChatApp() {
   const [beneficiaireInfo, setBeneficiaireInfo] = useState<BeneficiaireInfo | null>(() => loadFromLS<BeneficiaireInfo | null>(LS_BENEFICIAIRE_INFO, null))
   const [structuresSuggerees, setStructuresSuggerees] = useState<StructureSuggestion[]>([])
   const [showStructures, setShowStructures] = useState(false)
+  const [inputFocused, setInputFocused] = useState(false)
   const [lastLlmModel, setLastLlmModel] = useState<string | null>(null)
   const llmModelMapRef = useRef<Record<string, string>>({})
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
@@ -1342,7 +1343,7 @@ export default function ChatApp() {
               </div>
 
               {/* ── Suggestions compactes (1 ligne, scroll horizontal) ── */}
-              {hasMessages && !isLoading && (
+              {hasMessages && !isLoading && !inputFocused && (
                 <div className="px-2 md:px-6 max-h-[48px] shrink-0" style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', touchAction: 'pan-x' }}>
                   <SuggestionChips onSelect={handleSuggestion} messageCount={userMessageCount} dynamicSuggestions={dynamicSuggestions} compact />
                 </div>
@@ -1355,8 +1356,8 @@ export default function ChatApp() {
                 </div>
               )}
 
-              {/* ── Barre compacte : statut referral OU bouton mise en relation ── */}
-              {hasMessages && referralStatus === 'prise_en_charge' ? (
+              {/* ── Barre compacte : statut referral OU bouton mise en relation (masqué quand clavier ouvert) ── */}
+              {!inputFocused && hasMessages && referralStatus === 'prise_en_charge' ? (
                 <div className="mx-2 md:mx-6 shrink-0">
                   <button
                     onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -1365,7 +1366,7 @@ export default function ChatApp() {
                     <span>🤝</span><span>Ton conseiller {referralConseillerPrenom} est disponible — clique ici pour discuter</span>
                   </button>
                 </div>
-              ) : (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee' || referralStatus === 'rupture') ? (
+              ) : !inputFocused && (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee' || referralStatus === 'rupture') ? (
                 <div className="mx-3 md:mx-6 shrink-0">
                   <button
                     onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}
@@ -1386,6 +1387,8 @@ export default function ChatApp() {
                 inputRef={inputRef}
                 onAppend={append}
                 onVoiceMessage={handleVoiceMessage}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
               />
             </div>
 
