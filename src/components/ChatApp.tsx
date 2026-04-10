@@ -1401,29 +1401,6 @@ export default function ChatApp() {
                 </div>
               )}
 
-              {/* ── Barre compacte : statut referral OU bouton mise en relation (masqué quand clavier ouvert) ── */}
-              {!inputFocused && hasMessages && referralStatus === 'prise_en_charge' ? (
-                <div className="mx-2 md:mx-6 shrink-0">
-                  <button
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                    className="w-full flex items-center justify-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded-full text-[11px] font-medium text-green-700 hover:bg-green-100 transition-colors"
-                  >
-                    <span>🤝</span><span>Ton conseiller {referralConseillerPrenom} est disponible — clique ici pour discuter</span>
-                  </button>
-                </div>
-              ) : !inputFocused && (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee' || referralStatus === 'rupture') ? (
-                <div className="mx-3 md:mx-6 shrink-0">
-                  <button
-                    onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-r from-catchup-primary to-catchup-secondary text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-                  >
-                    <span className="text-base">🙋</span>
-                    <span>Parler à un conseiller</span>
-                    <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                  </button>
-                </div>
-              ) : null}
-
               <ChatInput
                 input={input}
                 onChange={handleInputChange}
@@ -1436,6 +1413,29 @@ export default function ChatApp() {
                 onBlur={() => setInputFocused(false)}
                 confidentialMode={confidentialMode}
               />
+
+              {/* ── Bouton "Parler à un conseiller" — toujours en dernière ligne, sous l'input ── */}
+              {!inputFocused && hasMessages && referralStatus === 'prise_en_charge' ? (
+                <div className="mx-2 md:mx-6 py-1 shrink-0 safe-area-bottom">
+                  <button
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-green-50 border border-green-200 rounded-full text-[11px] font-medium text-green-700 hover:bg-green-100 transition-colors"
+                  >
+                    <span>🤝</span><span>Ton conseiller {referralConseillerPrenom} est disponible</span>
+                  </button>
+                </div>
+              ) : !inputFocused && (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee' || referralStatus === 'rupture') ? (
+                <div className="mx-2 md:mx-6 py-1 shrink-0 safe-area-bottom">
+                  <button
+                    onClick={() => { setReferralUrgency('gentle'); setShowReferralModal(true) }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-catchup-primary to-catchup-secondary text-white rounded-xl text-xs font-semibold shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
+                  >
+                    <span>🙋</span>
+                    <span>Parler à un conseiller</span>
+                    <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             {/* Profile panel */}
