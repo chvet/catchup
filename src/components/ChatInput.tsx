@@ -170,6 +170,27 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
           />
           <span id="chat-input-hint" className="sr-only">Appuyez sur Entrée pour envoyer, Maj+Entrée pour un saut de ligne</span>
 
+          {/* Cadenas confidentiel inside input */}
+          {onToggleConfidential && (
+            <div className="flex items-center pb-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={onToggleConfidential}
+                className={`p-1.5 rounded-full transition-all ${
+                  confidentialMode
+                    ? 'text-gray-700 bg-gray-200'
+                    : 'text-gray-300 hover:text-gray-500'
+                }`}
+                title={confidentialMode ? 'D\u00e9sactiver le mode confidentiel' : 'Activer le mode confidentiel'}
+              >
+                <svg className="w-4 h-4" fill={confidentialMode ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0110 0v4" />
+                </svg>
+              </button>
+            </div>
+          )}
+
           {/* Micro inside input, right side */}
           <div className="flex items-center pr-1 pb-1.5 shrink-0">
             <VoiceRecorder onRecorded={handleVoiceRecorded} disabled={isLoading || transcribing} />

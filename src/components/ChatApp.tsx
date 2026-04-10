@@ -1412,6 +1412,7 @@ export default function ChatApp() {
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
                 confidentialMode={confidentialMode}
+                onToggleConfidential={() => setConfidentialMode(c => !c)}
               />
 
               {/* ── Bouton "Parler à un conseiller" — toujours en dernière ligne, sous l'input ── */}

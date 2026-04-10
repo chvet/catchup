@@ -3,7 +3,7 @@
 
 import { db } from '@/data/db'
 import { messageDirect, conseiller, structure, utilisateur } from '@/data/schema'
-import { eq, asc } from 'drizzle-orm'
+import { eq, and, asc } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 import { getBeneficiaireFromToken } from '@/lib/accompagnement-helpers'
@@ -47,11 +47,15 @@ export async function GET(request: Request) {
       }
     }
 
-    // Marquer les messages du conseiller comme lus
+    // Marquer uniquement les messages du conseiller comme lus (pas ceux du bénéficiaire)
     await db
       .update(messageDirect)
       .set({ lu: 1 })
-      .where(eq(messageDirect.priseEnChargeId, beneficiaire.priseEnChargeId))
+      .where(and(
+        eq(messageDirect.priseEnChargeId, beneficiaire.priseEnChargeId),
+        eq(messageDirect.expediteurType, 'conseiller'),
+        eq(messageDirect.lu, 0)
+      ))
 
     return NextResponse.json({
       messages,

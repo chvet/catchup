@@ -272,6 +272,12 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
         const data = JSON.parse(event.data)
         // SSE envoie { type: 'connected' }, { type: 'typing' } ou { type: 'message', ...fields }
         if (data.type === 'connected') { setConnected(true); return }
+        if (data.type === 'messages_read') {
+          // Le conseiller a lu nos messages — mettre à jour le statut lu
+          const readIds = new Set(data.ids || [])
+          setMessages(prev => prev.map(m => readIds.has(m.id) ? { ...m, lu: true } : m))
+          return
+        }
         if (data.type === 'typing') {
           setConseillerTyping(true)
           if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)

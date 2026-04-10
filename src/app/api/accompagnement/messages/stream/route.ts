@@ -79,6 +79,21 @@ export async function GET(request: Request) {
               lastCheck = newMessages[newMessages.length - 1].horodatage
             }
 
+            // Vérifier si des messages du bénéficiaire ont été lus par le conseiller
+            const newlyRead = await db
+              .select({ id: messageDirect.id })
+              .from(messageDirect)
+              .where(
+                and(
+                  eq(messageDirect.priseEnChargeId, beneficiaire.priseEnChargeId),
+                  eq(messageDirect.expediteurType, 'beneficiaire'),
+                  eq(messageDirect.lu, 1)
+                )
+              )
+            if (newlyRead.length > 0) {
+              sendEvent(JSON.stringify({ type: 'messages_read', ids: newlyRead.map(m => m.id) }))
+            }
+
             // Vérifier si le conseiller est en train d'écrire
             if (beneficiaire.conseillerId && isTyping(beneficiaire.conseillerId)) {
               sendEvent(JSON.stringify({ type: 'typing', conseillerId: beneficiaire.conseillerId }))
