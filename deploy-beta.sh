@@ -7,6 +7,10 @@ set -e
 
 cd /opt/catchup
 
+# Auto-persistance : copier ce script hors du repo pour ne pas être écrasé par git checkout
+cp -f deploy-beta.sh /usr/local/bin/catchup-deploy-beta 2>/dev/null || true
+cp -f docker-compose.beta.yml /opt/catchup/docker-compose.beta.yml.bak 2>/dev/null || true
+
 echo "=========================================="
 echo "  Déploiement Catch'Up BETA — $(date '+%Y-%m-%d %H:%M')"
 echo "=========================================="
@@ -38,10 +42,13 @@ echo "[4/5] Redémarrage du container beta..."
 docker ps -a --format '{{.Names}}' | grep catchup-beta | xargs -r docker rm -f 2>/dev/null || true
 docker-compose -f docker-compose.yml -f docker-compose.beta.yml up -d catchup-beta
 
-# 5. Revenir sur main (pour ne pas casser la prod)
+# 5. Revenir sur main et restaurer les scripts
 echo ""
 echo "[5/5] Retour sur main..."
 git checkout main
+# Restaurer les fichiers beta écrasés par le checkout main
+cp -f /usr/local/bin/catchup-deploy-beta deploy-beta.sh 2>/dev/null || true
+cp -f /opt/catchup/docker-compose.beta.yml.bak docker-compose.beta.yml 2>/dev/null || true
 
 # Vérification
 echo ""
