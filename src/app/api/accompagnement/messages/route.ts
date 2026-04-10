@@ -115,22 +115,25 @@ export async function POST(request: Request) {
 
     await db.insert(messageDirect).values(newMessage)
 
-    // Traduction automatique vers le français pour le conseiller (non-bloquant)
+    // Traduction automatique vers le français pour le conseiller (bloquant avec timeout 3s)
+    let contenuTraduit: string | null = null
+    let langueCible: string | null = null
     try {
       const users2 = await db.select({ preferences: utilisateur.preferences }).from(utilisateur).where(eq(utilisateur.id, beneficiaire.utilisateurId))
       const prefs = safeJsonParse<Record<string, string>>(users2[0]?.preferences, {})
       const langBenef = prefs.langue || 'fr'
       if (langBenef !== 'fr') {
-        translateMessage(contenu.trim(), langBenef, 'fr').then(translated => {
-          if (translated) {
-            db.update(messageDirect)
-              .set({ contenuTraduit: translated, langueCible: 'fr' })
-              .where(eq(messageDirect.id, newMessage.id))
-              .catch(() => {})
-          }
-        }).catch(() => {})
+        const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
+        const translated = await Promise.race([translateMessage(contenu.trim(), langBenef, 'fr'), timeout])
+        if (translated) {
+          contenuTraduit = translated
+          langueCible = 'fr'
+          await db.update(messageDirect)
+            .set({ contenuTraduit, langueCible })
+            .where(eq(messageDirect.id, newMessage.id))
+        }
       }
-    } catch { /* traduction non-bloquante */ }
+    } catch { /* traduction non-bloquante en cas d'erreur */ }
 
     // Notification push au conseiller
     try {
@@ -139,7 +142,7 @@ export async function POST(request: Request) {
       notifyConseillerNewMessage(beneficiaire.conseillerId, prenom).catch(() => {})
     } catch { /* push non-bloquant */ }
 
-    return NextResponse.json({ message: newMessage }, { status: 201 })
+    return NextResponse.json({ message: { ...newMessage, contenuTraduit, langueCible } }, { status: 201 })
   } catch (error) {
     console.error('[Accompagnement Messages POST]', error)
     return NextResponse.json(

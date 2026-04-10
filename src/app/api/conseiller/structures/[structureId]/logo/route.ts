@@ -1,15 +1,11 @@
-// POST /api/conseiller/structures/[structureId]/logo — Upload du logo de la structure
+// POST /api/conseiller/structures/[structureId]/logo — Upload du logo de la structure (stocké en base64 dans la DB)
 // DELETE — Supprimer le logo
 
 import { getConseillerFromHeaders, hasRole, jsonError, jsonSuccess } from '@/lib/api-helpers'
 import { db } from '@/data/db'
 import { structure } from '@/data/schema'
 import { eq } from 'drizzle-orm'
-import { mkdir, writeFile, unlink } from 'fs/promises'
-import { join, extname } from 'path'
-import { existsSync } from 'fs'
 
-const UPLOADS_DIR = '/app/data/uploads/structures'
 const MAX_LOGO_SIZE = 2 * 1024 * 1024 // 2 MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
@@ -43,28 +39,22 @@ export async function POST(request: Request, { params }: Params) {
       return jsonError('Le logo ne doit pas depasser 2 Mo', 400)
     }
 
-    // Create directory
-    const structureDir = join(UPLOADS_DIR, structureId)
-    await mkdir(structureDir, { recursive: true })
-
-    // Write file
-    const ext = extname(file.name) || '.png'
-    const filename = `logo${ext}`
-    const filepath = join(structureDir, filename)
+    // Convertir en base64 data URI
     const buffer = Buffer.from(await file.arrayBuffer())
-    await writeFile(filepath, buffer)
+    const base64 = buffer.toString('base64')
+    const dataUri = `data:${file.type};base64,${base64}`
 
-    // Update DB
-    const logoUrl = `/api/conseiller/structures/${structureId}/logo/serve`
+    // Stocker directement dans la DB
     await db.update(structure).set({
-      logoUrl,
+      logoUrl: dataUri,
       misAJourLe: new Date().toISOString(),
     }).where(eq(structure.id, structureId))
 
-    return jsonSuccess({ logoUrl })
+    return jsonSuccess({ logoUrl: dataUri })
   } catch (error) {
-    console.error('[Structure Logo Upload]', error)
-    return jsonError('Erreur serveur', 500)
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('[Structure Logo Upload]', msg, error)
+    return jsonError(`Erreur serveur: ${msg}`, 500)
   }
 }
 
@@ -75,15 +65,6 @@ export async function DELETE(_request: Request, { params }: Params) {
 
     if (!hasRole(ctx, 'super_admin') && ctx.structureId !== structureId) {
       return jsonError('Acces refuse', 403)
-    }
-
-    // Remove file
-    const structureDir = join(UPLOADS_DIR, structureId)
-    for (const ext of ['.png', '.jpg', '.jpeg', '.webp', '.gif']) {
-      const filepath = join(structureDir, `logo${ext}`)
-      if (existsSync(filepath)) {
-        await unlink(filepath)
-      }
     }
 
     // Clear DB

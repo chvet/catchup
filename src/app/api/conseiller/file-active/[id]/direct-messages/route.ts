@@ -71,16 +71,17 @@ export async function GET(
       .from(referral)
       .where(eq(referral.id, referralId))
 
-    let beneficiaire: { prenom: string | null; age: number | null } = { prenom: null, age: null }
+    let beneficiaire: { prenom: string | null; age: number | null; langue: string } = { prenom: null, age: null, langue: 'fr' }
 
     if (refs.length > 0) {
       const users = await db
-        .select({ prenom: utilisateur.prenom, age: utilisateur.age })
+        .select({ prenom: utilisateur.prenom, age: utilisateur.age, preferences: utilisateur.preferences })
         .from(utilisateur)
         .where(eq(utilisateur.id, refs[0].utilisateurId))
 
       if (users.length > 0) {
-        beneficiaire = users[0]
+        const prefs = safeJsonParse<Record<string, string>>(users[0].preferences, {})
+        beneficiaire = { prenom: users[0].prenom, age: users[0].age, langue: prefs.langue || 'fr' }
       }
     }
 
@@ -159,22 +160,27 @@ export async function POST(
 
     await db.insert(messageDirect).values(newMessage)
 
-    // Traduction automatique vers la langue du bénéficiaire (non-bloquant)
+    // Traduction automatique vers la langue du bénéficiaire (bloquant avec timeout 3s)
+    let contenuTraduit: string | null = null
+    let langueCible: string | null = null
     const refs0 = await db.select({ utilisateurId: referral.utilisateurId }).from(referral).where(eq(referral.id, referralId))
     if (refs0.length > 0) {
-      const users = await db.select({ preferences: utilisateur.preferences }).from(utilisateur).where(eq(utilisateur.id, refs0[0].utilisateurId))
-      const prefs = safeJsonParse<Record<string, string>>(users[0]?.preferences, {})
-      const langBenef = prefs.langue || 'fr'
-      if (langBenef !== 'fr') {
-        translateMessage(contenu.trim(), 'fr', langBenef).then(translated => {
+      try {
+        const users = await db.select({ preferences: utilisateur.preferences }).from(utilisateur).where(eq(utilisateur.id, refs0[0].utilisateurId))
+        const prefs = safeJsonParse<Record<string, string>>(users[0]?.preferences, {})
+        const langBenef = prefs.langue || 'fr'
+        if (langBenef !== 'fr') {
+          const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
+          const translated = await Promise.race([translateMessage(contenu.trim(), 'fr', langBenef), timeout])
           if (translated) {
-            db.update(messageDirect)
-              .set({ contenuTraduit: translated, langueCible: langBenef })
+            contenuTraduit = translated
+            langueCible = langBenef
+            await db.update(messageDirect)
+              .set({ contenuTraduit, langueCible })
               .where(eq(messageDirect.id, messageId))
-              .catch(() => {})
           }
-        }).catch(() => {})
-      }
+        }
+      } catch { /* traduction non-bloquante en cas d'erreur */ }
     }
 
     // Premier message : generer un code PIN pour le beneficiaire
@@ -258,7 +264,7 @@ export async function POST(
     })
 
     return jsonSuccess({
-      message: newMessage,
+      message: { ...newMessage, contenuTraduit, langueCible },
       ...codeInfo,
     }, 201)
   } catch (error) {

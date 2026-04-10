@@ -146,6 +146,7 @@ export async function GET(
         prenom: user.prenom,
         age: user.age,
         situation: user.situation,
+        langue: safeJsonParse<Record<string, string>>(user.preferences, {}).langue || 'fr',
       } : null,
       profil: profil ? {
         r: profil.r,

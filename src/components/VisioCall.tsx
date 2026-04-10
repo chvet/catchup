@@ -12,9 +12,10 @@ interface VisioCallProps {
   role: 'conseiller' | 'beneficiaire'
   peerName: string
   onEnd: () => void
+  standalone?: boolean
 }
 
-export default function VisioCall({ sessionId, role, peerName, onEnd }: VisioCallProps) {
+export default function VisioCall({ sessionId, role, peerName, onEnd, standalone }: VisioCallProps) {
   const {
     localStream,
     remoteStream,
@@ -107,7 +108,7 @@ export default function VisioCall({ sessionId, role, peerName, onEnd }: VisioCal
   // Erreur d'accès caméra/micro
   if (error) {
     return (
-      <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-6">
+      <div className={`${standalone ? 'w-full h-screen' : 'fixed inset-0 z-[100]'} bg-black flex items-center justify-center p-6`}>
         <div className="text-center text-white max-w-sm">
           <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,7 +131,7 @@ export default function VisioCall({ sessionId, role, peerName, onEnd }: VisioCal
   // iOS : écran d'attente avec bouton pour démarrer (user gesture requis)
   if (!callStarted) {
     return (
-      <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-6">
+      <div className={`${standalone ? 'w-full h-screen' : 'fixed inset-0 z-[100]'} bg-black flex items-center justify-center p-6`}>
         <div className="text-center text-white max-w-sm">
           <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4 ring-4 ring-white/5">
             <span className="text-4xl font-bold text-white/80">
@@ -158,7 +159,7 @@ export default function VisioCall({ sessionId, role, peerName, onEnd }: VisioCal
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black flex flex-col select-none"
+      className={`${standalone ? 'w-full h-screen' : 'fixed inset-0 z-[100]'} bg-black flex flex-col select-none`}
       onClick={handleTapScreen}
     >
       {/* ── Header : timer + nom ── */}

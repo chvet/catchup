@@ -161,7 +161,7 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
 
   // Visio state
   const [incomingCall, setIncomingCall] = useState<{ sessionId: string } | null>(null)
-  const [visioSession, setVisioSession] = useState<{ sessionId: string } | null>(null)
+  const [visioSession, setVisioSession] = useState<{ sessionId: string; popup?: boolean } | null>(null)
 
   const [error, setError] = useState<string | null>(null)
   const [conseillerTyping, setConseillerTyping] = useState(false)
@@ -508,10 +508,27 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
     setVoiceTranscribing(false)
   }, [token])
 
-  // Accepter un appel visio
+  // Accepter un appel visio (popup sur desktop, overlay sur mobile)
   const handleAcceptVisio = useCallback(() => {
     if (!incomingCall) return
-    setVisioSession({ sessionId: incomingCall.sessionId })
+    const isDesktop = window.innerWidth >= 768
+    if (isDesktop) {
+      const popupUrl = `/visio/${incomingCall.sessionId}?role=beneficiaire&peerName=${encodeURIComponent('Conseiller')}`
+      const popup = window.open(popupUrl, 'catchup-visio', 'width=900,height=700,resizable=yes,scrollbars=no,status=no,toolbar=no,menubar=no,location=no')
+      if (popup) {
+        const checkClosed = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkClosed)
+            setVisioSession(null)
+          }
+        }, 1000)
+        setVisioSession({ sessionId: incomingCall.sessionId, popup: true })
+      } else {
+        setVisioSession({ sessionId: incomingCall.sessionId })
+      }
+    } else {
+      setVisioSession({ sessionId: incomingCall.sessionId })
+    }
     setIncomingCall(null)
   }, [incomingCall])
 
@@ -1056,8 +1073,8 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
           </div>
         </div>
       )}
-      {/* Overlay visio */}
-      {visioSession && (
+      {/* Overlay visio (uniquement si pas ouvert en popup) */}
+      {visioSession && !visioSession.popup && (
         <VisioCall
           sessionId={visioSession.sessionId}
           role="beneficiaire"

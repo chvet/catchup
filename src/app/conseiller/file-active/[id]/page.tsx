@@ -37,6 +37,7 @@ interface CaseDetail {
     prenom: string | null
     age: number | null
     situation: string | null
+    langue?: string | null
   } | null
   profil: {
     r: number; i: number; a: number; s: number; e: number; c: number
@@ -627,6 +628,7 @@ export default function CaseDetailPage() {
                 referralId={ref.id}
                 beneficiairePrenom={beneficiaire?.prenom || 'Bénéficiaire'}
                 beneficiaireAge={beneficiaire?.age}
+                beneficiaireLang={beneficiaire?.langue || 'fr'}
                 priseEnChargeStatut={pec?.statut || ''}
                 conseillerId={pec?.conseillerId}
                 initialCodeInfo={data.dernierCode || undefined}

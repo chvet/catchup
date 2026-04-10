@@ -29,10 +29,24 @@ interface DirectMessage {
   horodatage: string
 }
 
+const LANG_FLAGS: Record<string, { flag: string; label: string }> = {
+  fr: { flag: '🇫🇷', label: 'Français' },
+  en: { flag: '🇬🇧', label: 'Anglais' },
+  ar: { flag: '🇸🇦', label: 'Arabe' },
+  pt: { flag: '🇵🇹', label: 'Portugais' },
+  tr: { flag: '🇹🇷', label: 'Turc' },
+  it: { flag: '🇮🇹', label: 'Italien' },
+  es: { flag: '🇪🇸', label: 'Espagnol' },
+  de: { flag: '🇩🇪', label: 'Allemand' },
+  ro: { flag: '🇷🇴', label: 'Roumain' },
+  zh: { flag: '🇨🇳', label: 'Chinois' },
+}
+
 interface DirectChatProps {
   referralId: string
   beneficiairePrenom: string
   beneficiaireAge?: number | null
+  beneficiaireLang?: string
   priseEnChargeStatut: string
   conseillerId?: string
   initialCodeInfo?: { code: string; sentAt: string; verifie: boolean; expire: boolean; moyenContact: string }
@@ -193,7 +207,7 @@ function UploadProgress({ progress }: { progress: number }) {
 
 // --- Main component ---
 
-export default function DirectChat({ referralId, beneficiairePrenom, beneficiaireAge, priseEnChargeStatut, conseillerId, initialCodeInfo }: DirectChatProps) {
+export default function DirectChat({ referralId, beneficiairePrenom, beneficiaireAge, beneficiaireLang = 'fr', priseEnChargeStatut, conseillerId, initialCodeInfo }: DirectChatProps) {
   const sendTyping = useTypingSignal('conseiller', conseillerId)
   // Real online status for the beneficiary (using referralId as heartbeat userId)
   const beneficiaireOnline = useIsOnline(referralId)
@@ -249,7 +263,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
   const [rdvModalOpen, setRdvModalOpen] = useState(false)
 
   // Visio state
-  const [visioSession, setVisioSession] = useState<{ sessionId: string } | null>(null)
+  const [visioSession, setVisioSession] = useState<{ sessionId: string; popup?: boolean } | null>(null)
   const [visioLoading, setVisioLoading] = useState(false)
 
   // Rupture modal state
@@ -619,8 +633,27 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
         }),
       })
 
-      // 3. Ouvrir le composant visio
-      setVisioSession({ sessionId })
+      // 3. Ouvrir le composant visio (popup sur desktop, overlay sur mobile)
+      const isDesktop = window.innerWidth >= 768
+      if (isDesktop) {
+        const popupUrl = `/visio/${sessionId}?role=conseiller&peerName=${encodeURIComponent(beneficiairePrenom || 'Bénéficiaire')}`
+        const popup = window.open(popupUrl, 'catchup-visio', 'width=900,height=700,resizable=yes,scrollbars=no,status=no,toolbar=no,menubar=no,location=no')
+        if (popup) {
+          // Quand la popup se ferme, nettoyer l'état
+          const checkClosed = setInterval(() => {
+            if (popup.closed) {
+              clearInterval(checkClosed)
+              setVisioSession(null)
+            }
+          }, 1000)
+          setVisioSession({ sessionId, popup: true })
+        } else {
+          // Popup bloquée par le navigateur → fallback overlay
+          setVisioSession({ sessionId })
+        }
+      } else {
+        setVisioSession({ sessionId })
+      }
     } catch (err) {
       console.error('Erreur lancement visio:', err)
       alert('Impossible de lancer l\'appel')
@@ -899,6 +932,12 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {beneficiaireLang && beneficiaireLang !== 'fr' && LANG_FLAGS[beneficiaireLang] && (
+            <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg" title={`${beneficiairePrenom} échange en ${LANG_FLAGS[beneficiaireLang].label} — les messages sont traduits automatiquement`}>
+              <span>{LANG_FLAGS[beneficiaireLang].flag}</span>
+              <span>{LANG_FLAGS[beneficiaireLang].label}</span>
+            </span>
+          )}
           {!ruptured && (
             <button
               onClick={() => setRuptureModalOpen(true)}
@@ -1295,8 +1334,8 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
         onCreated={handleRdvCreated}
       />
 
-      {/* Overlay visio */}
-      {visioSession && (
+      {/* Overlay visio (uniquement si pas ouvert en popup) */}
+      {visioSession && !visioSession.popup && (
         <VisioCall
           sessionId={visioSession.sessionId}
           role="conseiller"
