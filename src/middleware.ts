@@ -147,8 +147,10 @@ export async function middleware(request: NextRequest) {
       if (BENEFICIAIRE_ROUTES.includes(pathname) && pathname !== '/') return applySecurityHeaders(NextResponse.redirect(new URL(`https://${PUBLIC_HOST}${pathname}`)))
     }
     if (isPublicDomain(hostname)) {
-      const proEnabled = process.env.PRO_SUBDOMAIN_ENABLED === 'true'
-      if (proEnabled && (pathname.startsWith('/conseiller') || pathname.startsWith('/api/conseiller'))) return applySecurityHeaders(NextResponse.redirect(new URL(`https://${PRO_HOST}${pathname}`)))
+      // Rediriger les routes conseiller vers le sous-domaine pro
+      if (pathname.startsWith('/conseiller') || pathname.startsWith('/api/conseiller')) {
+        return applySecurityHeaders(NextResponse.redirect(new URL(`https://${PRO_HOST}${pathname}`)))
+      }
       return withBrand(applySecurityHeaders(NextResponse.next()), appBrand)
     }
   }
