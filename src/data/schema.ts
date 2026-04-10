@@ -26,6 +26,15 @@ export const utilisateur = pgTable('utilisateur', {
   sessionTokenExpireLe: text('session_token_expire_le'),
   derniereVisite: text('derniere_visite'),
   supprimeLe: text('supprime_le'),
+  // Champs FSE+ réglementaires (annexe I règlement 2021/1057)
+  genre: text('genre'),                                    // 'M' | 'F' | 'autre'
+  niveauQualification: text('niveau_qualification'),       // 'sans_diplome' | 'cap_bep' | 'bac' | 'bac_plus_2' | 'bac_plus_3_plus'
+  handicap: integer('handicap'),                           // 0 | 1
+  nationalite: text('nationalite'),                        // 'francaise' | 'ue' | 'hors_ue'
+  situationLogement: text('situation_logement'),           // 'stable' | 'precaire' | 'heberge' | 'sans_domicile'
+  situationMarcheEmploi: text('situation_marche_emploi'),  // 'demandeur_emploi_longue_duree' | 'demandeur_emploi' | 'inactif' | 'en_emploi' | 'en_formation'
+  allocataireRsa: integer('allocataire_rsa'),              // 0 | 1
+  quartierPrioritaire: integer('quartier_prioritaire'),    // 0 | 1 (QPV)
 })
 
 export const conversation = pgTable('conversation', {
@@ -225,6 +234,14 @@ export const priseEnCharge = pgTable('prise_en_charge', {
   premiereActionLe: text('premiere_action_le'),
   termineeLe: text('terminee_le'),
   notificationEnvoyee: integer('notification_envoyee').default(0),
+  // Champs FSE+ - suivi de sortie (à remplir par le conseiller à la clôture)
+  typeSortie: text('type_sortie'),                         // 'emploi_durable' | 'emploi_court' | 'formation_certifiante' | 'creation_activite' | 'sortie_dynamique' | 'autre'
+  typeContrat: text('type_contrat'),                       // 'cdi' | 'cdd_6_plus' | 'interim' | 'cdd_moins_6' | 'contrat_pro' | 'apprentissage' | 'aide'
+  sortiePositive: integer('sortie_positive'),              // 0 | 1 (calculé automatiquement)
+  dateSuiviSortie: text('date_suivi_sortie'),             // date du suivi J+30 après sortie
+  situationSortieJ30: text('situation_sortie_j30'),       // 'en_emploi' | 'en_formation' | 'inactif' | 'recherche_emploi'
+  nbEntretiens: integer('nb_entretiens').default(0),       // compteur d'entretiens réalisés
+  nbEtapes: integer('nb_etapes').default(0),               // compteur d'étapes mobilisées
   creeLe: text('cree_le').notNull(),
   misAJourLe: text('mis_a_jour_le').notNull(),
 })

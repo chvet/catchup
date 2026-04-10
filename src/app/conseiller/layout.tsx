@@ -119,9 +119,10 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
   const navItems = isSuperAdmin
     ? [
         { href: '/conseiller', label: 'Dashboard', icon: '📊', iconLabel: 'Tableau de bord', exact: true },
-        { href: '/conseiller/admin', label: 'Administration', icon: '⚙️', iconLabel: 'Paramètres administration' },
-        { href: '/conseiller/structures', label: 'Structures', icon: '🏢', iconLabel: 'Bâtiment structures' },
-        { href: '/conseiller/parametres', label: 'Paramètres', icon: '🔧', iconLabel: 'Réglages' },
+        { href: '/conseiller/indicateurs', label: 'Indicateurs', icon: '📈', iconLabel: 'Indicateurs d\'insertion' },
+        { href: '/conseiller/admin', label: 'Administration', icon: '⚙️', iconLabel: 'Param\u00e8tres administration' },
+        { href: '/conseiller/structures', label: 'Structures', icon: '🏢', iconLabel: 'B\u00e2timent structures' },
+        { href: '/conseiller/parametres', label: 'Param\u00e8tres', icon: '🔧', iconLabel: 'R\u00e9glages' },
       ]
     : [
         { href: '/conseiller', label: 'Dashboard', icon: '📊', iconLabel: 'Tableau de bord', exact: true },
@@ -129,13 +130,14 @@ export default function ConseillerLayout({ children }: { children: React.ReactNo
         { href: '/conseiller/file-active', label: 'File active', icon: '📋', iconLabel: 'Liste des dossiers', alert: true },
         ...(isAdminStructure
           ? [
+              { href: '/conseiller/indicateurs', label: 'Indicateurs', icon: '📈', iconLabel: 'Indicateurs d\'insertion' },
               { href: '/conseiller/campagnes', label: 'Campagnes', icon: '🎯', iconLabel: 'Objectifs campagnes' },
-              { href: '/conseiller/structures', label: 'Structures', icon: '🏢', iconLabel: 'Bâtiment structures' },
-              { href: '/conseiller/conseillers', label: 'Conseillers', icon: '👥', iconLabel: 'Équipe conseillers' },
-              { href: '/conseiller/admin', label: 'Administration', icon: '⚙️', iconLabel: 'Paramètres administration' },
+              { href: '/conseiller/structures', label: 'Structures', icon: '🏢', iconLabel: 'B\u00e2timent structures' },
+              { href: '/conseiller/conseillers', label: 'Conseillers', icon: '👥', iconLabel: '\u00c9quipe conseillers' },
+              { href: '/conseiller/admin', label: 'Administration', icon: '⚙️', iconLabel: 'Param\u00e8tres administration' },
             ]
           : []),
-        { href: '/conseiller/parametres', label: 'Paramètres', icon: '🔧', iconLabel: 'Réglages' },
+        { href: '/conseiller/parametres', label: 'Param\u00e8tres', icon: '🔧', iconLabel: 'R\u00e9glages' },
       ]
 
   return (
