@@ -1253,6 +1253,27 @@ export default function ChatApp() {
           <>
             {/* ── Mode IA : chat normal ── */}
             <div className="flex-1 flex flex-col chat-bg min-w-0 w-full max-w-full" style={{ overflowX: 'clip', overflowY: 'hidden' }}>
+              {/* Toggle mode confidentiel — en haut de la zone de messages */}
+              <div className={`flex items-center justify-between px-3 py-1.5 shrink-0 border-b transition-colors ${confidentialMode ? 'bg-pink-50 border-pink-200' : 'bg-white/80 border-gray-100'}`}>
+                <button
+                  onClick={() => setConfidentialMode(c => !c)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    confidentialMode
+                      ? 'bg-pink-100 text-pink-700 ring-1 ring-pink-300'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" fill={confidentialMode ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0110 0v4" />
+                  </svg>
+                  {confidentialMode ? 'Mode confidentiel actif' : 'Confidentiel'}
+                </button>
+                {confidentialMode && (
+                  <span className="text-[10px] text-pink-500">Vos messages ne seront pas visibles par le conseiller</span>
+                )}
+              </div>
+
               <div className="flex-1 overflow-y-auto chat-scroll px-2 py-3 md:px-6 w-full max-w-full relative" style={{ overflowX: 'clip' }} role="log" aria-live="polite" aria-label="Messages de la conversation">
                 {/* TTS: le bouton de lecture est maintenant dans chaque bulle message */}
                 {!hasMessages && (
@@ -1414,7 +1435,6 @@ export default function ChatApp() {
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
                 confidentialMode={confidentialMode}
-                onToggleConfidential={() => setConfidentialMode(c => !c)}
               />
             </div>
 
