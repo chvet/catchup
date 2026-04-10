@@ -3,7 +3,7 @@
 // Public (pas d'auth) — utilisé côté bénéficiaire
 
 import { db } from '@/data/db'
-import { campagne } from '@/data/schema'
+import { campagne, structure } from '@/data/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -36,7 +36,18 @@ export async function GET(request: Request) {
       .where(eq(campagne.id, rows[0].id))
       .catch(() => {})
 
-    return NextResponse.json({ campagneId: rows[0].id }, {
+    // Récupérer le slug de la structure liée à la campagne
+    let structureSlug: string | null = null
+    let structureNom: string | null = null
+    if (rows[0].structureId) {
+      const structs = await db.select({ slug: structure.slug, nom: structure.nom }).from(structure).where(eq(structure.id, rows[0].structureId))
+      if (structs.length > 0) {
+        structureSlug = structs[0].slug
+        structureNom = structs[0].nom
+      }
+    }
+
+    return NextResponse.json({ campagneId: rows[0].id, structureId: rows[0].structureId, structureSlug, structureNom }, {
       headers: { 'Cache-Control': 'public, max-age=300' }
     })
   } catch (error) {

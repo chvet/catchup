@@ -238,6 +238,11 @@ export default function ChatApp() {
             if (data?.campagneId) {
               localStorage.setItem(LS_CAMPAGNE_ID, data.campagneId)
               setCampagneId(data.campagneId)
+              // Si pas de slug structure dans l'URL, utiliser la structure de la campagne
+              if (!slug && data.structureSlug) {
+                localStorage.setItem(LS_STRUCTURE_SLUG, data.structureSlug)
+                setStructureInfo({ nom: data.structureNom || data.structureSlug, slug: data.structureSlug, type: '' })
+              }
             }
           })
           .catch(() => { /* slug non résolu — on continue sans campagne */ })
@@ -248,7 +253,13 @@ export default function ChatApp() {
     }
 
     if (slug) {
+      const previousSlug = localStorage.getItem(LS_STRUCTURE_SLUG) || ''
       localStorage.setItem(LS_STRUCTURE_SLUG, slug)
+      // Si le slug change et pas de nouvelle campagne → effacer l'ancienne campagne
+      if (previousSlug && previousSlug !== slug && !cParam) {
+        localStorage.removeItem(LS_CAMPAGNE_ID)
+        setCampagneId(null)
+      }
       const url = new URL(window.location.href)
       url.searchParams.delete('s')
       url.searchParams.delete('c')

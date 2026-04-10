@@ -327,7 +327,7 @@ export async function POST(request: NextRequest) {
 
     // 8. Create referral
     const referralId = uuidv4()
-    const referralSource = (structureSlug || structureSuggereIdFromSlug) ? 'sourcee' : 'generique'
+    const referralSource = structureSuggereIdFromSlug ? 'sourcee' : 'generique'
     await db.insert(referral).values({
       id: referralId,
       utilisateurId: resolvedUserId,
