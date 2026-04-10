@@ -53,7 +53,7 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
         <div
           className={`msg-bubble rounded-2xl px-3.5 py-2.5 shadow-sm ${
             isConfidential
-              ? (isUser ? 'bg-pink-400 text-white rounded-br-sm' : 'bg-pink-50 text-gray-800 rounded-bl-sm border border-pink-200')
+              ? (isUser ? 'bg-gray-700 text-white rounded-br-sm' : 'bg-gray-600 text-white rounded-bl-sm')
               : (isUser ? 'bg-catchup-primary text-white rounded-br-sm' : 'bg-white text-gray-800 rounded-bl-sm')
           } ${rgaaMode ? 'border-2 border-gray-700 !text-base !leading-relaxed' : ''}`}
         >

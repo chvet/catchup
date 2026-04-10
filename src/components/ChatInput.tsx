@@ -117,7 +117,7 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
   }
 
   return (
-    <div className={`border-t px-2 py-1 safe-area-bottom transition-colors ${confidentialMode ? 'bg-pink-50 border-pink-200' : 'bg-white border-gray-200'}`}>
+    <div className={`border-t px-2 py-1 safe-area-bottom transition-colors ${confidentialMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
       {/* Indicateur de transcription */}
       {transcribing && (
         <div className="flex items-center gap-2 px-3 py-1.5 mb-1 animate-fade-in" role="status" aria-live="polite">

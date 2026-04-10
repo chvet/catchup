@@ -932,7 +932,7 @@ function ChatBubble({
 
           {/* Bulle */}
           {message.confidentiel ? (
-            <div className="px-4 py-2.5 rounded-2xl text-sm leading-relaxed bg-pink-100 text-pink-400 italic border border-pink-200 rounded-tl-md">
+            <div className="px-4 py-2.5 rounded-2xl text-sm leading-relaxed bg-gray-200 text-gray-400 italic rounded-tl-md">
               Message confidentiel
             </div>
           ) : (

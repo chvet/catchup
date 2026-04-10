@@ -1254,12 +1254,12 @@ export default function ChatApp() {
             {/* ── Mode IA : chat normal ── */}
             <div className="flex-1 flex flex-col chat-bg min-w-0 w-full max-w-full" style={{ overflowX: 'clip', overflowY: 'hidden' }}>
               {/* Toggle mode confidentiel — en haut de la zone de messages */}
-              <div className={`flex items-center justify-between px-3 py-1.5 shrink-0 border-b transition-colors ${confidentialMode ? 'bg-pink-50 border-pink-200' : 'bg-white/80 border-gray-100'}`}>
+              <div className={`flex items-center justify-between px-3 py-1.5 shrink-0 border-b transition-colors ${confidentialMode ? 'bg-gray-800 border-gray-700' : 'bg-white/80 border-gray-100'}`}>
                 <button
                   onClick={() => setConfidentialMode(c => !c)}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                     confidentialMode
-                      ? 'bg-pink-100 text-pink-700 ring-1 ring-pink-300'
+                      ? 'bg-gray-700 text-white ring-1 ring-gray-600'
                       : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                   }`}
                 >
@@ -1270,7 +1270,7 @@ export default function ChatApp() {
                   {confidentialMode ? 'Mode confidentiel actif' : 'Confidentiel'}
                 </button>
                 {confidentialMode && (
-                  <span className="text-[10px] text-pink-500">Vos messages ne seront pas visibles par le conseiller</span>
+                  <span className="text-[10px] text-gray-400">Invisible pour le conseiller</span>
                 )}
               </div>
 
