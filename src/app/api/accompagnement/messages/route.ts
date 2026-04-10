@@ -8,6 +8,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 import { getBeneficiaireFromToken } from '@/lib/accompagnement-helpers'
 import { notifyConseillerNewMessage } from '@/lib/push-triggers'
+import { translateMessage } from '@/lib/translate'
+import { safeJsonParse } from '@/core/constants'
 
 export async function GET(request: Request) {
   try {
@@ -108,6 +110,23 @@ export async function POST(request: Request) {
     }
 
     await db.insert(messageDirect).values(newMessage)
+
+    // Traduction automatique vers le français pour le conseiller (non-bloquant)
+    try {
+      const users2 = await db.select({ preferences: utilisateur.preferences }).from(utilisateur).where(eq(utilisateur.id, beneficiaire.utilisateurId))
+      const prefs = safeJsonParse<Record<string, string>>(users2[0]?.preferences, {})
+      const langBenef = prefs.langue || 'fr'
+      if (langBenef !== 'fr') {
+        translateMessage(contenu.trim(), langBenef, 'fr').then(translated => {
+          if (translated) {
+            db.update(messageDirect)
+              .set({ contenuTraduit: translated, langueCible: 'fr' })
+              .where(eq(messageDirect.id, newMessage.id))
+              .catch(() => {})
+          }
+        }).catch(() => {})
+      }
+    } catch { /* traduction non-bloquante */ }
 
     // Notification push au conseiller
     try {

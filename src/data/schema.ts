@@ -257,6 +257,8 @@ export const messageDirect = pgTable('message_direct', {
   expediteurType: text('expediteur_type').notNull(), // 'beneficiaire' | 'conseiller' | 'tiers'
   expediteurId: text('expediteur_id').notNull(),
   contenu: text('contenu').notNull(),
+  contenuTraduit: text('contenu_traduit'),       // traduction automatique (null si même langue)
+  langueCible: text('langue_cible'),             // langue cible de la traduction ('fr', 'ar', 'tr', etc.)
   conversationType: text('conversation_type').default('direct'), // 'direct' | 'groupe' | 'tiers_beneficiaire'
   lu: integer('lu').default(0),
   horodatage: text('horodatage').notNull(),

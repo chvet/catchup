@@ -40,6 +40,8 @@ interface DirectMessage {
   expediteurType: 'beneficiaire' | 'conseiller'
   expediteurId: string
   contenu: string
+  contenuTraduit?: string | null
+  langueCible?: string | null
   lu: boolean
   horodatage: string
 }
@@ -557,14 +559,20 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
     const structured = parseMessageContent(msg.contenu)
 
     if (!structured) {
-      // Message texte classique
+      // Message texte classique (avec traduction si disponible)
+      const showTranslation = !isMine && msg.contenuTraduit
       return (
         <div className={`px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
           isMine
             ? 'bg-catchup-primary text-white rounded-br-md'
             : 'bg-gray-100 text-gray-800 rounded-bl-md'
         }`}>
-          {msg.contenu}
+          {showTranslation ? msg.contenuTraduit : msg.contenu}
+          {showTranslation && (
+            <p className="mt-1.5 pt-1.5 border-t border-gray-200/50 text-xs text-gray-400 italic">
+              {msg.contenu}
+            </p>
+          )}
         </div>
       )
     }

@@ -9,6 +9,8 @@ import { eq, and, asc } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { sendPinCode } from '@/lib/sms'
 import { notifyBeneficiaireNewMessage } from '@/lib/push-triggers'
+import { translateMessage } from '@/lib/translate'
+import { safeJsonParse } from '@/core/constants'
 
 // GET — Liste des messages + marquer comme lus
 export async function GET(
@@ -156,6 +158,24 @@ export async function POST(
     }
 
     await db.insert(messageDirect).values(newMessage)
+
+    // Traduction automatique vers la langue du bénéficiaire (non-bloquant)
+    const refs0 = await db.select({ utilisateurId: referral.utilisateurId }).from(referral).where(eq(referral.id, referralId))
+    if (refs0.length > 0) {
+      const users = await db.select({ preferences: utilisateur.preferences }).from(utilisateur).where(eq(utilisateur.id, refs0[0].utilisateurId))
+      const prefs = safeJsonParse<Record<string, string>>(users[0]?.preferences, {})
+      const langBenef = prefs.langue || 'fr'
+      if (langBenef !== 'fr') {
+        translateMessage(contenu.trim(), 'fr', langBenef).then(translated => {
+          if (translated) {
+            db.update(messageDirect)
+              .set({ contenuTraduit: translated, langueCible: langBenef })
+              .where(eq(messageDirect.id, messageId))
+              .catch(() => {})
+          }
+        }).catch(() => {})
+      }
+    }
 
     // Premier message : generer un code PIN pour le beneficiaire
     let codeInfo: { codeGenere: boolean; code?: string; moyenContact?: string | null } = {
