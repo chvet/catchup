@@ -95,20 +95,8 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
         )}
       </div>
 
-      <div className="flex items-center gap-0.5">
-        {hasMessages && (
-          <span className="hidden sm:inline">
-          <HeaderBtn
-            onClick={onReset}
-            active={false}
-            title="Nouvelle conversation"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </HeaderBtn>
-          </span>
-        )}
-
-        {/* Sélecteur de langue — drapeau actif + dropdown */}
+      <div className="flex items-center gap-1">
+        {/* 1. Drapeau langue */}
         <div ref={langRef} className="relative">
           <button
             onClick={() => setLangOpen(v => !v)}
@@ -121,12 +109,8 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
             <span className="w-7 h-5 rounded-sm overflow-hidden border border-white/40 block">
               {FLAGS[selectedLang]}
             </span>
-            <svg className={`w-3 h-3 transition-transform ${langOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
           </button>
 
-          {/* Dropdown drapeaux — grille adaptative */}
           {langOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setLangOpen(false)} aria-hidden="true" />
@@ -168,58 +152,20 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           )}
         </div>
 
-        {/* Boutons secondaires — masqués sur mobile */}
-        <button
-          onClick={onToggleA11y}
-          className={`hidden sm:block p-2 rounded-full transition-colors ${a11yOpen ? 'bg-white/25' : 'hover:bg-white/10'}`}
-          title="Accessibilité"
-          aria-label="Ouvrir les paramètres d'accessibilité"
-          aria-expanded={a11yOpen}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <circle cx="12" cy="4.5" r="2" fill="currentColor" stroke="none" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5m0 0l-3 6m3-6l3 6M5 10l7 1 7-1" />
-          </svg>
-        </button>
-
-        <div className="hidden sm:block">
-          <RgaaPanel variant="light" />
-        </div>
-
-        <button
-          onClick={onToggleFiches}
-          className="hidden sm:block p-2 rounded-full hover:bg-white/10 transition-colors relative"
-          title="Explorer les metiers"
-          aria-label="Explorer les metiers"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="8" strokeWidth={2} />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" strokeWidth={2} strokeLinecap="round" />
-          </svg>
-        </button>
-
-        <button
-          onClick={onToggleDocuments}
-          className="hidden sm:block p-2 rounded-full hover:bg-white/10 transition-colors relative"
-          title="Mes documents"
-          aria-label="Mes documents"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-          </svg>
-        </button>
-
+        {/* 2. Compte utilisateur */}
         {onAuthClick && (
           <button
             onClick={onAuthClick}
-            className="p-2 rounded-full hover:bg-white/10 transition-colors relative flex items-center gap-1"
+            className="p-2 rounded-full hover:bg-white/10 transition-colors relative"
             title={authPrenom ? authPrenom : 'Mon compte'}
           >
             {authPrenom ? (
-              <>
-                <span className="text-xs font-semibold max-w-[60px] truncate hidden sm:inline">{authPrenom}</span>
+              <span className="flex items-center gap-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
                 <span className="w-2 h-2 bg-green-400 rounded-full border border-white/50" />
-              </>
+              </span>
             ) : (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -228,23 +174,8 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           </button>
         )}
 
-        <button
-          onClick={onToggleProfile}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors relative"
-          title="Mon profil RIASEC"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" strokeWidth={2} />
-            <circle cx="12" cy="12" r="6" strokeWidth={2} />
-            <circle cx="12" cy="12" r="2" fill="currentColor" />
-          </svg>
-          {hasProfile && (
-            <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-catchup-primary" />
-          )}
-        </button>
-
-        {/* Menu mobile "..." — tout à droite */}
-        <div className="relative sm:hidden">
+        {/* 3. Menu ⋮ — contient tout le reste */}
+        <div className="relative">
           <button
             onClick={() => setMobileMenuOpen(v => !v)}
             className={`p-2 rounded-full transition-colors ${mobileMenuOpen ? 'bg-white/25' : 'hover:bg-white/10'}`}
@@ -259,20 +190,25 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
           {mobileMenuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setMobileMenuOpen(false)} />
-              <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 py-1 z-50">
+              <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-2xl border border-gray-200 py-1 z-50">
+                <button onClick={() => { onToggleProfile(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                  🎯 Mon profil RIASEC
+                  {hasProfile && <span className="w-2 h-2 bg-green-400 rounded-full ml-auto" />}
+                </button>
                 {hasMessages && (
                   <button onClick={() => { onReset(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                     🔄 Nouvelle conversation
                   </button>
                 )}
-                <button onClick={() => { onToggleA11y(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                  ♿ Accessibilite
-                </button>
                 <button onClick={() => { onToggleFiches(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                  🔍 Explorer les metiers
+                  🔍 Explorer les m\u00e9tiers
                 </button>
                 <button onClick={() => { onToggleDocuments(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                   📁 Mes documents
+                </button>
+                <div className="border-t border-gray-100 my-1" />
+                <button onClick={() => { onToggleA11y(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                  ♿ Accessibilit\u00e9
                 </button>
               </div>
             </>
