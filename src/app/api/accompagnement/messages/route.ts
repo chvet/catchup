@@ -103,19 +103,8 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString()
-    const newMessage = {
-      id: uuidv4(),
-      priseEnChargeId: beneficiaire.priseEnChargeId,
-      expediteurType: 'beneficiaire' as const,
-      expediteurId: beneficiaire.utilisateurId,
-      contenu: contenu.trim(),
-      lu: 0,
-      horodatage: now,
-    }
 
-    await db.insert(messageDirect).values(newMessage)
-
-    // Traduction automatique vers le français pour le conseiller (détection auto de langue)
+    // Traduction automatique AVANT insertion (pour que le SSE envoie le message d\u00e9j\u00e0 traduit)
     let contenuTraduit: string | null = null
     let langueCible: string | null = null
     try {
@@ -124,16 +113,27 @@ export async function POST(request: Request) {
       if (result) {
         contenuTraduit = result.translated
         langueCible = 'fr'
-        await db.update(messageDirect)
-          .set({ contenuTraduit, langueCible })
-          .where(eq(messageDirect.id, newMessage.id))
-        // Sauvegarder la langue détectée du bénéficiaire
+        // Sauvegarder la langue d\u00e9tect\u00e9e du b\u00e9n\u00e9ficiaire
         db.update(utilisateur)
           .set({ preferences: JSON.stringify({ langue: result.detectedLang }) })
           .where(eq(utilisateur.id, beneficiaire.utilisateurId))
           .catch(() => {})
       }
     } catch (err) { console.error('[Translate benef->fr]', err) }
+
+    const newMessage = {
+      id: uuidv4(),
+      priseEnChargeId: beneficiaire.priseEnChargeId,
+      expediteurType: 'beneficiaire' as const,
+      expediteurId: beneficiaire.utilisateurId,
+      contenu: contenu.trim(),
+      contenuTraduit,
+      langueCible,
+      lu: 0,
+      horodatage: now,
+    }
+
+    await db.insert(messageDirect).values(newMessage)
 
     // Notification push au conseiller
     try {
