@@ -165,7 +165,7 @@ export default function TiersPage() {
     const roleLabel = ROLE_LABELS[session.tiersRole] || 'Intervenant'
 
     return (
-      <div className="h-[100dvh] flex flex-col bg-white">
+      <div className="fixed inset-0 flex flex-col bg-white">
         {/* Barre en-tête */}
         <div className="flex items-center justify-between px-4 py-2 bg-catchup-dark text-white">
           <div className="flex items-center gap-2">
