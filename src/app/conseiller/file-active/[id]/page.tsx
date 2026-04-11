@@ -934,8 +934,8 @@ function ChatBubble({
 
           {/* Bulle */}
           {message.confidentiel ? (
-            <div className="px-4 py-2.5 rounded-2xl text-sm leading-relaxed bg-gray-200 text-gray-400 italic rounded-tl-md">
-              Message confidentiel
+            <div className="px-4 py-2.5 rounded-2xl text-sm leading-relaxed bg-gray-800 text-white italic rounded-tl-md">
+              🔒 Confidentiel
             </div>
           ) : (
             <div className={`
