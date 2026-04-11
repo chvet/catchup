@@ -589,7 +589,7 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
           isMine
             ? 'bg-catchup-primary text-white rounded-br-md'
             : 'bg-gray-100 text-gray-800 rounded-bl-md'
-        }`}>
+        }`} dir="auto">
           {showTranslation ? msg.contenuTraduit : msg.contenu}
           {showTranslation && (
             <p className="mt-1.5 pt-1.5 border-t border-gray-200/50 text-xs text-gray-400 italic">

@@ -736,7 +736,7 @@ export default function DirectChat({ referralId, beneficiairePrenom, beneficiair
           isConseiller
             ? 'bg-catchup-primary text-white rounded-tr-md'
             : 'bg-gray-100 text-gray-800 rounded-tl-md'
-        }`}>
+        }`} dir="auto">
           {showTranslation ? msg.contenuTraduit : msg.contenu || ''}
           {showTranslation && (
             <p className="mt-1.5 pt-1.5 border-t border-gray-200/50 text-xs text-gray-400 italic">

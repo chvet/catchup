@@ -35,10 +35,19 @@ function EqBars() {
 }
 
 
+// D\u00e9tecte si le texte est principalement RTL (arabe, h\u00e9breu, persan)
+function isRTL(text: string): boolean {
+  const rtlChars = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\u0590-\u05FF]/
+  const sample = text.slice(0, 50)
+  const rtlCount = (sample.match(new RegExp(rtlChars.source, 'g')) || []).length
+  return rtlCount > sample.length * 0.3
+}
+
 export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, voiceData, genre, llmModel, isConfidential }: Props) {
   const isUser = message.role === 'user'
   const msgDate = message.createdAt ? new Date(message.createdAt as string | number | Date) : new Date()
   const time = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const rtl = isRTL(message.content || '')
 
   return (
     <div className={`flex mb-2.5 msg-appear w-full overflow-hidden px-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -64,7 +73,7 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
               transcription={voiceData.transcription}
             />
           ) : (
-            <p className="text-[15px] leading-relaxed whitespace-pre-wrap chat-message">
+            <p className="text-[15px] leading-relaxed whitespace-pre-wrap chat-message" dir={rtl ? 'rtl' : 'ltr'} style={rtl ? { textAlign: 'right' } : undefined}>
               {message.content}
             </p>
           )}
