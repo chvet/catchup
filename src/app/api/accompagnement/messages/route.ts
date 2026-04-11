@@ -119,9 +119,21 @@ export async function POST(request: Request) {
     let contenuTraduit: string | null = null
     let langueCible: string | null = null
     try {
-      const users2 = await db.select({ preferences: utilisateur.preferences }).from(utilisateur).where(eq(utilisateur.id, beneficiaire.utilisateurId))
-      const prefs = safeJsonParse<Record<string, string>>(users2[0]?.preferences, {})
-      const langBenef = prefs.langue || 'fr'
+      // Langue transmise par le client OU lue depuis les préférences utilisateur
+      const langFromBody = body.langue || null
+      let langBenef = langFromBody
+      if (!langBenef) {
+        const users2 = await db.select({ preferences: utilisateur.preferences }).from(utilisateur).where(eq(utilisateur.id, beneficiaire.utilisateurId))
+        const prefs = safeJsonParse<Record<string, string>>(users2[0]?.preferences, {})
+        langBenef = prefs.langue || 'fr'
+      }
+      // Sauvegarder la langue dans les préférences pour les prochaines fois
+      if (langFromBody && langFromBody !== 'fr') {
+        db.update(utilisateur)
+          .set({ preferences: JSON.stringify({ langue: langFromBody }) })
+          .where(eq(utilisateur.id, beneficiaire.utilisateurId))
+          .catch(() => {})
+      }
       if (langBenef !== 'fr') {
         const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
         const translated = await Promise.race([translateMessage(contenu.trim(), langBenef, 'fr'), timeout])

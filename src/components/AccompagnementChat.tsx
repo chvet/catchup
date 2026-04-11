@@ -333,7 +333,7 @@ export default function AccompagnementChat({ token, referralId, conseillerId, co
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ contenu }),
+        body: JSON.stringify({ contenu, langue: typeof window !== 'undefined' ? localStorage.getItem('catchup_lang') || 'fr' : 'fr' }),
       })
 
       if (res.ok) {
