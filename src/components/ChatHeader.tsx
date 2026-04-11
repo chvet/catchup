@@ -201,14 +201,14 @@ export default function ChatHeader({ profile, streak = 0, hasMessages = false, o
                   </button>
                 )}
                 <button onClick={() => { onToggleFiches(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                  🔍 Explorer les m\u00e9tiers
+                  🔍 Explorer les m&eacute;tiers
                 </button>
                 <button onClick={() => { onToggleDocuments(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                   📁 Mes documents
                 </button>
                 <div className="border-t border-gray-100 my-1" />
                 <button onClick={() => { onToggleA11y(); setMobileMenuOpen(false) }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                  ♿ Accessibilit\u00e9
+                  ♿ Accessibilit&eacute;
                 </button>
               </div>
             </>
