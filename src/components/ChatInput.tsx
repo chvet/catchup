@@ -22,6 +22,7 @@ interface Props {
 
 export default function ChatInput({ input, onChange, onSubmit, isLoading, inputRef, onAppend, onVoiceMessage, onFocus, onBlur, confidentialMode, onToggleConfidential }: Props) {
   const formRef = useRef<HTMLFormElement>(null)
+  const [showConfidentialPopup, setShowConfidentialPopup] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
 
   // Auto-resize textarea
@@ -172,22 +173,35 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
 
           {/* Cadenas confidentiel inside input */}
           {onToggleConfidential && (
-            <div className="flex items-center pb-1.5 shrink-0">
+            <div className="flex items-center pb-1.5 shrink-0 relative">
               <button
                 type="button"
-                onClick={onToggleConfidential}
+                onClick={() => {
+                  if (!confidentialMode) {
+                    setShowConfidentialPopup(true)
+                    setTimeout(() => setShowConfidentialPopup(false), 4000)
+                  }
+                  onToggleConfidential()
+                }}
                 className={`p-1.5 rounded-full transition-all ${
                   confidentialMode
-                    ? 'text-gray-700 bg-gray-200'
-                    : 'text-gray-300 hover:text-gray-500'
+                    ? 'text-pink-600 bg-pink-100'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
                 title={confidentialMode ? 'D\u00e9sactiver le mode confidentiel' : 'Activer le mode confidentiel'}
               >
-                <svg className="w-4 h-4" fill={confidentialMode ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <svg className="w-5 h-5" fill={confidentialMode ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                   <path d="M7 11V7a5 5 0 0110 0v4" />
                 </svg>
               </button>
+              {showConfidentialPopup && (
+                <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-gray-800 text-white text-xs rounded-xl shadow-xl z-50 animate-fade-in">
+                  <p className="font-semibold mb-1">🔒 Mode confidentiel activ&eacute;</p>
+                  <p className="text-gray-300 leading-relaxed">Vos prochains messages seront visibles uniquement par vous. Le conseiller verra qu&apos;un &eacute;change confidentiel a eu lieu, mais pas son contenu.</p>
+                  <div className="absolute bottom-0 right-4 translate-y-1/2 w-2.5 h-2.5 bg-gray-800 rotate-45" />
+                </div>
+              )}
             </div>
           )}
 
