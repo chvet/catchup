@@ -1628,8 +1628,8 @@ export default function ChatApp() {
         prenomSuggested={beneficiaireInfo?.prenom || profile.name || authUser?.prenom || undefined}
         emailSuggested={beneficiaireInfo?.typeContact === 'email' ? beneficiaireInfo.moyenContact : authUser?.email || undefined}
         telephoneSuggested={beneficiaireInfo?.typeContact === 'telephone' ? beneficiaireInfo.moyenContact : authUser?.telephone || undefined}
-        ageSuggested={beneficiaireInfo?.age || authUser?.age || undefined}
-        departementSuggested={beneficiaireInfo?.departement || authUser?.departement || undefined}
+        ageSuggested={beneficiaireInfo?.age || profile.age || authUser?.age || undefined}
+        departementSuggested={beneficiaireInfo?.departement || profile.departement || authUser?.departement || undefined}
         structureSlug={structureInfo?.slug}
         campagneId={campagneId}
         onClose={() => {

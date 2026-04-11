@@ -35,13 +35,33 @@ export default function AccompagnementPage() {
   const emailRef = useRef<HTMLInputElement | null>(null)
   const formRef = useRef<HTMLDivElement | null>(null)
 
-  // Charger la session existante depuis localStorage
+  // Charger la session existante et v\u00e9rifier qu'elle est encore valide
   useEffect(() => {
     const saved = localStorage.getItem(LS_ACCOMP_KEY)
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as SessionInfo
-        setSession(parsed)
+        if (parsed.token) {
+          // V\u00e9rifier que le token est encore valide c\u00f4t\u00e9 serveur
+          fetch('/api/accompagnement/status', {
+            headers: { 'Authorization': `Bearer ${parsed.token}` },
+          })
+            .then(r => {
+              if (r.ok) {
+                setSession(parsed)
+              } else {
+                // Token invalide \u2192 effacer et demander reconnexion
+                localStorage.removeItem(LS_ACCOMP_KEY)
+              }
+              setLoading(false)
+            })
+            .catch(() => {
+              // Erreur r\u00e9seau \u2192 garder la session (mode hors-ligne)
+              setSession(parsed)
+              setLoading(false)
+            })
+          return
+        }
       } catch { /* ignore */ }
     }
     setLoading(false)

@@ -21,6 +21,8 @@ export interface UserProfile {
   id: string
   name?: string
   genre?: 'M' | 'F' | null
+  age?: number
+  departement?: string
   R: number
   I: number
   A: number
