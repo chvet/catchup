@@ -1431,6 +1431,7 @@ export default function ChatApp() {
                 onBlur={() => setInputFocused(false)}
                 confidentialMode={confidentialMode}
                 onToggleConfidential={() => setConfidentialMode(c => !c)}
+                lang={selectedLang}
               />
 
               {/* ── Bouton "Parler à un conseiller" — TOUJOURS visible, dernière ligne ── */}

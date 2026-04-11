@@ -165,14 +165,23 @@ export default function ReferralModal({
   const [codePostalInput, setCodePostalInput] = useState('')
   const [preferenceStructure, setPreferenceStructure] = useState<'privee' | 'publique' | 'indifferent'>('indifferent')
 
-  // Sync suggested values when they change
+  // Sync suggested values when modal opens or values change
   useEffect(() => {
-    if (prenomSuggested) setPrenom(prenomSuggested)
+    if (prenomSuggested && !prenom) setPrenom(prenomSuggested)
     if (emailSuggested && !moyenContact) { setMoyenContact(emailSuggested); setTypeContact('email') }
     if (telephoneSuggested && !moyenContact) { setMoyenContact(telephoneSuggested); setTypeContact('telephone') }
     if (ageSuggested && !age) setAge(String(ageSuggested))
     if (departementSuggested && !departement) setDepartement(departementSuggested)
   }, [prenomSuggested, emailSuggested, telephoneSuggested, ageSuggested, departementSuggested])
+
+  // Force sync quand le modal s'ouvre (les props peuvent avoir chang\u00e9 depuis le premier rendu)
+  useEffect(() => {
+    if (isOpen) {
+      if (prenomSuggested && !prenom) setPrenom(prenomSuggested)
+      if (ageSuggested && !age) setAge(String(ageSuggested))
+      if (departementSuggested && !departement) setDepartement(departementSuggested)
+    }
+  }, [isOpen])
 
   // Animate in
   useEffect(() => {

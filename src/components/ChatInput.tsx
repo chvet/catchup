@@ -18,9 +18,10 @@ interface Props {
   onBlur?: () => void
   confidentialMode?: boolean
   onToggleConfidential?: () => void
+  lang?: string
 }
 
-export default function ChatInput({ input, onChange, onSubmit, isLoading, inputRef, onAppend, onVoiceMessage, onFocus, onBlur, confidentialMode, onToggleConfidential }: Props) {
+export default function ChatInput({ input, onChange, onSubmit, isLoading, inputRef, onAppend, onVoiceMessage, onFocus, onBlur, confidentialMode, onToggleConfidential, lang }: Props) {
   const formRef = useRef<HTMLFormElement>(null)
   const [showConfidentialPopup, setShowConfidentialPopup] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
@@ -156,6 +157,7 @@ export default function ChatInput({ input, onChange, onSubmit, isLoading, inputR
             placeholder="Message..."
             rows={1}
             dir="auto"
+            lang={lang || 'fr'}
             disabled={isLoading || transcribing}
             className="flex-1 min-w-0 resize-none bg-transparent py-2 px-1 text-[16px] text-gray-800 placeholder-gray-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ maxHeight: '100px' }}
