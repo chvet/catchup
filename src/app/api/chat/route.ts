@@ -50,6 +50,7 @@ export async function POST(req: Request) {
       lastUserMessage: lastUserMsg,
       fragilityLevel,
       profileStable: profile?.estStable,
+      language: language || undefined,
     })
 
     const llmInfo = await getLLMInfo(tier)

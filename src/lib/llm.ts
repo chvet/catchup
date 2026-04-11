@@ -62,6 +62,7 @@ interface RoutingContext {
   lastUserMessage: string
   fragilityLevel?: string
   profileStable?: boolean
+  language?: string  // langue s\u00e9lectionn\u00e9e par l'utilisateur
 }
 
 /**
@@ -74,6 +75,10 @@ export function routeByComplexity(ctx: RoutingContext): 'chat' | 'summary' {
 
   // Always use premium model for fragility cases
   if (ctx.fragilityLevel === 'high' || ctx.fragilityLevel === 'medium') return 'chat'
+
+  // Premium for non-Latin languages (mini models struggle with Arabic, Chinese, etc.)
+  const NON_LATIN_LANGS = ['ar', 'zh', 'tr', 'ro']
+  if (ctx.language && NON_LATIN_LANGS.includes(ctx.language)) return 'chat'
 
   // Premium for advanced conversations (profile building, career suggestions)
   if (ctx.messageCount > 12) return 'chat'

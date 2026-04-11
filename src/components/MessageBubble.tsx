@@ -59,6 +59,9 @@ export default function MessageBubble({ message, isSpeaking, onSpeak, rgaaMode, 
       )}
 
       <div className="max-w-[80%] sm:max-w-[85%] md:max-w-[65%] min-w-0">
+        {!isUser && (
+          <span className="text-[9px] text-gray-400 font-medium ml-1 mb-0.5 inline-block">Catch&apos;Up IA</span>
+        )}
         <div
           className={`msg-bubble rounded-2xl px-3.5 py-2.5 shadow-sm ${
             isConfidential
