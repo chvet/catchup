@@ -299,6 +299,8 @@ export default function ChatApp() {
   // Persist profile whenever it changes
   useEffect(() => { saveToLS(LS_PROFILE_KEY, profile) }, [profile])
 
+  // (profil RIASEC en temps réel — voir après useChat)
+
   const { messages, input, handleInputChange, handleSubmit, isLoading, append, error, reload } = useChat({
     api: '/api/chat',
     id: sessionId,
@@ -477,6 +479,22 @@ export default function ChatApp() {
     return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [referralId])
+
+  // === Extraction du profil RIASEC en temps réel pendant le streaming ===
+  const lastExtractedRef = useRef<string>('')
+  useEffect(() => {
+    if (!isLoading || messages.length === 0) return
+    const lastMsg = messages[messages.length - 1]
+    if (lastMsg.role !== 'assistant') return
+    const extracted = extractProfileFromMessage(lastMsg.content)
+    if (extracted) {
+      const key = JSON.stringify({ R: extracted.R, I: extracted.I, A: extracted.A, S: extracted.S, E: extracted.E, C: extracted.C })
+      if (key !== lastExtractedRef.current) {
+        lastExtractedRef.current = key
+        setProfile(prev => mergeProfiles(prev, extracted))
+      }
+    }
+  }, [isLoading, messages])
 
   // === GAMIFICATION : évaluer jauge + badges à chaque changement de messages/profil ===
   const userMessageCount = messages.filter(m => m.role === 'user').length

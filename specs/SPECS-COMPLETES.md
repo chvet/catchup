@@ -1,10 +1,10 @@
 # Catch'Up — Spécifications fonctionnelles complètes
 
-> **Version :** 2.0 — 7 avril 2026
+> **Version :** 2.1 — 10 avril 2026 (55 specs)
 > **Projet :** Catch'Up — Fondation JAE
 > **Public :** Équipe projet, développeurs, prescripteurs
 > **Base de données :** PostgreSQL + Drizzle ORM
-> **Dernière mise à jour :** 2026-04-07
+> **Dernière mise à jour :** 2026-04-10
 
 ---
 
@@ -41,6 +41,30 @@
 - [Spec 29 — Assistant IA pour les conseillers](#29-assistant-ia-conseiller)
 - [Spec 30 — Prompt structure personnalisé + Comportement de découverte IA](#30-prompt-structure-decouverte)
 - [Spec 31 — Intégration Calendrier (Google Calendar + Outlook)](#31-integration-calendrier)
+- [Spec 32 — Traduction automatique en temps réel](#32-traduction-temps-reel)
+- [Spec 33 — Visio en fenêtre popup desktop](#33-visio-popup-desktop)
+- [Spec 34 — Indicateurs d'impact FSE+](#34-indicateurs-impact-fse)
+- [Spec 35 — Mode confidentiel](#35-mode-confidentiel)
+- [Spec 36 — Heartbeat, présence en ligne et indicateur de saisie](#36-heartbeat-presence)
+- [Spec 37 — Bris de glace (accès d'urgence)](#37-bris-de-glace)
+- [Spec 38 — Webhooks (Brevo, Stripe, Vonage)](#38-webhooks)
+- [Spec 39 — Paiements, abonnements et plans tarifaires](#39-paiements-abonnements)
+- [Spec 40 — Tâches planifiées (Cron)](#40-cron-tasks)
+- [Spec 41 — Messages vocaux et transcription Whisper](#41-messages-vocaux)
+- [Spec 42 — QR Code dynamique avec logo](#42-qrcode)
+- [Spec 43 — Notifications push (Web Push API)](#43-push-notifications)
+- [Spec 44 — Proxy TTS (synthèse vocale serveur)](#44-tts-proxy)
+- [Spec 45 — Campagnes d'accompagnement](#45-campagnes)
+- [Spec 46 — Transfert et annulation de demandes](#46-transfert-annulation)
+- [Spec 47 — Notes privées du conseiller](#47-notes-conseiller)
+- [Spec 48 — Journal d'événements (timeline)](#48-journal-evenements)
+- [Spec 49 — Objectifs hebdomadaires](#49-objectifs-hebdomadaires)
+- [Spec 50 — Tiers intervenants et consentement](#50-tiers-intervenants)
+- [Spec 51 — Enquêtes de satisfaction et NPS](#51-satisfaction-nps)
+- [Spec 52 — Administration : abonnements, conventions, providers](#52-admin-global)
+- [Spec 53 — Clés API et documentation OpenAPI](#53-cles-api)
+- [Spec 54 — Déduplication des bénéficiaires](#54-deduplication)
+- [Spec 55 — Service de documents et alertes temps réel](#55-documents-alertes)
 
 ---
 
@@ -9979,3 +10003,694 @@ Section "Mes agendas" dans `/conseiller/parametres` :
 
 ---
 
+# 32 — Traduction automatique en temps réel
+
+> **Statut :** Implémenté
+> **Dernière mise à jour spec :** 2026-04-10
+
+## Objectif
+
+Permettre une communication fluide entre le conseiller (francophone) et le bénéficiaire (potentiellement allophone) grâce à une traduction automatique bidirectionnelle en temps réel dans le chat d'accompagnement.
+
+## Langues supportées
+
+| Code | Langue | Drapeau |
+|------|--------|---------|
+| `fr` | Français | 🇫🇷 |
+| `en` | Anglais | 🇬🇧 |
+| `ar` | Arabe | 🇸🇦 |
+| `pt` | Portugais | 🇵🇹 |
+| `tr` | Turc | 🇹🇷 |
+| `it` | Italien | 🇮🇹 |
+| `es` | Espagnol | 🇪🇸 |
+| `de` | Allemand | 🇩🇪 |
+| `ro` | Roumain | 🇷🇴 |
+| `zh` | Chinois | 🇨🇳 |
+
+## Flux de traduction
+
+### Bénéficiaire → Conseiller
+1. Le bénéficiaire envoie un message dans sa langue
+2. L'API détecte la langue du bénéficiaire via `utilisateur.preferences.langue`
+3. Si la langue est différente du français, la traduction est exécutée (await avec timeout 3 secondes)
+4. Le message est stocké en DB avec `contenu` (original) + `contenuTraduit` (en français) + `langueCible: 'fr'`
+5. Le SSE stream envoie le message complet au conseiller
+6. Le conseiller voit la traduction française en texte principal, avec l'original en italique gris en dessous
+
+### Conseiller → Bénéficiaire
+1. Le conseiller envoie un message en français
+2. L'API traduit automatiquement vers la langue du bénéficiaire (await avec timeout 3 secondes)
+3. Le message est stocké avec `contenuTraduit` (dans la langue du bénéficiaire) + `langueCible: langBenef`
+4. Le bénéficiaire voit la traduction dans sa langue en texte principal, avec l'original français en italique gris
+
+### Règles de non-traduction
+- Même langue source et cible → pas de traduction
+- Message < 3 caractères (emoji, "ok") → pas de traduction
+- Message structuré JSON (document, RDV, visio) → pas de traduction
+
+## Badge langue côté conseiller
+
+Quand le bénéficiaire utilise une langue autre que le français, un badge est affiché dans le header du chat direct du conseiller :
+- Affiche le drapeau + nom de la langue (ex: 🇸🇦 Arabe)
+- Tooltip explicatif : "X échange en [langue] — les messages sont traduits automatiquement"
+- Non affiché si la langue est le français
+
+## Modèle de données
+
+```
+messageDirect {
+  contenu: text          -- message original
+  contenuTraduit: text?  -- traduction automatique (null si non nécessaire)
+  langueCible: text?     -- langue cible de la traduction ('fr' ou code langue bénéficiaire)
+}
+```
+
+## Fichiers concernés
+
+- `src/lib/translate.ts` — service de traduction (LLM, temperature 0.3, max 500 tokens)
+- `src/app/api/accompagnement/messages/route.ts` — POST bénéficiaire (traduction bloquante 3s)
+- `src/app/api/conseiller/file-active/[id]/direct-messages/route.ts` — POST conseiller (traduction bloquante 3s)
+- `src/components/conseiller/DirectChat.tsx` — badge langue + affichage traduction
+- `src/components/AccompagnementChat.tsx` — affichage traduction côté bénéficiaire
+
+
+---
+
+# 33 — Visio en fenêtre popup desktop
+
+> **Statut :** Implémenté
+> **Dernière mise à jour spec :** 2026-04-10
+
+## Objectif
+
+Sur desktop, ouvrir l'appel vidéo dans une fenêtre popup dédiée plutôt que dans un overlay plein écran qui couvre l'interface de chat. Permet au conseiller de consulter le dossier du bénéficiaire pendant l'appel.
+
+## Comportement selon la plateforme
+
+| Plateforme | Comportement |
+|------------|-------------|
+| Desktop (largeur >= 768px) | Fenêtre popup via `window.open()` (900x700px) |
+| Mobile (largeur < 768px) | Overlay plein écran (comportement existant) |
+| Popup bloquée par le navigateur | Fallback vers l'overlay plein écran |
+
+## Page dédiée visio
+
+- **Route :** `/visio/[sessionId]?role=conseiller|beneficiaire&peerName=Prénom`
+- Page autonome qui monte le composant `VisioCall` en mode `standalone`
+- Titre dynamique : "Appel vidéo — {peerName}"
+- Fermeture automatique de la fenêtre quand l'appel se termine
+
+## Détection de fermeture
+
+Quand la popup est ouverte, un intervalle vérifie toutes les secondes si la fenêtre a été fermée (`popup.closed`). Si oui, l'état `visioSession` est nettoyé côté parent.
+
+## Prop `standalone` sur VisioCall
+
+- `standalone: false` (défaut) : `fixed inset-0 z-[100]` — overlay plein écran
+- `standalone: true` : `w-full h-screen` — remplit le container (la popup)
+
+## Fichiers concernés
+
+- `src/app/visio/[sessionId]/page.tsx` — nouvelle page autonome
+- `src/components/VisioCall.tsx` — prop `standalone` ajoutée
+- `src/components/conseiller/DirectChat.tsx` — logique popup/overlay dans `handleStartVisio`
+- `src/components/AccompagnementChat.tsx` — logique popup/overlay dans `handleAcceptVisio`
+
+
+---
+
+# 34 — Indicateurs d'impact FSE+
+
+> **Statut :** Implémenté
+> **Dernière mise à jour spec :** 2026-04-10
+
+## Objectif
+
+Fournir aux conseillers et administrateurs un tableau de bord d'indicateurs d'impact conforme aux exigences du Fonds Social Européen Plus (FSE+), permettant le suivi des parcours et des sorties positives.
+
+## Page indicateurs
+
+- **Route :** `/conseiller/indicateurs`
+- Accessible aux conseillers et administrateurs
+
+## KPIs affichés
+
+### Indicateurs principaux
+- Nombre de bénéficiaires en file active
+- Nombre de sorties positives et taux de sortie positive
+- Nombre total de bénéficiaires accompagnés
+- Taux de complétion des parcours
+
+### Ventilations
+- **Par genre :** Homme, Femme, Autre, Non renseigné
+- **Par âge :** <18, 18-25, 26-45, >45
+- **Par qualification :** Sans diplôme, CAP/BEP, Bac, Bac+2, Bac+3+
+- **Par situation :** DELD, DE, Inactif, En emploi, En formation
+
+### Sorties
+- **Par type de sortie :** Emploi durable, Emploi court, Formation certifiante, Création d'activité, Sortie dynamique
+- **Par type de contrat :** CDI, CDD 6+, Intérim, CDD <6, Contrat pro, Apprentissage, Contrat aidé
+
+### Publics spécifiques
+- Nombre de personnes en situation de handicap
+- Nombre d'allocataires RSA
+- Nombre d'habitants de quartiers prioritaires
+
+### Suivi J+30
+- Enquêtes de suivi réalisées
+- Enquêtes de suivi en attente
+
+### Moyennes
+- Nombre d'entretiens par participant
+- Nombre de messages par accompagnement
+- Délai moyen de prise en charge (heures)
+
+## Fichiers concernés
+
+- `src/app/conseiller/indicateurs/page.tsx` — page des indicateurs
+- `src/app/api/conseiller/dashboard/impact/route.ts` — API des données d'impact
+
+## Stockage du logo de structure
+
+Le logo des structures est stocké en base64 (data URI) directement dans le champ `logo_url` de la table `structure`. Cela élimine la dépendance au filesystem et les problèmes de permissions Docker.
+
+- **Upload :** Le fichier est converti en `data:image/[type];base64,...` et inséré dans la DB
+- **Affichage :** Le data URI est utilisé directement comme `src` de l'élément `<img>`
+- **Taille max :** 2 Mo
+- **Formats :** JPG, PNG, WebP, GIF
+
+
+---
+
+# 35 — Mode confidentiel
+
+> **Statut :** Implémenté
+> **Dernière mise à jour spec :** 2026-04-10
+
+## Objectif
+
+Permettre au bénéficiaire de marquer certains échanges avec l'IA comme confidentiels. Les messages confidentiels sont visibles uniquement par le bénéficiaire. Le conseiller est informé qu'un échange confidentiel a eu lieu, mais ne peut pas en lire le contenu.
+
+## Fonctionnement côté bénéficiaire
+
+### Activation
+- Un bouton cadenas est visible dans la barre au-dessus de la zone de messages et dans la zone de saisie
+- Clic sur le cadenas : bascule entre mode normal et mode confidentiel
+- En mode confidentiel actif :
+  - La barre supérieure passe en fond sombre (bg-gray-800) avec le texte "Mode confidentiel actif" et un indicateur clignotant
+  - La zone de saisie passe également en fond sombre
+  - Le cadenas est rempli (filled) au lieu d'être vide (outline)
+  - Tous les messages envoyés ET les réponses IA reçues sont marqués comme confidentiels
+
+### Affichage des messages confidentiels
+- Les bulles de messages confidentiels portent un badge "Confidentiel" en petit texte blanc semi-transparent
+- L'ensemble du message (question du bénéficiaire + réponse de l'IA) est marqué tant que le mode est actif
+
+### Désactivation
+- Un deuxième clic sur le cadenas désactive le mode
+- Les messages suivants reviennent en mode normal
+- Les messages déjà marqués comme confidentiels restent confidentiels
+
+## Fonctionnement côté conseiller
+
+### Consultation de la conversation IA
+- Quand le conseiller consulte l'historique de la conversation IA (onglet "Conversation"), les messages confidentiels sont masqués
+- Le contenu (`contenu` et `contenuBrut`) est remplacé par `null` côté serveur avant envoi
+- Le conseiller voit un placeholder indiquant "Message confidentiel" avec une icône cadenas, sans pouvoir accéder au contenu
+
+### Respect de la vie privée
+- Le masquage est effectué côté API (serveur), pas côté client — il est impossible de contourner la protection
+- Le champ `confidentiel` est un entier (0 = normal, 1 = confidentiel) dans la table `message`
+
+## Modèle de données
+
+```
+message {
+  ...
+  confidentiel: integer   -- 0 = message normal, 1 = message confidentiel
+}
+```
+
+## Fichiers concernés
+
+- `src/components/ChatApp.tsx` — state `confidentialMode`, marquage des messages, toggle UI
+- `src/components/ChatInput.tsx` — cadenas dans la zone de saisie, style conditionnel
+- `src/components/MessageBubble.tsx` — badge "Confidentiel" sur les bulles
+- `src/app/api/messages/save/route.ts` — persistance du flag `confidentiel`
+- `src/app/api/conseiller/file-active/[id]/conversation/route.ts` — masquage du contenu pour le conseiller
+- `src/data/schema.ts` — champ `confidentiel` dans la table `message`
+- `src/app/conseiller/file-active/[id]/page.tsx` — affichage "Message confidentiel" côté conseiller
+
+
+---
+
+
+# 36 - Heartbeat, presence en ligne et indicateur de saisie
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Objectif
+
+Suivre en temps reel la presence en ligne des utilisateurs (conseillers et beneficiaires) et afficher des indicateurs de saisie.
+
+## Fonctionnement
+
+- **Heartbeat** : chaque client envoie un POST `/api/heartbeat` toutes les 30 secondes avec son `userId`
+- **Seuil en ligne** : un utilisateur est considere "en ligne" si heartbeat dans les 60 dernieres secondes
+- **Indicateur de saisie** : le flag `typing` est transmis via le heartbeat et consomme par le flux SSE
+- **Stockage** : en memoire serveur (Map), pas de persistance DB
+
+## Affichage
+
+- Point vert anime a cote du nom du beneficiaire/conseiller
+- Label "En ligne" / "Hors ligne"
+- Animation "ecrit..." avec 3 points rebondissants
+
+## Fichiers concernes
+
+- `src/app/api/heartbeat/route.ts` - POST heartbeat
+- `src/app/api/heartbeat/status/route.ts` - GET statut en ligne
+- `src/hooks/useHeartbeat.ts` - hook cote client
+- `src/hooks/useOnlineStatus.ts` - hook de requete de statut
+- `src/hooks/useTypingSignal.ts` - hook indicateur de saisie
+- `src/lib/heartbeat-store.ts` - stockage en memoire
+- `src/components/OnlineDot.tsx` - composant visuel
+
+
+---
+
+# 37 - Bris de glace (acces d'urgence)
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Objectif
+
+Permettre a un conseiller d'acceder en urgence aux echanges entre un tiers intervenant et un beneficiaire, avec tracabilite complete et justification obligatoire.
+
+## Fonctionnement
+
+1. Le conseiller clique sur "Bris de glace" dans le dossier du beneficiaire
+2. Il doit fournir un motif justifiant l'acces d'urgence
+3. L'acces est accorde pour 24 heures
+4. Tous les messages tiers - beneficiaire deviennent visibles
+5. L'action est integralement tracee dans le journal d'audit (RGPD)
+6. Apres 24h, l'acces expire automatiquement
+
+## Fichiers concernes
+
+- `src/app/api/conseiller/file-active/[id]/bris-de-glace/route.ts`
+
+
+---
+
+# 38 - Webhooks (Brevo, Stripe, Vonage)
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Objectif
+
+Recevoir et traiter les callbacks des services tiers pour le suivi des livraisons (e-mails, SMS) et des paiements.
+
+## Endpoints
+
+| Provider | Route | Evenements traites |
+|----------|-------|--------------------|
+| Brevo | `/api/webhooks/brevo` | delivered, opened, clicked, bounced, spam, failed |
+| Stripe | `/api/webhooks/stripe` | checkout.session.completed, payment_intent.payment_failed, subscription updates, invoices |
+| Vonage | `/api/webhooks/vonage-dlr` | accepted, delivered, failed, expired |
+
+## Securite
+
+- Validation des signatures Stripe (webhook secret)
+- Logs d'erreur sans exposition de donnees sensibles
+
+## Fichiers concernes
+
+- `src/app/api/webhooks/brevo/route.ts`
+- `src/app/api/webhooks/stripe/route.ts`
+- `src/app/api/webhooks/vonage-dlr/route.ts`
+
+
+---
+
+# 39 - Paiements, abonnements et plans tarifaires
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Objectif
+
+Gerer la facturation des structures via Stripe, avec des plans d'abonnement a fonctionnalites progressives.
+
+## Plans disponibles
+
+| Plan | Conseillers | Beneficiaires | Conversations IA | SMS |
+|------|-------------|---------------|-------------------|-----|
+| Starter | 2 | 50 | 100 | 50 |
+| Pro | 10 | 300 | 1 000 | 500 |
+| Premium | Illimite | Illimite | 10 000 | 5 000 |
+| Pay-per-outcome | Illimite | Illimite | Illimite | Illimite |
+
+## Feature gates
+
+Les fonctionnalites sont conditionnees par le plan :
+- Assistant IA conseiller : Pro+ uniquement
+- Export Excel/PDF : Pro+ uniquement
+- API externe : Premium uniquement
+- Integration calendrier : Pro+ uniquement
+
+## Facturation pay-per-outcome
+
+- Accompagnement termine : +15 EUR
+- Profil RIASEC fiable : +2 EUR
+- Satisfaction elevee (NPS > 8) : +1 EUR
+
+## Fichiers concernes
+
+- `src/lib/feature-gates.ts` - definitions des plans et feature toggles
+- `src/lib/quota-check.ts` - verification des quotas d'usage
+- `src/lib/usage-guard.ts` - constantes de limites
+- `src/app/api/conseiller/plan/route.ts` - GET/PUT plan
+- `src/app/api/stripe/connect/route.ts` - onboarding Stripe Connect
+- `src/app/api/paiements/checkout-session/route.ts` - sessions de paiement
+- `src/app/api/conseiller/paiements/route.ts` - historique des paiements
+- `src/app/conseiller/abonnement/page.tsx` - page abonnement
+
+
+---
+
+# 40 - Taches planifiees (Cron)
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Taches
+
+| Endpoint | Frequence | Description |
+|----------|-----------|-------------|
+| `/api/cron/reminders` | Toutes les heures | Alerter les beneficiaires inactifs (48h) et les conseillers (7j) |
+| `/api/cron/facturation` | Mensuel | Calculer les evenements facturables (pay-per-outcome) |
+| `/api/cron/usage` | Mensuel | Agreger les metriques d'usage par structure |
+
+
+---
+
+# 41 - Messages vocaux et transcription Whisper
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Fonctionnement
+
+1. Enregistrement d'un message vocal dans le chat
+2. Envoi a `/api/voice/transcribe`
+3. Validation des magic bytes (WebM, Ogg, WAV, MP4, MP3) - pas uniquement le MIME type
+4. Taille maximale : 10 Mo
+5. Appel a OpenAI Whisper (modele whisper-1, langue francaise)
+6. Retour : texte transcrit + duree en secondes
+
+## Fichiers concernes
+
+- `src/app/api/voice/transcribe/route.ts`
+- `src/components/VoiceRecorder.tsx` - enregistrement
+- `src/components/VoiceMessage.tsx` - lecture
+
+
+---
+
+# 42 - QR Code dynamique avec logo
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Fonctionnement
+
+- Generation de QR codes SVG via `/api/qrcode?url=...&size=...`
+- Logo Catch'Up incruste au centre (25% de la surface)
+- Niveau de correction d'erreur H (robustesse maximale)
+- Cache 24 heures
+
+
+---
+
+# 43 - Notifications push (Web Push API)
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Fonctionnement
+
+- Inscription via `/api/push/subscribe` (POST)
+- Cles p256dh + auth stockees en DB
+- Abonnements separes pour conseillers (JWT) et beneficiaires (bearer token)
+- Desinscription via DELETE
+- Declenchement : nouveau message, nouveau rendez-vous, prise en charge
+
+## Fichiers concernes
+
+- `src/app/api/push/subscribe/route.ts`
+- `src/lib/push-triggers.ts` - fonctions de dispatch
+
+
+---
+
+# 44 - Proxy TTS (synthese vocale serveur)
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Fonctionnement
+
+- Endpoint : `/api/tts?text=...&lang=fr`
+- Contourne les restrictions CORS de Google Translate TTS sur mobile
+- Max 200 caracteres par requete
+- Cache 24 heures
+- Retourne un fichier audio MP3
+
+
+---
+
+# 45 - Campagnes d'accompagnement
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Fonctionnalites
+
+- Creation de campagnes avec nom, dates debut/fin, objectif chiffre
+- Unites de suivi : visites, conversations, accompagnements, leads, prises en charge
+- Auto-generation de slugs uniques (pour URL et QR codes)
+- Assignation de conseillers aux campagnes
+- Calcul automatique de la progression (%)
+- Barres de progression colorees (vert/orange/rouge)
+- Archivage des campagnes terminees
+- Maximum 3 campagnes actives par structure
+- Widget integre au dashboard
+
+## Fichiers concernes
+
+- `src/app/api/conseiller/campagnes/route.ts`
+- `src/app/api/conseiller/campagnes/[id]/route.ts`
+- `src/app/api/conseiller/campagnes/[id]/remplacer/route.ts`
+- `src/app/conseiller/campagnes/page.tsx`
+
+
+---
+
+# 46 - Transfert et annulation de demandes
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Transfert
+
+- Le conseiller peut transferer un dossier vers la file generique ou vers une structure specifique
+- Motivation obligatoire pour le transfert
+- Trace dans le journal d'audit
+
+## Annulation (cote beneficiaire)
+
+- `/api/referrals/[id]/cancel` : annuler une demande en attente ou un accompagnement actif
+- `/api/referrals/[id]/rupture` : rompre l'accompagnement et revenir a zero
+- Message systeme envoye au conseiller
+
+
+---
+
+# 47 - Notes privees du conseiller
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Fonctionnement
+
+- Le conseiller peut ajouter des notes privees sur chaque dossier
+- Stockees en JSON dans `priseEnCharge.notes`
+- Horodatees et liees au conseiller
+- Non visibles par le beneficiaire
+- Tracees dans l'audit (sans le contenu)
+
+
+---
+
+# 48 - Journal d'evenements (timeline)
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Evenements traces
+
+Messages, consentements, visio, rendez-vous, bris de glace, ruptures, invitations tiers, transferts, prises en charge, notes.
+
+## Fonctionnement
+
+- Pagine (limit/offset)
+- Chaque entree : type, acteur, cible, resume, details, horodatage
+- Enregistrements immuables (RGPD)
+
+
+---
+
+# 49 - Objectifs hebdomadaires
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Fonctionnement
+
+- Le conseiller definit un objectif d'heures par semaine (semaine ISO, lundi-dimanche)
+- Upsert : un seul objectif par conseiller par semaine
+- Commentaire optionnel
+- Flag "ajuste par le conseiller"
+
+
+---
+
+# 50 - Tiers intervenants et consentement
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Flux
+
+1. Le conseiller invite un tiers (nom, telephone, role)
+2. Un enregistrement `tiersIntervenant` est cree
+3. Une `demandeConsentement` est generee automatiquement (pre-approuvee par le conseiller)
+4. Le beneficiaire doit approuver via l'interface
+5. Une fois le double consentement obtenu, le tiers peut echanger avec le beneficiaire
+
+## Roles tiers disponibles
+
+Employeur, Educateur, Formateur, Assistant social, Autre
+
+
+---
+
+# 51 - Enquetes de satisfaction et NPS
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Metriques collectees
+
+- Score global (0-10)
+- Ecoute (0-10)
+- Utilite (0-10)
+- Note conseiller (0-10)
+- Recommandation (NPS, 0-10)
+
+## Calcul NPS
+
+- Promoteurs (9-10) - Detracteurs (0-6) = NPS (%)
+- Filtrable par periode, structure, conseiller
+
+
+---
+
+# 52 - Administration : abonnements, conventions, providers
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Abonnements (super_admin)
+
+- Provisionner des abonnements pour les structures
+- Choisir un plan, configurer les limites, associer un client Stripe
+
+## Conventions territoriales (super_admin)
+
+- Creer des accords departementaux ou regionaux
+- Quotas : structures, beneficiaires, conversations, SMS
+- Rattacher des structures a une convention
+
+## Configuration des providers (super_admin)
+
+- Activer/desactiver les providers : LLM (OpenAI, Anthropic, Mistral), SMS (Vonage, OVH), E-mail (SMTP, M365, Brevo), TTS (Google)
+- Ordonner les priorites de fallback
+- Statuts : desactive, cles manquantes, erreur, connecte, non teste
+
+
+---
+
+# 53 - Cles API et documentation OpenAPI
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Cles API
+
+- Generation self-service pour integrations tierces
+- Prefixe aleatoire (`cutup_xxxx...`)
+- Permissions granulaires : chat, referrals, users, conseiller, stats, structures, *
+- Rate limiting par cle (requetes/minute)
+- Date d'expiration
+- Suivi : dernier usage + compteur d'appels
+
+## Documentation OpenAPI
+
+- Spec OpenAPI 3.1 servie automatiquement via `/api/v1/docs`
+- Schemas de securite : API Key + Bearer JWT
+
+
+---
+
+# 54 - Deduplication des beneficiaires
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Fonctionnement
+
+Lors de la creation d'un referral, le systeme detecte les comptes existants par e-mail ou telephone :
+- Fusion des conversations vers le compte existant
+- Mise a jour du profil (nom, age, localisation)
+- Nettoyage des doublons anonymes
+- Journalisation de la deduplication
+
+
+---
+
+# 55 - Service de documents et alertes temps reel
+
+> **Statut :** Implemente
+> **Derniere mise a jour spec :** 2026-04-10
+
+## Service de documents
+
+- Streaming de fichiers uploades via `/api/documents/[...path]`
+- Protection contre le path traversal
+- Detection MIME automatique par extension
+- Inline pour images/PDF/audio, attachment pour les autres
+- Cache 24 heures
+
+## Alertes temps reel (sidebar)
+
+- Endpoint `/api/conseiller/alerts`
+- Metriques : dossiers en attente, nouvelles arrivees (<1h), urgences, en retard (>24h)
+- Alimentent le badge de notification dans la barre laterale
+
+
+---
