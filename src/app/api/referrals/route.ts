@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
             'Tu es un assistant qui r\u00e9sume des conversations d\'orientation professionnelle. Produis un r\u00e9sum\u00e9 en 3 \u00e0 5 phrases en fran\u00e7ais. ' +
             'IMPORTANT : ne pr\u00e9suppose JAMAIS l\'\u00e2ge de la personne. Utilise "le b\u00e9n\u00e9ficiaire" ou son pr\u00e9nom, JAMAIS "le jeune". ' +
             'Le r\u00e9sum\u00e9 doit capturer : le pr\u00e9nom, l\'\u00e2ge si mentionn\u00e9, la situation, les besoins et l\'\u00e9tat \u00e9motionnel.',
-          prompt: `R\u00e9sume cette conversation entre un b\u00e9n\u00e9ficiaire et un chatbot d'orientation :\n\n${transcript}`,
+          prompt: `Le b\u00e9n\u00e9ficiaire s'appelle ${prenom || 'inconnu'}${age ? ', ' + age + ' ans' : ''}.\nR\u00e9sume cette conversation entre ce b\u00e9n\u00e9ficiaire et un chatbot d'orientation :\n\n${transcript}`,
         })
         resumeConversation = text
 

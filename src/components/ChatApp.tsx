@@ -66,6 +66,49 @@ const LS_LANG = LS_KEYS.LANG
 const LS_CGU_ACCEPTED = LS_KEYS.CGU_ACCEPTED
 const LS_USER_LOCATION = LS_KEYS.USER_LOCATION
 
+// Traductions des messages UI statiques
+const UI_TRANSLATIONS: Record<string, Record<string, string>> = {
+  requestPending: {
+    fr: 'Ta demande est en cours de traitement. Un conseiller te contactera bient\u00f4t \ud83d\ude0a',
+    en: 'Your request is being processed. A counselor will contact you soon \ud83d\ude0a',
+    ar: '\u0637\u0644\u0628\u0643 \u0642\u064a\u062f \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629. \u0633\u064a\u062a\u0635\u0644 \u0628\u0643 \u0645\u0633\u062a\u0634\u0627\u0631 \u0642\u0631\u064a\u0628\u0627\u064b \ud83d\ude0a',
+    tr: 'Talebiniz i\u015fleniyor. Bir dan\u0131\u015fman en k\u0131sa s\u00fcrede sizinle ileti\u015fime ge\u00e7ecek \ud83d\ude0a',
+    pt: 'Seu pedido est\u00e1 sendo processado. Um conselheiro entrar\u00e1 em contato em breve \ud83d\ude0a',
+    es: 'Tu solicitud est\u00e1 siendo procesada. Un consejero te contactar\u00e1 pronto \ud83d\ude0a',
+    it: 'La tua richiesta \u00e8 in fase di elaborazione. Un consulente ti contatter\u00e0 presto \ud83d\ude0a',
+    de: 'Deine Anfrage wird bearbeitet. Ein Berater wird sich bald bei dir melden \ud83d\ude0a',
+    ro: 'Cererea ta este \u00een curs de procesare. Un consilier te va contacta \u00een cur\u00e2nd \ud83d\ude0a',
+    zh: '\u4f60\u7684\u8bf7\u6c42\u6b63\u5728\u5904\u7406\u4e2d\u3002\u987e\u95ee\u5c06\u5f88\u5feb\u8054\u7cfb\u4f60 \ud83d\ude0a',
+  },
+  cancelRequest: {
+    fr: 'Annuler ma demande', en: 'Cancel my request', ar: '\u0625\u0644\u063a\u0627\u0621 \u0637\u0644\u0628\u064a',
+    tr: 'Talebimi iptal et', pt: 'Cancelar meu pedido', es: 'Cancelar mi solicitud',
+    it: 'Annulla la mia richiesta', de: 'Meine Anfrage stornieren', ro: 'Anuleaz\u0103 cererea mea', zh: '\u53d6\u6d88\u6211\u7684\u8bf7\u6c42',
+  },
+  talkToAdvisor: {
+    fr: 'Parler \u00e0 un conseiller', en: 'Talk to a counselor', ar: '\u062a\u062d\u062f\u062b \u0645\u0639 \u0645\u0633\u062a\u0634\u0627\u0631',
+    tr: 'Bir dan\u0131\u015fmanla konu\u015f', pt: 'Falar com um conselheiro', es: 'Hablar con un consejero',
+    it: 'Parla con un consulente', de: 'Mit einem Berater sprechen', ro: 'Vorbe\u0219te cu un consilier', zh: '\u4e0e\u987e\u95ee\u4ea4\u8c08',
+  },
+  advisorAvailable: {
+    fr: 'Ton conseiller {name} est disponible', en: 'Your counselor {name} is available',
+    ar: '\u0645\u0633\u062a\u0634\u0627\u0631\u0643 {name} \u0645\u062a\u0627\u062d', tr: 'Dan\u0131\u015fman\u0131n {name} m\u00fcsait',
+    pt: 'Seu conselheiro {name} est\u00e1 dispon\u00edvel', es: 'Tu consejero {name} est\u00e1 disponible',
+    it: 'Il tuo consulente {name} \u00e8 disponibile', de: 'Dein Berater {name} ist verf\u00fcgbar',
+    ro: 'Consilierul t\u0103u {name} este disponibil', zh: '\u4f60\u7684\u987e\u95ee {name} \u5df2\u4e0a\u7ebf',
+  },
+}
+
+function t(key: string, lang: string, vars?: Record<string, string>): string {
+  let text = UI_TRANSLATIONS[key]?.[lang] || UI_TRANSLATIONS[key]?.fr || key
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      text = text.replace(`{${k}}`, v)
+    }
+  }
+  return text
+}
+
 interface StructureInfo {
   nom: string
   slug: string
@@ -1330,14 +1373,14 @@ export default function ChatApp() {
                           <div className="flex items-center gap-2">
                             <span className="text-amber-500 inline-block animate-spin" role="img" aria-label="En attente" style={{ animationDuration: '2s' }}>⏳</span>
                             <p className="text-sm leading-relaxed">
-                              Ta demande est en cours de traitement. Un conseiller te contactera bient&ocirc;t 😊
+                              {t('requestPending', selectedLang)}
                             </p>
                           </div>
                           <button
                             onClick={() => setShowCancelConfirm(true)}
                             className="mt-2 text-xs text-gray-400 hover:text-red-500 transition-colors"
                           >
-                            Annuler ma demande
+                            {t('cancelRequest', selectedLang)}
                           </button>
                         </div>
                       </div>
@@ -1443,7 +1486,7 @@ export default function ChatApp() {
                     style={{ animationDuration: '3s' }}
                   >
                     <span className="text-lg">🤝</span>
-                    <span>Ton conseiller {referralConseillerPrenom} est disponible</span>
+                    <span>{t('advisorAvailable', selectedLang, { name: referralConseillerPrenom || '' })}</span>
                   </button>
                 </div>
               ) : (!referralId || referralStatus === 'annulee' || referralStatus === 'terminee' || referralStatus === 'rupture') ? (
@@ -1453,7 +1496,7 @@ export default function ChatApp() {
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-catchup-primary to-catchup-secondary text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl active:scale-[0.98] transition-all"
                   >
                     <span className="text-lg">🙋</span>
-                    <span>Parler à un conseiller</span>
+                    <span>{t('talkToAdvisor', selectedLang)}</span>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </button>
                 </div>
