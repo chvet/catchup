@@ -9,7 +9,7 @@ import { eq, and, asc } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { sendPinCode } from '@/lib/sms'
 import { notifyBeneficiaireNewMessage } from '@/lib/push-triggers'
-import { translateMessage } from '@/lib/translate'
+import { detectAndTranslate } from '@/lib/translate'
 import { safeJsonParse } from '@/core/constants'
 
 // GET — Liste des messages + marquer comme lus
@@ -160,27 +160,29 @@ export async function POST(
 
     await db.insert(messageDirect).values(newMessage)
 
-    // Traduction automatique vers la langue du bénéficiaire (bloquant avec timeout 3s)
+    // Traduction automatique vers la langue du bénéficiaire
     let contenuTraduit: string | null = null
     let langueCible: string | null = null
     const refs0 = await db.select({ utilisateurId: referral.utilisateurId }).from(referral).where(eq(referral.id, referralId))
     if (refs0.length > 0) {
       try {
+        // Récupérer la langue du bénéficiaire (sauvegardée lors de ses messages précédents)
         const users = await db.select({ preferences: utilisateur.preferences }).from(utilisateur).where(eq(utilisateur.id, refs0[0].utilisateurId))
         const prefs = safeJsonParse<Record<string, string>>(users[0]?.preferences, {})
-        const langBenef = prefs.langue || 'fr'
-        if (langBenef !== 'fr') {
-          const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
-          const translated = await Promise.race([translateMessage(contenu.trim(), 'fr', langBenef), timeout])
-          if (translated) {
-            contenuTraduit = translated
+        const langBenef = prefs.langue || null
+        if (langBenef && langBenef !== 'fr') {
+          // On connaît la langue du bénéficiaire → traduire directement
+          const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 5000))
+          const result = await Promise.race([detectAndTranslate(contenu.trim(), langBenef), timeout])
+          if (result) {
+            contenuTraduit = result.translated
             langueCible = langBenef
             await db.update(messageDirect)
               .set({ contenuTraduit, langueCible })
               .where(eq(messageDirect.id, messageId))
           }
         }
-      } catch { /* traduction non-bloquante en cas d'erreur */ }
+      } catch (err) { console.error('[Translate fr->benef]', err) }
     }
 
     // Premier message : generer un code PIN pour le beneficiaire

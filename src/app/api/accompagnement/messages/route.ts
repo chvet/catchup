@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 import { getBeneficiaireFromToken } from '@/lib/accompagnement-helpers'
 import { notifyConseillerNewMessage } from '@/lib/push-triggers'
-import { translateMessage } from '@/lib/translate'
+import { detectAndTranslate } from '@/lib/translate'
 import { safeJsonParse } from '@/core/constants'
 
 export async function GET(request: Request) {
@@ -115,37 +115,25 @@ export async function POST(request: Request) {
 
     await db.insert(messageDirect).values(newMessage)
 
-    // Traduction automatique vers le français pour le conseiller (bloquant avec timeout 3s)
+    // Traduction automatique vers le français pour le conseiller (détection auto de langue)
     let contenuTraduit: string | null = null
     let langueCible: string | null = null
     try {
-      // Langue transmise par le client OU lue depuis les préférences utilisateur
-      const langFromBody = body.langue || null
-      let langBenef = langFromBody
-      if (!langBenef) {
-        const users2 = await db.select({ preferences: utilisateur.preferences }).from(utilisateur).where(eq(utilisateur.id, beneficiaire.utilisateurId))
-        const prefs = safeJsonParse<Record<string, string>>(users2[0]?.preferences, {})
-        langBenef = prefs.langue || 'fr'
-      }
-      // Sauvegarder la langue dans les préférences pour les prochaines fois
-      if (langFromBody && langFromBody !== 'fr') {
+      const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 5000))
+      const result = await Promise.race([detectAndTranslate(contenu.trim(), 'fr'), timeout])
+      if (result) {
+        contenuTraduit = result.translated
+        langueCible = 'fr'
+        await db.update(messageDirect)
+          .set({ contenuTraduit, langueCible })
+          .where(eq(messageDirect.id, newMessage.id))
+        // Sauvegarder la langue détectée du bénéficiaire
         db.update(utilisateur)
-          .set({ preferences: JSON.stringify({ langue: langFromBody }) })
+          .set({ preferences: JSON.stringify({ langue: result.detectedLang }) })
           .where(eq(utilisateur.id, beneficiaire.utilisateurId))
           .catch(() => {})
       }
-      if (langBenef !== 'fr') {
-        const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
-        const translated = await Promise.race([translateMessage(contenu.trim(), langBenef, 'fr'), timeout])
-        if (translated) {
-          contenuTraduit = translated
-          langueCible = 'fr'
-          await db.update(messageDirect)
-            .set({ contenuTraduit, langueCible })
-            .where(eq(messageDirect.id, newMessage.id))
-        }
-      }
-    } catch { /* traduction non-bloquante en cas d'erreur */ }
+    } catch (err) { console.error('[Translate benef->fr]', err) }
 
     // Notification push au conseiller
     try {
