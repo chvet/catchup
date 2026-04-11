@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     crypto.getRandomValues(randomBytes)
     const code = String(100000 + (randomBytes[0] % 900000))
     const token = uuidv4()
-    const expireLe = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    const expireLe = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
     await db.insert(codeVerification).values({
       id: uuidv4(),

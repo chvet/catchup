@@ -99,7 +99,7 @@ export async function PATCH(
       const randomBytes = new Uint32Array(1)
       crypto.getRandomValues(randomBytes)
       const pin = String(100000 + (randomBytes[0] % 900000))
-      const expireLe = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 jours
+      const expireLe = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 jours
 
       await db.insert(codeVerification).values({
         id: uuidv4(),

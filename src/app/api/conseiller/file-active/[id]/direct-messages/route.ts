@@ -201,7 +201,7 @@ export async function POST(
       if (refs.length > 0) {
         const ref = refs[0]
         const token = uuidv4()
-        const expireLe = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 jours
+        const expireLe = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 jours
 
         // Creer l'enregistrement de verification
         await db.insert(codeVerification).values({
